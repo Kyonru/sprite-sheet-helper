@@ -3,7 +3,7 @@ export function scheduleInterval(
   interval: number,
   iterations: number,
   onComplete?: () => void
-): number {
+): NodeJS.Timeout {
   let count = 0;
 
   const id = setInterval(() => {
