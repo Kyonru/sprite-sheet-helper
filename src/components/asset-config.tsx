@@ -18,6 +18,13 @@ import { SliderInput } from "./slider-input";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { XYZInput } from "./xyzInput";
+import { EffectsConfig } from "./effects-config";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "./ui/accordion";
 
 const ModelConfig = () => {
   const setModelFile = useModelStore((state) => state.setFile);
@@ -53,31 +60,23 @@ const ModelConfig = () => {
   }, [rotation]);
 
   return (
-    <Collapsible defaultOpen={false} className="group/collapsible">
-      <SidebarGroup>
-        <SidebarGroupLabel asChild>
-          <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between space-x-4 px-4">
-              <Label htmlFor="model">Model file</Label>
-              <Button variant="ghost" size="sm">
-                <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                <span className="sr-only">Toggle</span>
-              </Button>
-            </div>
-          </CollapsibleTrigger>
-        </SidebarGroupLabel>
-        <div className="grid w-full max-w-sm items-center gap-1.5 justify-center">
-          <Input
-            id="model"
-            type="file"
-            accept={`.${ACCEPTED_MODEL_FILE_TYPES.join(",.")}`}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) setModelFile(file);
-            }}
-          />
-        </div>
-        <CollapsibleContent className="space-y-2">
+    <Accordion type="single" collapsible>
+      <AccordionItem value="item-1">
+        <AccordionTrigger>
+          <Label>Model file</Label>
+        </AccordionTrigger>
+        <AccordionContent>
+          <div className="grid w-full max-w-sm items-center gap-1.5 justify-center">
+            <Input
+              id="model"
+              type="file"
+              accept={`.${ACCEPTED_MODEL_FILE_TYPES.join(",.")}`}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) setModelFile(file);
+              }}
+            />
+          </div>
           <div className="grid w-full max-w-sm gap-1.5 pt-2">
             <Label>Position</Label>
             <XYZInput
@@ -104,17 +103,20 @@ const ModelConfig = () => {
               value={scale}
             />
           </div>
-        </CollapsibleContent>
-      </SidebarGroup>
-    </Collapsible>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 };
 
 export const AssetConfig = () => {
   return (
     <>
-      <SidebarMenuItem className="pt-4" key={"model"}>
+      <SidebarMenuItem key={"model"}>
         <ModelConfig />
+      </SidebarMenuItem>
+      <SidebarMenuItem key={"effects"}>
+        <EffectsConfig />
       </SidebarMenuItem>
     </>
   );

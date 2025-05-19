@@ -5,30 +5,10 @@ import { Canvas, useFrame, type ThreeElements } from "@react-three/fiber";
 import JSZip from "jszip";
 import { scheduleInterval } from "./utils/time";
 import { FileModel } from "./components/file-model";
-import {
-  GlitchMode,
-  BlendFunction,
-  Resizer,
-  KernelSize,
-  Resolution,
-} from "postprocessing";
-import {
-  Bloom,
-  DepthOfField,
-  EffectComposer,
-  Glitch,
-  Noise,
-  Outline,
-  Pixelation,
-  Vignette,
-} from "@react-three/postprocessing";
-import { Button } from "@/components/ui/button";
 import { EventType, PubSub } from "./lib/events";
 import { useModelStore } from "./store/model";
 import { useExportOptionsStore } from "./store/export";
 import { PostProcessingEffects } from "./components/effects";
-
-type ExportFormat = "zip" | "spritesheet";
 
 async function createSpritesheet(images: string[]): Promise<string> {
   const loadedImages = await Promise.all(
