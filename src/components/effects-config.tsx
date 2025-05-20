@@ -1,276 +1,331 @@
-import { ChevronDown } from "lucide-react";
-import { SidebarGroup, SidebarGroupLabel } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { BlendFunction } from "postprocessing";
-
-import { SliderInput } from "./slider-input";
-import { Label } from "./ui/label";
-import { Checkbox } from "./ui/checkbox";
 import { useEffectsStore } from "@/store/effects";
-import { BlendFunctionSelect } from "./ui/blend-function-select";
+import { folder, useControls } from "leva";
+import { useEffect } from "react";
+import { BLEND_FUNCTIONS, GLITCH_MODES } from "@/constants/effects";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "./ui/accordion";
+  getBlendFunctionName,
+  getBlendFunctionValue,
+  getGlitchModeName,
+  getGlitchModeValue,
+} from "@/utils/effects";
 
 const PixelationEffect = () => {
   const setPixelation = useEffectsStore((state) => state.setPixelation);
   const pixelation = useEffectsStore((state) => state.pixelation);
-  return (
-    <Collapsible
-      open={pixelation.enabled}
-      className="flex flex-col justify-start space-x-2"
-    >
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="pixelation"
-          value={pixelation.enabled ? "on" : "off"}
-          onCheckedChange={(checked) => {
-            setPixelation({
-              ...pixelation,
-              enabled: checked === true,
-            });
-          }}
-        />
-        <label
-          htmlFor="pixelation"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          Pixelation
-        </label>
-      </div>
-      <CollapsibleContent className="flex flex-col text-left justify-start space-x-2 p-2">
-        <SliderInput
-          max={100}
-          min={1}
-          step={1}
-          onChange={(value) =>
-            setPixelation({ ...pixelation, granularity: value })
-          }
-          value={pixelation.granularity}
-        />
-      </CollapsibleContent>
-    </Collapsible>
-  );
+  const { enabled, granularity } = useControls({
+    pixelation: folder(
+      {
+        enabled: pixelation.enabled,
+        granularity: pixelation.granularity,
+      },
+      {
+        collapsed: true,
+      }
+    ),
+  });
+
+  useEffect(() => {
+    setPixelation({
+      enabled: enabled,
+      granularity: granularity,
+    });
+  }, [enabled, granularity, setPixelation]);
+
+  return null;
 };
 
 const BloomEffect = () => {
   const setBloom = useEffectsStore((state) => state.setBloom);
   const bloom = useEffectsStore((state) => state.bloom);
-  return (
-    <Collapsible
-      open={bloom.enabled}
-      className="flex flex-col justify-start space-x-2"
-    >
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="bloom"
-          value={bloom.enabled ? "on" : "off"}
-          onCheckedChange={(checked) => {
-            setBloom({
-              ...bloom,
-              enabled: checked === true,
-            });
-          }}
-        />
-        <label
-          htmlFor="bloom"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          Bloom
-        </label>
-      </div>
-      <CollapsibleContent className="flex flex-col text-left justify-start space-x-2 p-2">
-        <Label>Threshold</Label>
-        <SliderInput
-          max={1}
-          min={0}
-          step={0.1}
-          onChange={(value) =>
-            setBloom({ ...bloom, luminanceThreshold: value })
-          }
-          value={bloom.luminanceThreshold}
-        />
-        <Label>Smoothing</Label>
-        <SliderInput
-          max={1}
-          min={0}
-          step={0.01}
-          onChange={(value) =>
-            setBloom({ ...bloom, luminanceSmoothing: value })
-          }
-          value={bloom.luminanceSmoothing}
-        />
-        <Label>Intensity</Label>
-        <SliderInput
-          max={5}
-          min={0}
-          step={0.1}
-          onChange={(value) => setBloom({ ...bloom, intensity: value })}
-          value={bloom.intensity}
-        />
-      </CollapsibleContent>
-    </Collapsible>
-  );
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { blurPass, kernelSize, ...bloomProps } = bloom;
+
+  const {
+    enabled,
+    luminanceSmoothing,
+    luminanceThreshold,
+    intensity,
+    mipmapBlur,
+    resolutionX,
+    resolutionY,
+  } = useControls({
+    bloom: folder(
+      {
+        ...bloomProps,
+        luminanceSmoothing: {
+          min: 0,
+          max: 1,
+          step: 0.01,
+          value: bloom.luminanceSmoothing,
+        },
+        luminanceThreshold: {
+          min: 0,
+          max: 1,
+          step: 0.01,
+          value: bloom.luminanceThreshold,
+        },
+      },
+      {
+        collapsed: true,
+      }
+    ),
+  });
+
+  useEffect(() => {
+    setBloom({
+      enabled,
+      luminanceSmoothing,
+      luminanceThreshold,
+      intensity,
+      mipmapBlur,
+      resolutionX,
+      resolutionY,
+    });
+  }, [
+    enabled,
+    luminanceSmoothing,
+    luminanceThreshold,
+    intensity,
+    mipmapBlur,
+    resolutionX,
+    resolutionY,
+    setBloom,
+  ]);
+
+  return null;
 };
 
 const NoiseEffect = () => {
   const setNoise = useEffectsStore((state) => state.setNoise);
   const noise = useEffectsStore((state) => state.noise);
-  return (
-    <Collapsible
-      open={noise.enabled}
-      className="flex flex-col justify-start space-x-2"
-    >
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="noise"
-          value={noise.enabled ? "on" : "off"}
-          onCheckedChange={(checked) => {
-            setNoise({
-              ...noise,
-              enabled: checked === true,
-            });
-          }}
-        />
-        <label
-          htmlFor="noise"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          Noise
-        </label>
-      </div>
-      <CollapsibleContent className="flex flex-col text-left justify-start space-x-2 p-2">
-        <div className="flex items-center space-x-2 pb-2 pt-1">
-          <Checkbox
-            id="noise"
-            value={noise.enabled ? "on" : "off"}
-            onCheckedChange={(checked) => {
-              setNoise({
-                ...noise,
-                premultiply: checked === true,
-              });
-            }}
-          />
-          <label
-            htmlFor="noise"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Premultiply
-          </label>
-        </div>
-        <div className="flex items-center space-x-2 pb-2 pt-1">
-          <Label>Blend Function</Label>
-          <BlendFunctionSelect
-            value={noise.blendFunction}
-            onChange={(n) => {
-              setNoise({
-                ...noise,
-                blendFunction: +n as unknown as BlendFunction,
-              });
-            }}
-          />
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
+
+  const { enabled, blendFunction, premultiply } = useControls({
+    noise: folder(
+      {
+        enabled: noise.enabled,
+        premultiply: noise.premultiply,
+        blendFunction: {
+          options: BLEND_FUNCTIONS,
+          value: getBlendFunctionName(noise.blendFunction),
+        },
+      },
+      {
+        collapsed: true,
+      }
+    ),
+  });
+
+  useEffect(() => {
+    setNoise({
+      enabled: enabled,
+      premultiply: premultiply,
+      blendFunction: getBlendFunctionValue(blendFunction),
+    });
+  }, [enabled, premultiply, blendFunction, setNoise]);
+
+  return null;
 };
 
 const DepthOfFieldEffect = () => {
   const setDepthOfField = useEffectsStore((state) => state.setDepthOfField);
   const depthOfField = useEffectsStore((state) => state.depthOfField);
-  return (
-    <Collapsible
-      open={depthOfField.enabled}
-      className="flex flex-col justify-start space-x-2"
-    >
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="depthOfField"
-          value={depthOfField.enabled ? "on" : "off"}
-          onCheckedChange={(checked) => {
-            setDepthOfField({
-              ...depthOfField,
-              enabled: checked === true,
-            });
-          }}
-        />
-        <label
-          htmlFor="depthOfField"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          Death of Field
-        </label>
-      </div>
-      <CollapsibleContent className="flex flex-col text-left justify-start space-x-2 p-2">
-        <Label>Focus Distance</Label>
-        <SliderInput
-          max={1}
-          min={0}
-          step={0.05}
-          onChange={(value) =>
-            setDepthOfField({ ...depthOfField, focusDistance: value })
-          }
-          value={depthOfField.focusDistance}
-        />
-        <Label>Focal Length</Label>
-        <SliderInput
-          max={1}
-          min={0}
-          step={0.05}
-          onChange={(value) =>
-            setDepthOfField({ ...depthOfField, focalLength: value })
-          }
-          value={depthOfField.focalLength}
-        />
-        <Label>Bokeh Scale</Label>
-        <SliderInput
-          max={20}
-          min={0}
-          step={0.1}
-          onChange={(value) =>
-            setDepthOfField({ ...depthOfField, bokehScale: value })
-          }
-          value={depthOfField.bokehScale}
-        />
-        <div className="flex items-center space-x-2 pb-2 pt-1">
-          <Label>Blend Function</Label>
-          <BlendFunctionSelect
-            value={depthOfField.blendFunction}
-            onChange={(n) => {
-              setDepthOfField({
-                ...depthOfField,
-                blendFunction: +n as unknown as BlendFunction,
-              });
-            }}
-          />
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
+
+  const {
+    blendFunction,
+    focusDistance,
+    focalLength,
+    bokehScale,
+    width,
+    height,
+  } = useControls({
+    "depth of field": folder(
+      {
+        ...depthOfField,
+        blendFunction: {
+          options: BLEND_FUNCTIONS,
+          value: getBlendFunctionName(depthOfField.blendFunction),
+        },
+        focalLength: {
+          min: 0,
+          max: 1,
+          step: 0.01,
+          value: depthOfField.focalLength,
+        },
+        focusDistance: {
+          min: 0,
+          max: 1,
+          step: 0.01,
+          value: depthOfField.focusDistance,
+        },
+      },
+      {
+        collapsed: true,
+      }
+    ),
+  });
+
+  useEffect(() => {
+    setDepthOfField({
+      blendFunction: getBlendFunctionValue(blendFunction),
+      focusDistance,
+      focalLength,
+      bokehScale,
+      width,
+      height,
+    });
+  }, [
+    blendFunction,
+    focusDistance,
+    focalLength,
+    bokehScale,
+    width,
+    height,
+    setDepthOfField,
+  ]);
+
+  return null;
+};
+
+const GlitchEffect = () => {
+  const gltich = useEffectsStore((state) => state.glitch);
+  const setGlitch = useEffectsStore((state) => state.setGlitch);
+
+  const {
+    enabled,
+    delay,
+    duration,
+    strength,
+    mode,
+    ratio,
+    chromaticAberrationOffset,
+    columns,
+    dtSize,
+    blendFunction,
+  } = useControls({
+    glitch: folder(
+      {
+        ...gltich,
+        mode: {
+          options: GLITCH_MODES,
+          value: getGlitchModeName(gltich.mode),
+        },
+        blendFunction: {
+          options: BLEND_FUNCTIONS,
+          value: getBlendFunctionName(gltich.blendFunction),
+        },
+      },
+      {
+        collapsed: true,
+      }
+    ),
+  });
+
+  useEffect(() => {
+    setGlitch({
+      enabled,
+      delay,
+      duration,
+      strength,
+      mode: getGlitchModeValue(mode),
+      ratio,
+      chromaticAberrationOffset,
+      columns,
+      dtSize,
+      blendFunction: getBlendFunctionValue(blendFunction),
+    });
+  }, [
+    enabled,
+    delay,
+    duration,
+    strength,
+    mode,
+    ratio,
+    chromaticAberrationOffset,
+    columns,
+    dtSize,
+    blendFunction,
+    setGlitch,
+  ]);
+
+  return null;
+};
+
+const OutlineEffect = () => {
+  const outline = useEffectsStore((state) => state.outline);
+  const setOutline = useEffectsStore((state) => state.setOutline);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { kernelSize, patternTexture, ...outlineProps } = outline;
+
+  const {
+    enabled,
+    selectionLayer,
+    blendFunction,
+    edgeStrength,
+    pulseSpeed,
+    visibleEdgeColor,
+    hiddenEdgeColor,
+    width,
+    height,
+    blur,
+    xRay,
+  } = useControls({
+    outline: folder(
+      {
+        ...outlineProps,
+        blendFunction: {
+          options: BLEND_FUNCTIONS,
+          value: getBlendFunctionName(outline.blendFunction),
+        },
+      },
+      {
+        collapsed: true,
+      }
+    ),
+  });
+
+  useEffect(() => {
+    setOutline({
+      enabled,
+      selectionLayer,
+      blendFunction: getBlendFunctionValue(blendFunction),
+      edgeStrength,
+      pulseSpeed,
+      visibleEdgeColor,
+      hiddenEdgeColor,
+      width,
+      height,
+      blur,
+      xRay,
+    });
+  }, [
+    enabled,
+    selectionLayer,
+    blendFunction,
+    edgeStrength,
+    pulseSpeed,
+    visibleEdgeColor,
+    hiddenEdgeColor,
+    width,
+    height,
+    blur,
+    xRay,
+    setOutline,
+  ]);
+
+  return null;
 };
 
 export const EffectsConfig = () => {
   return (
-    <Accordion type="single" collapsible>
-      <AccordionItem value="item-1">
-        <AccordionTrigger>
-          <Label>Effects</Label>
-        </AccordionTrigger>
-        <AccordionContent>
-          <PixelationEffect />
-          <BloomEffect />
-          <NoiseEffect />
-          <DepthOfFieldEffect />
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+    <>
+      <PixelationEffect />
+      <BloomEffect />
+      <NoiseEffect />
+      <DepthOfFieldEffect />
+      <GlitchEffect />
+      <OutlineEffect />
+    </>
   );
 };

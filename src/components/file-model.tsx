@@ -9,6 +9,10 @@ import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
 // @ts-ignore
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
 import { EventType, PubSub } from "@/lib/events";
+import { useModelStore } from "@/store/model";
+import { Outlines } from "@react-three/drei";
+import { Select } from "@react-three/postprocessing";
+import { useEffectsStore } from "@/store/effects";
 
 type Props = {
   file: File;
@@ -17,14 +21,11 @@ type Props = {
   scale?: number;
 };
 
-export function FileModel({
-  file,
-  position = [0, 0, 0],
-  rotation = [0, 0, 0],
-  scale = 1,
-}: Props) {
+export function FileModel({ file, ...props }: Props) {
   const [object, setObject] = useState<THREE.Object3D | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const setRef = useModelStore((state) => state.setRef);
+  const outline = useEffectsStore((state) => state.outline);
 
   useEffect(() => {
     const ext = file.name.split(".").pop()?.toLowerCase();
@@ -53,6 +54,7 @@ export function FileModel({
               if (gltf.animations.length > 0) {
                 const mixer = new THREE.AnimationMixer(scene);
                 gltf.animations.forEach((clip: THREE.AnimationClip) => {
+                  console.log(clip.name);
                   mixer.clipAction(clip).play();
                 });
                 mixerRef.current = mixer;
@@ -123,8 +125,26 @@ export function FileModel({
   });
 
   return object ? (
-    <group position={position} scale={scale} rotation={rotation}>
-      <primitive object={object} />
-    </group>
+    <Select enabled={outline.enabled}>
+      <mesh
+        {...props}
+        ref={(ref: THREE.Object3D) => {
+          setRef(ref);
+        }}
+        // onPointerOver={(e) => props.onHover(ref)}
+        // onPointerOut={(e) => props.onHover(null)}
+      >
+        <primitive object={object} />
+        {/* <skinnedMesh
+          castShadow
+          receiveShadow
+          // geometry={object.geometry}
+          // material={materials.Ch03_Body}
+          // skeleton={nodes.Ch03.skeleton}
+        > */}
+        <Outlines angle={0} thickness={1.1} color="red" />
+        {/* </skinnedMesh> */}
+      </mesh>
+    </Select>
   ) : null;
 }

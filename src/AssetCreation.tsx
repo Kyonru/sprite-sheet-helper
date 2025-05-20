@@ -1,71 +1,24 @@
 import "./App.css";
 import * as THREE from "three";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Canvas, useFrame, type ThreeElements } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import JSZip from "jszip";
+import { folder, useControls } from "leva";
+import { Selection } from "@react-three/postprocessing";
+import {
+  OrbitControls,
+  OrthographicCamera,
+  PerspectiveCamera,
+} from "@react-three/drei";
 import { scheduleInterval } from "./utils/time";
 import { FileModel } from "./components/file-model";
 import { EventType, PubSub } from "./lib/events";
 import { useModelStore } from "./store/model";
 import { useExportOptionsStore } from "./store/export";
 import { PostProcessingEffects } from "./components/effects";
-
-async function createSpritesheet(images: string[]): Promise<string> {
-  const loadedImages = await Promise.all(
-    images.map((src) => {
-      return new Promise<HTMLImageElement>((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.src = "data:image/png;base64," + src;
-      });
-    })
-  );
-
-  const width = Math.max(...loadedImages.map((img) => img.width));
-  const height = loadedImages.reduce((sum, img) => sum + img.height, 0);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d")!;
-
-  let y = 0;
-  for (const img of loadedImages) {
-    ctx.drawImage(img, 0, y);
-    y += img.height;
-  }
-
-  return canvas.toDataURL("image/png");
-}
-
-function Box(props: ThreeElements["mesh"]) {
-  const meshRef = useRef<THREE.Mesh>(null!);
-  const [hovered, setHover] = useState(false);
-  const [active, setActive] = useState(false);
-
-  useFrame((_, delta) => (meshRef.current.rotation.x += delta));
-  return (
-    <mesh
-      {...props}
-      ref={meshRef}
-      scale={active ? 3 : 1.5}
-      onClick={() => setActive(!active)}
-      onPointerOver={() => setHover(true)}
-      onPointerOut={() => setHover(false)}
-    >
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color={hovered ? "hotpink" : "#2f74c0"} />
-    </mesh>
-  );
-}
-
-const downloadFile = (href: string, name: string) => {
-  const a = document.createElement("a");
-  a.target = "_blank";
-  a.href = href;
-  a.download = name;
-  a.click();
-};
+import { useCameraValues } from "./hooks/use-camera-values";
+import { createSpritesheet, downloadFile } from "./utils/assets";
+import { Box } from "./components/box";
 
 function AssetCreation() {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -89,6 +42,13 @@ function AssetCreation() {
   const rotation = useModelStore((state) => state.rotation);
   const intervals = useExportOptionsStore((state) => state.intervals);
   const iterations = useExportOptionsStore((state) => state.iterations);
+
+  const {
+    position: cameraPosition,
+    zoom,
+    fov,
+    type: cameraType,
+  } = useCameraValues();
 
   useEffect(() => {
     if (gl) {
@@ -174,39 +134,71 @@ function AssetCreation() {
     };
   }, [takeScreenshot]);
 
-  const box1Ref = useRef<THREE.Mesh>(null!);
+  const { height, width } = useControls({
+    frame: folder({
+      height: 150,
+      width: 300,
+    }),
+  });
 
   return (
-    <div>
-      <Canvas
-        gl={{
-          preserveDrawingBuffer: true,
+    <div className="flex flex-1 w-full h-full flex-col items-center justify-center">
+      <div
+        style={{
+          border: "1px solid var(--color-border)",
+          height,
+          width,
         }}
-        onCreated={({ gl }) => setGl(gl)}
-        ref={canvas}
       >
-        <ambientLight intensity={Math.PI / 2} />
-        <spotLight
-          position={[10, 10, 10]}
-          angle={0.15}
-          penumbra={1}
-          decay={0}
-          intensity={Math.PI}
-        />
-        <pointLight position={[-10, -10, -10]} decay={0} intensity={Math.PI} />
-        <Box ref={box1Ref} position={[-3, 0, 0]} />
-        <Box position={[3, 0, 0]} />
-        {modelFile && (
-          <FileModel
-            rotation={rotation}
-            position={position}
-            scale={scale}
-            file={modelFile}
+        <Canvas
+          gl={{
+            preserveDrawingBuffer: true,
+          }}
+          onCreated={({ gl }) => setGl(gl)}
+          ref={canvas}
+        >
+          <ambientLight intensity={Math.PI / 2} />
+          <spotLight
+            position={[10, 10, 10]}
+            angle={0.15}
+            penumbra={1}
+            decay={0}
+            intensity={Math.PI}
           />
-        )}
-
-        <PostProcessingEffects />
-      </Canvas>
+          <pointLight
+            position={[-10, -10, -10]}
+            decay={0}
+            intensity={Math.PI}
+          />
+          <Selection>
+            <PostProcessingEffects />
+            {cameraType === "orthographic" ? (
+              <OrthographicCamera
+                makeDefault={true}
+                position={cameraPosition}
+                zoom={zoom}
+              />
+            ) : (
+              <PerspectiveCamera
+                makeDefault={true}
+                position={cameraPosition}
+                fov={fov}
+                zoom={zoom}
+              />
+            )}
+            {!modelFile && <Box />}
+            {modelFile && (
+              <FileModel
+                rotation={rotation}
+                position={position}
+                scale={scale}
+                file={modelFile}
+              />
+            )}
+          </Selection>
+          <OrbitControls enableZoom={false} />
+        </Canvas>
+      </div>
     </div>
   );
 }

@@ -16,24 +16,28 @@ interface Pixelation extends Feature {
 }
 
 interface Glitch extends Feature {
-  delay: number[];
-  duration: number[];
-  strength: number[];
-  mode: number;
+  blendFunction: BlendFunction;
+  chromaticAberrationOffset: [number, number];
+  delay: [number, number];
+  duration: [number, number];
+  strength: [number, number];
+  mode: GlitchMode;
+  dtSize: number;
+  columns: number;
   ratio: number;
 }
 
 interface Outline extends Feature {
+  blendFunction: BlendFunction;
+  width: number;
+  height: number;
   selectionLayer: number;
-  blendFunction: number;
   patternTexture: number | null;
   edgeStrength: number;
   pulseSpeed: number;
-  visibleEdgeColor: number;
-  hiddenEdgeColor: number;
-  width: number;
-  height: number;
-  kernelSize: number;
+  visibleEdgeColor: string;
+  hiddenEdgeColor: string;
+  kernelSize: KernelSize;
   blur: boolean;
   xRay: boolean;
 }
@@ -52,7 +56,7 @@ interface Bloom extends Feature {
   luminanceSmoothing: number;
   intensity: number;
   blurPass?: BlurPass;
-  kernelSize: number;
+  kernelSize: KernelSize;
   mipmapBlur: boolean;
   resolutionX: number;
   resolutionY: number;
@@ -74,25 +78,25 @@ interface EffectsState {
     enabled: boolean;
     granularity: number;
   };
-  setPixelation: (props: Pixelation) => void;
+  setPixelation: (props: Partial<Pixelation>) => void;
 
   glitch: Glitch;
-  setGlitch: (props: Glitch) => void;
+  setGlitch: (props: Partial<Glitch>) => void;
 
   bloom: Bloom;
-  setBloom: (props: Bloom) => void;
+  setBloom: (props: Partial<Bloom>) => void;
 
   depthOfField: DepthOfField;
-  setDepthOfField: (props: DepthOfField) => void;
+  setDepthOfField: (props: Partial<DepthOfField>) => void;
 
   noise: Noise;
-  setNoise: (props: Noise) => void;
+  setNoise: (props: Partial<Noise>) => void;
 
   vignette: Vignette;
-  setVignette: (props: Vignette) => void;
+  setVignette: (props: Partial<Vignette>) => void;
 
   outline: Outline;
-  setOutline: (props: Outline) => void;
+  setOutline: (props: Partial<Outline>) => void;
 
   // TODO: add more effects
 }
@@ -102,17 +106,26 @@ export const useEffectsStore = create<EffectsState>((set) => ({
     enabled: false,
     granularity: 5,
   },
-  setPixelation: (props: Pixelation) => set(() => ({ pixelation: props })),
+  setPixelation: (props: Partial<Pixelation>) =>
+    set((state) => ({
+      ...state,
+      pixelation: { ...state.pixelation, ...props },
+    })),
 
   glitch: {
+    blendFunction: BlendFunction.NORMAL,
     enabled: false,
     delay: [1.5, 3.5],
     duration: [0.6, 1.0],
     strength: [0.3, 1.0],
+    chromaticAberrationOffset: [0, 0],
+    dtSize: 64,
+    columns: 0.05,
     mode: GlitchMode.SPORADIC,
     ratio: 0.85,
   },
-  setGlitch: (props: Glitch) => set(() => ({ glitch: props })),
+  setGlitch: (props: Partial<Glitch>) =>
+    set((state) => ({ ...state, glitch: { ...state.glitch, ...props } })),
 
   bloom: {
     enabled: false,
@@ -125,7 +138,8 @@ export const useEffectsStore = create<EffectsState>((set) => ({
     resolutionX: Resolution.AUTO_SIZE,
     resolutionY: Resolution.AUTO_SIZE,
   },
-  setBloom: (props: Bloom) => set(() => ({ bloom: props })),
+  setBloom: (props: Partial<Bloom>) =>
+    set((state) => ({ ...state, bloom: { ...state.bloom, ...props } })),
 
   depthOfField: {
     enabled: false,
@@ -136,15 +150,25 @@ export const useEffectsStore = create<EffectsState>((set) => ({
     height: Resolution.AUTO_SIZE,
     width: Resolution.AUTO_SIZE,
   },
-  setDepthOfField: (props: DepthOfField) =>
-    set(() => ({ depthOfField: props })),
+  setDepthOfField: (props: Partial<DepthOfField>) =>
+    set((state) => ({
+      ...state,
+      depthOfField: { ...state.depthOfField, ...props },
+    })),
 
   noise: {
     enabled: false,
     premultiply: false,
     blendFunction: BlendFunction.SCREEN,
   },
-  setNoise: (props: Noise) => set(() => ({ noise: props })),
+  setNoise: (props: Partial<Noise>) =>
+    set((state) => ({
+      ...state,
+      noise: {
+        ...state.noise,
+        ...props,
+      },
+    })),
 
   vignette: {
     enabled: false,
@@ -152,7 +176,8 @@ export const useEffectsStore = create<EffectsState>((set) => ({
     offset: 0.1,
     darkness: 1.1,
   },
-  setVignette: (props: Vignette) => set(() => ({ vignette: props })),
+  setVignette: (props: Partial<Vignette>) =>
+    set((state) => ({ ...state, vignette: { ...state.vignette, ...props } })),
 
   outline: {
     enabled: false,
@@ -161,13 +186,14 @@ export const useEffectsStore = create<EffectsState>((set) => ({
     patternTexture: null,
     edgeStrength: 2.5,
     pulseSpeed: 0,
-    visibleEdgeColor: 0xffffff,
-    hiddenEdgeColor: 0x22090a,
+    visibleEdgeColor: "#ffffff",
+    hiddenEdgeColor: "#22090a",
     width: Resolution.AUTO_SIZE,
     height: Resolution.AUTO_SIZE,
-    kernelSize: KernelSize.LARGE,
+    kernelSize: KernelSize.VERY_SMALL,
     blur: false,
     xRay: true,
   },
-  setOutline: (props: Outline) => set(() => ({ outline: props })),
+  setOutline: (props: Partial<Outline>) =>
+    set((state) => ({ ...state, outline: { ...state.outline, ...props } })),
 }));

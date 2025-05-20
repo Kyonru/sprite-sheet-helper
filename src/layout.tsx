@@ -5,13 +5,10 @@ import { useAppColorStore } from "./store/app-color";
 export default function Layout({ children }: { children: React.ReactNode }) {
   const background = useAppColorStore((state) => state.color);
   return (
-    <div
-      className="flex h-[90px] w-full"
-      style={{ backgroundColor: background }}
-    >
+    <div style={{ backgroundColor: background }}>
       <SidebarProvider>
         <AppSidebar />
-        <main>
+        <main className="flex flex-1 w-full">
           <SidebarTrigger />
           {children}
         </main>

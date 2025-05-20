@@ -1,3 +1,4 @@
+import type { Object3D } from "three";
 import { create } from "zustand";
 
 interface ModelState {
@@ -11,6 +12,8 @@ interface ModelState {
   setRotation: (rotation: [number, number, number]) => void;
   animation: string | null;
   setAnimation: (animation: string | null) => void;
+  ref: Object3D | null;
+  setRef: (ref: Object3D) => void;
 }
 
 export const useModelStore = create<ModelState>((set) => ({
@@ -27,4 +30,7 @@ export const useModelStore = create<ModelState>((set) => ({
   animation: null,
   setAnimation: (animation: string | null) =>
     set(() => ({ animation: animation })),
+  ref: null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setRef: (ref: Object3D) => set(() => ({ ref: ref })),
 }));

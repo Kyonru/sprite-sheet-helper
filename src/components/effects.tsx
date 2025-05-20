@@ -11,6 +11,7 @@ import {
   type OutlineProps,
 } from "@react-three/postprocessing";
 import { useEffectsStore } from "@/store/effects";
+import { useModelStore } from "@/store/model";
 
 export const PostProcessingEffects = () => {
   const pixelation = useEffectsStore((state) => state.pixelation);
@@ -21,8 +22,15 @@ export const PostProcessingEffects = () => {
   const vignette = useEffectsStore((state) => state.vignette);
   const outline = useEffectsStore((state) => state.outline);
 
+  const modelRef = useModelStore((state) => state.ref);
+
   return (
-    <EffectComposer>
+    <EffectComposer
+      // enableNormalPass
+      // depthBuffer
+      multisampling={8}
+      autoClear={false}
+    >
       <>
         {depthOfField.enabled && <DepthOfField {...depthOfField} />}
         {bloom.enabled && <Bloom {...bloom} />}
@@ -31,7 +39,10 @@ export const PostProcessingEffects = () => {
         {glitch.enabled && <Glitch {...(glitch as unknown as GlitchProps)} />}
         {pixelation.enabled && <Pixelation {...pixelation} />}
         {outline.enabled && (
-          <Outline {...(outline as unknown as OutlineProps)} selection={[]} />
+          <Outline
+            {...(outline as unknown as OutlineProps)}
+            selection={modelRef ? [modelRef] : []}
+          />
         )}
       </>
     </EffectComposer>

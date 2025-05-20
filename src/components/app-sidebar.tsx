@@ -17,6 +17,10 @@ import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { useExportOptionsStore } from "@/store/export";
 import type { ExportFormat } from "@/types/file";
 import { AssetConfig } from "./asset-config";
+import { Leva } from "leva";
+import { Input } from "./ui/input";
+import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
+import { useModelStore } from "@/store/model";
 
 export function AppSidebar() {
   const background = useAppColorStore((state) => state.color);
@@ -27,13 +31,14 @@ export function AppSidebar() {
   const iterations = useExportOptionsStore((state) => state.iterations);
   const setIterations = useExportOptionsStore((state) => state.setIterations);
   const setExportFormat = useExportOptionsStore((state) => state.setMode);
+  const setModelFile = useModelStore((state) => state.setFile);
   const takeScreenshot = () => {
     PubSub.emit(EventType.START_ASSETS_CREATION);
   };
 
   return (
     <Sidebar>
-      <SidebarContent>
+      <SidebarContent className="no-scrollbar">
         <SidebarGroup>
           <SidebarGroupLabel>Sprite Helper</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -52,6 +57,25 @@ export function AppSidebar() {
                   </div>
                 </div>
               </SidebarMenuItem>
+              <Input
+                id="model"
+                type="file"
+                accept={`.${ACCEPTED_MODEL_FILE_TYPES.join(",.")}`}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setModelFile(file);
+                }}
+              />
+              <Leva
+                titleBar={false}
+                // theme={myTheme} // you can pass a custom theme (see the styling section)
+                fill // default = false,  true makes the pane fill the parent dom node it's rendered in
+                flat // default = false,  true removes border radius and shadow
+                // oneLineLabels // default = false, alternative layout for labels, with labels and fields on separate rows
+                // hideTitleBar={true} // default = false, hides the GUI header
+                // collapsed // default = false, when true the GUI is collpased
+                // hidden // default = false, when true the GUI is hidden
+              />
               <AssetConfig />
             </SidebarMenu>
           </SidebarGroupContent>
