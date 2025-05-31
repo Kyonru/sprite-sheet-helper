@@ -13,24 +13,48 @@ import { GradientPicker } from "./ui/gradient-picker";
 import { useAppColorStore } from "@/store/app-color";
 import { Button } from "./ui/button";
 import { EventType, PubSub } from "@/lib/events";
-import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
-import { useExportOptionsStore } from "@/store/export";
-import type { ExportFormat } from "@/types/file";
-import { AssetConfig } from "./asset-config";
+import { AssetConfig } from "./config/asset-config";
 import { Leva } from "leva";
 import { Input } from "./ui/input";
 import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
 import { useModelStore } from "@/store/model";
 
+const levaTheme = {
+  colors: {
+    elevation1: "var(--background)",
+    elevation2: "var(--muted)",
+    elevation3: "var(--border)",
+
+    accent1: "var(--primary)",
+    accent2: "var(--accent-foreground)",
+    accent3: "var(--ring)",
+
+    highlight1: "var(--primary-foreground)",
+    highlight2: "var(--muted-foreground)",
+    highlight3: "var(--chart-3)",
+
+    vivid1: "var(--destructive)",
+  },
+  radii: {
+    sm: "0.25rem",
+    md: "0.375rem",
+    lg: "var(--radius)",
+  },
+  space: {
+    rowGap: "0.5rem",
+    colGap: "0.5rem",
+    controlHeight: "2rem",
+  },
+  fontSizes: {
+    root: "14px",
+    label: "12px",
+    toolTip: "11px",
+  },
+};
+
 export function AppSidebar() {
   const background = useAppColorStore((state) => state.color);
   const setBackground = useAppColorStore((state) => state.setColor);
-  const exportFormat = useExportOptionsStore((state) => state.mode);
-  const intervals = useExportOptionsStore((state) => state.intervals);
-  const setIntervals = useExportOptionsStore((state) => state.setIntervals);
-  const iterations = useExportOptionsStore((state) => state.iterations);
-  const setIterations = useExportOptionsStore((state) => state.setIterations);
-  const setExportFormat = useExportOptionsStore((state) => state.setMode);
   const setModelFile = useModelStore((state) => state.setFile);
   const takeScreenshot = () => {
     PubSub.emit(EventType.START_ASSETS_CREATION);
@@ -75,6 +99,7 @@ export function AppSidebar() {
                 // hideTitleBar={true} // default = false, hides the GUI header
                 // collapsed // default = false, when true the GUI is collpased
                 // hidden // default = false, when true the GUI is hidden
+                theme={levaTheme}
               />
               <AssetConfig />
             </SidebarMenu>
@@ -82,36 +107,6 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-border">
-        <p className="text-md text-muted-foreground">
-          Every{" "}
-          <input
-            type="number"
-            className="w-10 border-border border-b text-md text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            value={intervals}
-            min={1}
-            onChange={(e) => setIntervals(Number(e.target.value))}
-          />{" "}
-          milliseconds ×{" "}
-          <input
-            type="number"
-            className="w-10 border-border border-b text-md text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            value={iterations}
-            min={1}
-            onChange={(e) => setIterations(Number(e.target.value))}
-          />{" "}
-          times
-        </p>
-        <Tabs
-          onValueChange={(format) => setExportFormat(format as ExportFormat)}
-          defaultValue={exportFormat}
-          value={exportFormat}
-          className="mb-2"
-        >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="zip">zip</TabsTrigger>
-            <TabsTrigger value="spritesheet">spritesheet</TabsTrigger>
-          </TabsList>
-        </Tabs>
         <Button onClick={takeScreenshot}>Create assets</Button>
       </SidebarFooter>
     </Sidebar>

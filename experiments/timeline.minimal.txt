@@ -1,0 +1,96 @@
+import React, { useState, useRef, useEffect } from "react";
+import { motion, useMotionValue } from "framer-motion";
+
+const keyframes = [
+  { time: 0, value: 0 },
+  { time: 2, value: 300 }
+];
+
+const duration = 4; // seconds
+const timelineWidth = 400; // pixels
+
+function interpolate(t, kf) {
+  const prev = kf.findLast(k => k.time <= t);
+  const next = kf.find(k => k.time > t);
+  if (!prev || !next) return prev?.value ?? 0;
+  const progress = (t - prev.time) / (next.time - prev.time);
+  return prev.value + (next.value - prev.value) * progress;
+}
+
+export default function TimelineEditor() {
+  const [time, setTime] = useState(0);
+  const playingRef = useRef(false);
+  const boxX = useMotionValue(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!playingRef.current) return;
+      setTime(t => {
+        const newTime = t + 0.016;
+        if (newTime >= duration) {
+          playingRef.current = false;
+          return duration;
+        }
+        return newTime;
+      });
+    }, 16);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const x = interpolate(time, keyframes);
+    boxX.set(x);
+  }, [time]);
+
+  return (
+    <div className="p-4 font-sans space-y-4">
+      <div className="flex items-center gap-2">
+        <button
+          className="bg-blue-500 text-white px-3 py-1 rounded"
+          onClick={() => {
+            setTime(0);
+            playingRef.current = true;
+          }}
+        >
+          Play
+        </button>
+        <div className="text-sm">Time: {time.toFixed(2)}s</div>
+      </div>
+
+      <div className="relative w-[400px] h-24 bg-gray-100 border rounded">
+        {/* Timeline ruler */}
+        <div className="absolute top-0 left-0 w-full h-6 border-b flex">
+          {[...Array(duration + 1)].map((_, i) => (
+            <div key={i} className="flex-1 text-xs text-center">
+              {i}s
+            </div>
+          ))}
+        </div>
+
+        {/* Keyframes */}
+        <div className="absolute top-6 left-0 h-4 w-full flex items-center">
+          {keyframes.map((kf, i) => (
+            <div
+              key={i}
+              className="w-3 h-3 bg-black rotate-45 absolute"
+              style={{ left: `${(kf.time / duration) * timelineWidth}px` }}
+            />
+          ))}
+        </div>
+
+        {/* Playhead */}
+        <div
+          className="absolute top-0 bottom-0 w-[2px] bg-red-500"
+          style={{ left: `${(time / duration) * timelineWidth}px` }}
+        />
+      </div>
+
+      <div className="h-32 flex items-center">
+        <motion.div
+          className="w-12 h-12 bg-blue-400 rounded"
+          style={{ x: boxX }}
+        />
+      </div>
+    </div>
+  );
+}

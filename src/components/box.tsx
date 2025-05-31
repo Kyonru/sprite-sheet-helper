@@ -16,6 +16,7 @@ export function Box(props: ThreeElements["mesh"]) {
     if (!modelRef) return;
     modelRef.rotation!.x += delta;
   });
+
   return (
     <Select enabled={outline.enabled}>
       <mesh
@@ -27,7 +28,7 @@ export function Box(props: ThreeElements["mesh"]) {
         position={position}
         rotation={rotation}
       >
-        <boxGeometry args={[100, 100, 100]} />
+        <boxGeometry args={[25, 25, 25]} />
         <meshStandardMaterial color={"#2f74c0"} />
       </mesh>
     </Select>

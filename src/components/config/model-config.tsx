@@ -1,10 +1,8 @@
 import { useEffect } from "react";
-import { SidebarMenuItem } from "@/components/ui/sidebar";
-import { useModelStore } from "@/store/model";
-import { EffectsConfig } from "./effects-config";
 import { folder, useControls } from "leva";
+import { useModelStore } from "@/store/model";
 
-const ModelConfig = () => {
+export const ModelConfig = () => {
   const setPosition = useModelStore((state) => state.setPosition);
   const setScale = useModelStore((state) => state.setScale);
   const setRotation = useModelStore((state) => state.setRotation);
@@ -41,17 +39,4 @@ const ModelConfig = () => {
   }, [scale, setScale]);
 
   return null;
-};
-
-export const AssetConfig = () => {
-  return (
-    <>
-      <SidebarMenuItem key={"model"}>
-        <ModelConfig />
-      </SidebarMenuItem>
-      <SidebarMenuItem key={"effects"}>
-        <EffectsConfig />
-      </SidebarMenuItem>
-    </>
-  );
 };

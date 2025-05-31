@@ -3,7 +3,6 @@ import * as THREE from "three";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import JSZip from "jszip";
-import { folder, useControls } from "leva";
 import { Selection } from "@react-three/postprocessing";
 import {
   OrbitControls,
@@ -19,6 +18,9 @@ import { PostProcessingEffects } from "./components/effects";
 import { useCameraValues } from "./hooks/use-camera-values";
 import { createSpritesheet, downloadFile } from "./utils/assets";
 import { Box } from "./components/box";
+import { Lighting } from "./components/config/lights-config";
+import TimelineEditor from "./components/timeline";
+import { useFrameValues } from "./hooks/use-frame-values";
 
 function AssetCreation() {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -42,6 +44,8 @@ function AssetCreation() {
   const rotation = useModelStore((state) => state.rotation);
   const intervals = useExportOptionsStore((state) => state.intervals);
   const iterations = useExportOptionsStore((state) => state.iterations);
+
+  const { height, width } = useFrameValues();
 
   const {
     position: cameraPosition,
@@ -134,71 +138,55 @@ function AssetCreation() {
     };
   }, [takeScreenshot]);
 
-  const { height, width } = useControls({
-    frame: folder({
-      height: 150,
-      width: 300,
-    }),
-  });
-
   return (
-    <div className="flex flex-1 w-full h-full flex-col items-center justify-center">
-      <div
-        style={{
-          border: "1px solid var(--color-border)",
-          height,
-          width,
-        }}
-      >
-        <Canvas
-          gl={{
-            preserveDrawingBuffer: true,
+    <div className="flex flex-1 w-full h-full flex-col">
+      <div className="flex flex-1 w-full h-full flex-col items-center justify-center">
+        <div
+          className="border-1 border-chart-3/25"
+          style={{
+            height,
+            width,
           }}
-          onCreated={({ gl }) => setGl(gl)}
-          ref={canvas}
         >
-          <ambientLight intensity={Math.PI / 2} />
-          <spotLight
-            position={[10, 10, 10]}
-            angle={0.15}
-            penumbra={1}
-            decay={0}
-            intensity={Math.PI}
-          />
-          <pointLight
-            position={[-10, -10, -10]}
-            decay={0}
-            intensity={Math.PI}
-          />
-          <Selection>
-            <PostProcessingEffects />
-            {cameraType === "orthographic" ? (
-              <OrthographicCamera
-                makeDefault={true}
-                position={cameraPosition}
-                zoom={zoom}
-              />
-            ) : (
-              <PerspectiveCamera
-                makeDefault={true}
-                position={cameraPosition}
-                fov={fov}
-                zoom={zoom}
-              />
-            )}
-            {!modelFile && <Box />}
-            {modelFile && (
-              <FileModel
-                rotation={rotation}
-                position={position}
-                scale={scale}
-                file={modelFile}
-              />
-            )}
-          </Selection>
-          <OrbitControls enableZoom={false} />
-        </Canvas>
+          <Canvas
+            gl={{
+              preserveDrawingBuffer: true,
+            }}
+            onCreated={({ gl }) => setGl(gl)}
+            ref={canvas}
+          >
+            <Lighting />
+            <Selection>
+              <PostProcessingEffects />
+              {cameraType === "orthographic" ? (
+                <OrthographicCamera
+                  makeDefault={true}
+                  position={cameraPosition}
+                  zoom={zoom}
+                />
+              ) : (
+                <PerspectiveCamera
+                  makeDefault={true}
+                  position={cameraPosition}
+                  fov={fov}
+                  zoom={zoom}
+                />
+              )}
+              {!modelFile && <Box />}
+              {modelFile && (
+                <FileModel
+                  rotation={rotation}
+                  position={position}
+                  scale={scale}
+                  file={modelFile}
+                />
+              )}
+            </Selection>
+            <OrbitControls enableZoom={false} />
+          </Canvas>
+        </div>
       </div>
+      <TimelineEditor />
     </div>
   );
 }

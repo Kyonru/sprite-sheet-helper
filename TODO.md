@@ -17,3 +17,13 @@
 ### Export
 
 - Gif export
+
+### Preview
+
+- Light position overlay
+  - possibly another canvas showing the lights positions without casting light
+  - or maybe hiding the lights when screenshots start
+
+### Tech dev
+
+- Use Key Value instead of helper functions on leva selects

@@ -13,10 +13,17 @@ const PixelationEffect = () => {
   const setPixelation = useEffectsStore((state) => state.setPixelation);
   const pixelation = useEffectsStore((state) => state.pixelation);
   const { enabled, granularity } = useControls({
-    pixelation: folder(
+    effects: folder(
       {
-        enabled: pixelation.enabled,
-        granularity: pixelation.granularity,
+        pixelation: folder(
+          {
+            enabled: pixelation.enabled,
+            granularity: pixelation.granularity,
+          },
+          {
+            collapsed: true,
+          }
+        ),
       },
       {
         collapsed: true,
@@ -50,21 +57,28 @@ const BloomEffect = () => {
     resolutionX,
     resolutionY,
   } = useControls({
-    bloom: folder(
+    effects: folder(
       {
-        ...bloomProps,
-        luminanceSmoothing: {
-          min: 0,
-          max: 1,
-          step: 0.01,
-          value: bloom.luminanceSmoothing,
-        },
-        luminanceThreshold: {
-          min: 0,
-          max: 1,
-          step: 0.01,
-          value: bloom.luminanceThreshold,
-        },
+        bloom: folder(
+          {
+            ...bloomProps,
+            luminanceSmoothing: {
+              min: 0,
+              max: 1,
+              step: 0.01,
+              value: bloom.luminanceSmoothing,
+            },
+            luminanceThreshold: {
+              min: 0,
+              max: 1,
+              step: 0.01,
+              value: bloom.luminanceThreshold,
+            },
+          },
+          {
+            collapsed: true,
+          }
+        ),
       },
       {
         collapsed: true,
@@ -101,14 +115,21 @@ const NoiseEffect = () => {
   const noise = useEffectsStore((state) => state.noise);
 
   const { enabled, blendFunction, premultiply } = useControls({
-    noise: folder(
+    effects: folder(
       {
-        enabled: noise.enabled,
-        premultiply: noise.premultiply,
-        blendFunction: {
-          options: BLEND_FUNCTIONS,
-          value: getBlendFunctionName(noise.blendFunction),
-        },
+        noise: folder(
+          {
+            enabled: noise.enabled,
+            premultiply: noise.premultiply,
+            blendFunction: {
+              options: BLEND_FUNCTIONS,
+              value: getBlendFunctionName(noise.blendFunction),
+            },
+          },
+          {
+            collapsed: true,
+          }
+        ),
       },
       {
         collapsed: true,
@@ -139,25 +160,32 @@ const DepthOfFieldEffect = () => {
     width,
     height,
   } = useControls({
-    "depth of field": folder(
+    effects: folder(
       {
-        ...depthOfField,
-        blendFunction: {
-          options: BLEND_FUNCTIONS,
-          value: getBlendFunctionName(depthOfField.blendFunction),
-        },
-        focalLength: {
-          min: 0,
-          max: 1,
-          step: 0.01,
-          value: depthOfField.focalLength,
-        },
-        focusDistance: {
-          min: 0,
-          max: 1,
-          step: 0.01,
-          value: depthOfField.focusDistance,
-        },
+        "depth of field": folder(
+          {
+            ...depthOfField,
+            blendFunction: {
+              options: BLEND_FUNCTIONS,
+              value: getBlendFunctionName(depthOfField.blendFunction),
+            },
+            focalLength: {
+              min: 0,
+              max: 1,
+              step: 0.01,
+              value: depthOfField.focalLength,
+            },
+            focusDistance: {
+              min: 0,
+              max: 1,
+              step: 0.01,
+              value: depthOfField.focusDistance,
+            },
+          },
+          {
+            collapsed: true,
+          }
+        ),
       },
       {
         collapsed: true,
@@ -203,17 +231,24 @@ const GlitchEffect = () => {
     dtSize,
     blendFunction,
   } = useControls({
-    glitch: folder(
+    effects: folder(
       {
-        ...gltich,
-        mode: {
-          options: GLITCH_MODES,
-          value: getGlitchModeName(gltich.mode),
-        },
-        blendFunction: {
-          options: BLEND_FUNCTIONS,
-          value: getBlendFunctionName(gltich.blendFunction),
-        },
+        glitch: folder(
+          {
+            ...gltich,
+            mode: {
+              options: GLITCH_MODES,
+              value: getGlitchModeName(gltich.mode),
+            },
+            blendFunction: {
+              options: BLEND_FUNCTIONS,
+              value: getBlendFunctionName(gltich.blendFunction),
+            },
+          },
+          {
+            collapsed: true,
+          }
+        ),
       },
       {
         collapsed: true,
@@ -271,13 +306,20 @@ const OutlineEffect = () => {
     blur,
     xRay,
   } = useControls({
-    outline: folder(
+    effects: folder(
       {
-        ...outlineProps,
-        blendFunction: {
-          options: BLEND_FUNCTIONS,
-          value: getBlendFunctionName(outline.blendFunction),
-        },
+        outline: folder(
+          {
+            ...outlineProps,
+            blendFunction: {
+              options: BLEND_FUNCTIONS,
+              value: getBlendFunctionName(outline.blendFunction),
+            },
+          },
+          {
+            collapsed: true,
+          }
+        ),
       },
       {
         collapsed: true,
