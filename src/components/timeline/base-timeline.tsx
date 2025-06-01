@@ -1,12 +1,40 @@
-import { useRef, useEffect, type ChangeEvent } from "react";
+import { useRef, useEffect, type ChangeEvent, useState } from "react";
 import { motion, MotionValue } from "motion/react";
 import Ruler from "@scena/react-ruler";
 import { LucidePlus } from "lucide-react";
+import { button, useControls } from "leva";
 import { DroppableKeyframe, DroppableTrack } from "./dropable-keyframe";
 import type { MotionValues } from "./types";
 import { TimeIndicator } from "./time-indicator";
 import { useTimelineContext } from "./hooks/useTimeline";
 import { interpolate } from "./utils/animations";
+import { useModelStore } from "@/store/model";
+import { ObjectProperties } from "./object";
+
+const SelectionLayer = ({
+  onSelect,
+}: {
+  onSelect?: (objectId: string) => void;
+}) => {
+  const { uiStore } = useTimelineContext();
+  const modelObject = useModelStore((state) => state.ref);
+
+  useControls(
+    {
+      object: {
+        options: ["", modelObject?.uuid || ""],
+        value: "",
+      },
+      done: button((get) => {
+        onSelect?.(get("object"));
+      }),
+    },
+    { store: uiStore },
+    [modelObject]
+  );
+
+  return null;
+};
 
 export function BaseTimelineEditor() {
   const {
@@ -20,8 +48,11 @@ export function BaseTimelineEditor() {
     time,
     setTime,
     unit,
+    addObject,
   } = useTimelineContext();
   const motionValues = useRef<Record<string, MotionValues>>({});
+  const [selectingObject, setSelectingObject] = useState<boolean>(false);
+
   objects.forEach((obj) => {
     if (!motionValues.current[obj.id]) {
       motionValues.current[obj.id] = {
@@ -32,7 +63,14 @@ export function BaseTimelineEditor() {
   });
 
   const onAddObject = () => {
-    console.log("Add object");
+    setSelectingObject(true);
+  };
+
+  const onSelectObject = (uuid: string) => {
+    setSelectingObject(false);
+    if (!uuid) return;
+
+    addObject(uuid);
   };
 
   useEffect(() => {
@@ -87,6 +125,7 @@ export function BaseTimelineEditor() {
           />
         ))}
       </div>
+      {selectingObject && <SelectionLayer onSelect={onSelectObject} />}
       <div className="p-4 bg-primary-foreground font-sans space-y-4 no-scrollbar">
         <div className="flex items-center gap-2">
           <button
@@ -140,11 +179,8 @@ export function BaseTimelineEditor() {
                 <div
                   className="relative h-8"
                   onClick={(e) => {
-                    console.log(e);
-                    // const width = e.nativeEvent.target.clientWidth /c
                     const newTime =
                       (e.nativeEvent.offsetX / timelineWidth) * duration;
-                    console.log(timelineWidth, e.nativeEvent.offsetX, newTime);
                     setTime(newTime);
                   }}
                 >
@@ -163,19 +199,7 @@ export function BaseTimelineEditor() {
               {/* Tracks content */}
               {objects.map((obj) => (
                 <div key={obj.id} className="flex flex-row">
-                  <div className="w-[150px] sticky left-0 z-100 bg-muted border-b border-r">
-                    <div className="px-2 py-1 font-medium text-sm bg-popover text-popover-foreground border-b h-[32px]">
-                      {obj.name}
-                    </div>
-                    {obj.tracks.map((track) => (
-                      <div
-                        key={track.id}
-                        className="px-3 py-1 text-xs border-b text-muted-foreground h-6 flex items-center"
-                      >
-                        {track.property}
-                      </div>
-                    ))}
-                  </div>
+                  <ObjectProperties obj={obj} />
                   <DroppableTrack id={obj.id}>
                     {obj.tracks.map((track, j) =>
                       track.keyframes.map((kf, i) => {

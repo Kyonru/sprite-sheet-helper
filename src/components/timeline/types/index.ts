@@ -1,16 +1,19 @@
 import type { MotionValue } from "motion/react";
 
+export type Easing = "linear" | "easeInOut" | "easeOut";
+
 export interface Keyframe {
   fromValue: number;
   toValue: number;
   start: number;
   end: number;
-  easing: "linear" | "easeInOut" | "easeOut";
+  easing: Easing;
 }
+export type TrackProperty = "x" | "y" | "z" | "opacity";
 
 export interface Track {
   id: string;
-  property: "x" | "opacity";
+  property: TrackProperty;
   keyframes: Keyframe[];
 }
 
