@@ -21,8 +21,8 @@ export const PostProcessingEffects = () => {
   const noise = useEffectsStore((state) => state.noise);
   const vignette = useEffectsStore((state) => state.vignette);
   const outline = useEffectsStore((state) => state.outline);
-
   const modelRef = useModelStore((state) => state.ref);
+  const setComposer = useEffectsStore((state) => state.setComposer);
 
   return (
     <EffectComposer
@@ -30,6 +30,9 @@ export const PostProcessingEffects = () => {
       // depthBuffer
       multisampling={8}
       autoClear={false}
+      ref={(ref) => {
+        setComposer(ref);
+      }}
     >
       <>
         {depthOfField.enabled && <DepthOfField {...depthOfField} />}

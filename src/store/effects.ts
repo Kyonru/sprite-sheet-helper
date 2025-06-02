@@ -4,6 +4,7 @@ import {
   KernelSize,
   Resolution,
   type BlurPass,
+  EffectComposer,
 } from "postprocessing";
 import { create } from "zustand";
 
@@ -74,6 +75,9 @@ interface Vignette extends Feature {
 }
 
 interface EffectsState {
+  composer?: EffectComposer | null;
+  setComposer: (composer: EffectComposer | null) => void;
+
   pixelation: {
     enabled: boolean;
     granularity: number;
@@ -102,9 +106,13 @@ interface EffectsState {
 }
 
 export const useEffectsStore = create<EffectsState>((set) => ({
+  composer: null,
+  setComposer: (composer: EffectComposer | null) =>
+    set(() => ({ composer: composer })),
+
   pixelation: {
     enabled: false,
-    granularity: 5,
+    granularity: 2,
   },
   setPixelation: (props: Partial<Pixelation>) =>
     set((state) => ({

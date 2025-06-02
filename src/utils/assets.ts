@@ -1,4 +1,4 @@
-export async function createSpritesheet(
+export async function createSpriteSheet(
   images: string[],
   axis: "x" | "y" = "x"
 ): Promise<string> {

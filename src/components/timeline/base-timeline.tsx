@@ -1,15 +1,14 @@
-import { useRef, useEffect, type ChangeEvent, useState } from "react";
-import { motion, MotionValue } from "motion/react";
+import { useEffect, type ChangeEvent, useState } from "react";
 import Ruler from "@scena/react-ruler";
 import { LucidePlus } from "lucide-react";
 import { button, useControls } from "leva";
 import { DroppableKeyframe, DroppableTrack } from "./dropable-keyframe";
-import type { MotionValues } from "./types";
 import { TimeIndicator } from "./time-indicator";
 import { useTimelineContext } from "./hooks/useTimeline";
 import { interpolate } from "./utils/animations";
 import { useModelStore } from "@/store/model";
 import { ObjectProperties } from "./object";
+import { useMotionValues } from "@/hooks/use-motion-values";
 
 const SelectionLayer = ({
   onSelect,
@@ -50,17 +49,9 @@ export function BaseTimelineEditor() {
     unit,
     addObject,
   } = useTimelineContext();
-  const motionValues = useRef<Record<string, MotionValues>>({});
-  const [selectingObject, setSelectingObject] = useState<boolean>(false);
 
-  objects.forEach((obj) => {
-    if (!motionValues.current[obj.id]) {
-      motionValues.current[obj.id] = {
-        x: new MotionValue(0),
-        opacity: new MotionValue(1),
-      };
-    }
-  });
+  const motionValues = useMotionValues();
+  const [selectingObject, setSelectingObject] = useState<boolean>(false);
 
   const onAddObject = () => {
     setSelectingObject(true);
@@ -78,18 +69,18 @@ export function BaseTimelineEditor() {
       if (!playing) return;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      setTime((t: number) => {
-        const newTime: number = t + 0.016;
-        if (newTime >= duration) {
-          setPlaying(false);
-          return duration;
-        }
-        return newTime;
-      });
+
+      const newTime: number = time + 0.016;
+      if (newTime >= duration) {
+        setPlaying(false);
+        return duration;
+      }
+
+      setTime(newTime);
     }, 16);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [duration, playing]);
+  }, [duration, playing, time]);
 
   useEffect(() => {
     for (const obj of objects) {
@@ -97,12 +88,12 @@ export function BaseTimelineEditor() {
         if (!Array.isArray(track.keyframes) || track.keyframes.length === 0)
           continue;
         const value = interpolate(time, track.keyframes);
-        if (motionValues.current[obj.id][track.property]) {
+        if (motionValues?.current[obj.id][track.property]) {
           motionValues.current[obj.id][track.property].set(value);
         }
       }
     }
-  }, [time, objects]);
+  }, [time, objects, motionValues]);
 
   const handleTimeChange = (e: ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
@@ -113,18 +104,19 @@ export function BaseTimelineEditor() {
   return (
     <>
       {/* Preview items */}
-      <div className="h-32 flex items-center gap-4">
+      {/* <div className="h-32 flex items-center gap-4">
         {objects.map((obj) => (
           <motion.div
             key={obj.id}
             className="w-12 h-12 bg-chart-3 rounded"
             style={{
-              x: motionValues.current[obj.id].x,
-              opacity: motionValues.current[obj.id].opacity,
+              x: motionValues?.current[obj.id].x,
+              opacity: motionValues?.current[obj.id].opacity,
+              y: motionValues?.current[obj.id].y,
             }}
           />
         ))}
-      </div>
+      </div> */}
       {selectingObject && <SelectionLayer onSelect={onSelectObject} />}
       <div className="p-4 bg-primary-foreground font-sans space-y-4 no-scrollbar">
         <div className="flex items-center gap-2">

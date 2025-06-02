@@ -13,7 +13,7 @@ interface CameraState {
 }
 
 export const useCameraStore = create<CameraState>((set) => ({
-  position: [0, 0, 200],
+  position: [10, 1, 10],
   setPosition: (position: [number, number, number]) =>
     set(() => ({ position: position })),
   zoom: 1,

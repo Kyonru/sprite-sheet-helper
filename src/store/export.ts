@@ -12,6 +12,10 @@ interface ExportOptionsState {
   setWidth: (width: number) => void;
   height: number;
   setHeight: (height: number) => void;
+  exportWidth: number;
+  setExportWidth: (exportWidth: number) => void;
+  exportHeight: number;
+  setExportHeight: (exportHeight: number) => void;
 }
 
 export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
@@ -22,8 +26,14 @@ export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
   iterations: 10,
   setIterations: (iterations: number) =>
     set(() => ({ iterations: iterations })),
-  width: 300,
+  width: 500,
   setWidth: (width: number) => set(() => ({ width: width })),
-  height: 150,
+  height: 500,
   setHeight: (height: number) => set(() => ({ height: height })),
+  exportWidth: 64,
+  setExportWidth: (exportWidth: number) =>
+    set(() => ({ exportWidth: exportWidth })),
+  exportHeight: 64,
+  setExportHeight: (exportHeight: number) =>
+    set(() => ({ exportHeight: exportHeight })),
 }));

@@ -8,13 +8,45 @@ const FrameConfig = () => {
   const widthDefault = useExportOptionsStore((state) => state.width);
   const setHeight = useExportOptionsStore((state) => state.setHeight);
   const setWidth = useExportOptionsStore((state) => state.setWidth);
+  const exportHeightDefault = useExportOptionsStore(
+    (state) => state.exportHeight
+  );
+  const exportWidthDefault = useExportOptionsStore(
+    (state) => state.exportWidth
+  );
+  const setExportHeight = useExportOptionsStore(
+    (state) => state.setExportHeight
+  );
+  const setExportWidth = useExportOptionsStore((state) => state.setExportWidth);
 
-  const { height, width } = useControls({
+  const { height, width, previewHeight, previewWidth } = useControls({
     "export options": folder({
       size: folder(
         {
-          height: heightDefault,
-          width: widthDefault,
+          preview: folder(
+            {
+              previewHeight: {
+                label: "height",
+                value: heightDefault,
+              },
+              previewWidth: {
+                label: "width",
+                value: widthDefault,
+              },
+            },
+            {
+              collapsed: true,
+            }
+          ),
+          export: folder(
+            {
+              height: exportHeightDefault,
+              width: exportWidthDefault,
+            },
+            {
+              collapsed: true,
+            }
+          ),
         },
         {
           collapsed: true,
@@ -24,9 +56,14 @@ const FrameConfig = () => {
   });
 
   useEffect(() => {
-    setHeight(height);
-    setWidth(width);
-  }, [height, width, setHeight, setWidth]);
+    setHeight(previewHeight);
+    setWidth(previewWidth);
+  }, [previewHeight, previewWidth, setHeight, setWidth]);
+
+  useEffect(() => {
+    setExportHeight(height);
+    setExportWidth(width);
+  }, [height, width, setExportHeight, setExportWidth]);
 
   return null;
 };

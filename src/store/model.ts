@@ -31,6 +31,5 @@ export const useModelStore = create<ModelState>((set) => ({
   setAnimation: (animation: string | null) =>
     set(() => ({ animation: animation })),
   ref: null,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setRef: (ref: Object3D) => set(() => ({ ref: ref })),
 }));
