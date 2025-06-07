@@ -65,6 +65,8 @@ export const AssetScene = () => {
   const iterations = useExportOptionsStore((state) => state.iterations);
   const frameDelay = useExportOptionsStore((state) => state.frameDelay);
 
+  const setImages = useExportOptionsStore((state) => state.setImages);
+
   const composer = useEffectsStore((state) => state.composer);
 
   const { exportHeight, exportWidth } = useFrameValues();
@@ -132,6 +134,47 @@ export const AssetScene = () => {
     downloadFile("data:application/zip;base64," + zipData, "images.zip");
   }, [images]);
 
+  const exportSpriteSheet = useCallback(async () => {
+    try {
+      switch (exportFormat) {
+        case "zip":
+          await downloadImageFiles();
+          break;
+        case "spritesheet": {
+          const dataUrl = await createSpriteSheet(
+            images.current.map((img) => img.dataURL),
+            "x",
+            exportWidth,
+            exportHeight
+          );
+          downloadFile(dataUrl, "spritesheet.png");
+          break;
+        }
+        case "gif": {
+          const gifUrl = await createGif(
+            images.current.map((img) => img.dataURL),
+            exportWidth,
+            exportHeight,
+            frameDelay
+          );
+          downloadFile(gifUrl, "spritesheet.gif");
+          break;
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    PubSub.emit(EventType.STOP_EXPORT);
+  }, [
+    exportFormat,
+    exportWidth,
+    exportHeight,
+    frameDelay,
+    downloadImageFiles,
+    images,
+  ]);
+
   const takeScreenshot = useCallback(() => {
     if (!gl) return;
 
@@ -152,47 +195,14 @@ export const AssetScene = () => {
         console.log("Stopped taking screenshots.");
         PubSub.emit(EventType.STOP_ASSETS_CREATION);
         setShowEditor(true);
-
-        try {
-          switch (exportFormat) {
-            case "zip":
-              await downloadImageFiles();
-              break;
-            case "spritesheet": {
-              const dataUrl = await createSpriteSheet(
-                images.current.map((img) => img.dataURL),
-                "x",
-                exportWidth,
-                exportHeight
-              );
-              downloadFile(dataUrl, "spritesheet.png");
-              break;
-            }
-            case "gif": {
-              const gifUrl = await createGif(
-                images.current.map((img) => img.dataURL),
-                exportWidth,
-                exportHeight,
-                frameDelay
-              );
-              downloadFile(gifUrl, "spritesheet.gif");
-              break;
-            }
-          }
-        } catch (err) {
-          console.error(err);
-        }
+        setImages(images.current.map((img) => img.dataURL));
       }
     );
   }, [
-    exportFormat,
     gl,
     intervals,
     iterations,
-    exportWidth,
-    exportHeight,
-    frameDelay,
-    downloadImageFiles,
+    setImages,
     captureScreenshotData,
     setShowEditor,
   ]);
@@ -205,6 +215,15 @@ export const AssetScene = () => {
       PubSub.off(EventType.START_ASSETS_CREATION, takeScreenshot);
     };
   }, [takeScreenshot]);
+
+  useEffect(() => {
+    PubSub.on(EventType.START_EXPORT, exportSpriteSheet);
+
+    // Clean up the subscription when the component unmounts
+    return () => {
+      PubSub.off(EventType.START_EXPORT, exportSpriteSheet);
+    };
+  }, [exportSpriteSheet]);
 
   return (
     <>

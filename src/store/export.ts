@@ -18,6 +18,10 @@ interface ExportOptionsState {
   setExportWidth: (exportWidth: number) => void;
   exportHeight: number;
   setExportHeight: (exportHeight: number) => void;
+  preview: boolean;
+  setPreview: (preview: boolean) => void;
+  images: string[];
+  setImages: (images: string[]) => void;
 }
 
 export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
@@ -31,6 +35,10 @@ export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
   iterations: 10,
   setIterations: (iterations: number) =>
     set(() => ({ iterations: iterations })),
+  images: [],
+  setImages: (images: string[]) => set(() => ({ images: images })),
+  preview: true,
+  setPreview: (preview: boolean) => set(() => ({ preview: preview })),
   width: 500,
   setWidth: (width: number) => set(() => ({ width: width })),
   height: 500,

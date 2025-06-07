@@ -20,39 +20,8 @@ import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
 import { useModelStore } from "@/store/model";
 import { useEffect, useState } from "react";
 import { LucideLoaderCircle } from "lucide-react";
+import { LEVA_THEME } from "@/constants/theming";
 
-const levaTheme = {
-  colors: {
-    elevation1: "var(--background)",
-    elevation2: "var(--muted)",
-    elevation3: "var(--border)",
-
-    accent1: "var(--primary)",
-    accent2: "var(--accent-foreground)",
-    accent3: "var(--ring)",
-
-    highlight1: "var(--primary-foreground)",
-    highlight2: "var(--muted-foreground)",
-    highlight3: "var(--chart-3)",
-
-    vivid1: "var(--destructive)",
-  },
-  radii: {
-    sm: "0.25rem",
-    md: "0.375rem",
-    lg: "var(--radius)",
-  },
-  space: {
-    rowGap: "0.5rem",
-    colGap: "0.5rem",
-    controlHeight: "2rem",
-  },
-  fontSizes: {
-    root: "14px",
-    label: "12px",
-    toolTip: "11px",
-  },
-};
 
 export function AppSidebar() {
   const background = useAppColorStore((state) => state.color);
@@ -114,7 +83,7 @@ export function AppSidebar() {
                 // hideTitleBar={true} // default = false, hides the GUI header
                 // collapsed // default = false, when true the GUI is collpased
                 // hidden // default = false, when true the GUI is hidden
-                theme={levaTheme}
+                theme={LEVA_THEME}
               />
               <AssetConfig />
             </SidebarMenu>

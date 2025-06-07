@@ -135,7 +135,7 @@ export function FileModel({ file, ...props }: Props) {
         mixerRef.current = null;
       }
     };
-  }, [file]);
+  }, [file, setClips, setMixerRef]);
 
   useEffect(() => {
     const resetAnimations = () => {

@@ -5,128 +5,7 @@ import { useMotionValues } from "@/hooks/use-motion-values";
 import { MotionValue } from "motion/react";
 import { useAnimationStateDerivedValues } from "@/hooks/use-animation-state-derived-values";
 import { useAnimationStore } from "@/store/animation";
-
-// const initialObjects: AnimationObject[] = [
-//   {
-//     id: "object-1",
-//     name: "Box A",
-//     tracks: [
-//       {
-//         id: "track-1",
-//         property: "x",
-//         keyframes: [
-//           { fromValue: 0, toValue: 300, start: 0, end: 2, easing: "easeInOut" },
-//           {
-//             fromValue: 300,
-//             toValue: 0,
-//             start: 2.5,
-//             end: 10,
-//             easing: "linear",
-//           },
-//         ],
-//       },
-//       {
-//         id: "track-2",
-//         property: "opacity",
-//         keyframes: [
-//           {
-//             fromValue: 1,
-//             toValue: 0,
-//             start: 2.5,
-//             end: 10,
-//             easing: "easeInOut",
-//           },
-//         ],
-//       },
-//     ],
-//   },
-//   {
-//     id: "object-2",
-//     name: "Box B",
-//     tracks: [
-//       {
-//         id: "track-3",
-//         property: "x",
-//         keyframes: [
-//           { fromValue: 300, toValue: 0, start: 0, end: 2, easing: "easeInOut" },
-//         ],
-//       },
-//     ],
-//   },
-//   {
-//     id: "object-3",
-//     name: "Box C",
-//     tracks: [
-//       {
-//         id: "track-4",
-//         property: "x",
-//         keyframes: [
-//           { fromValue: 400, toValue: 0, start: 0, end: 2, easing: "easeInOut" },
-//         ],
-//       },
-//     ],
-//   },
-//   {
-//     id: "object-4",
-//     name: "Box D",
-//     tracks: [
-//       {
-//         id: "track-5",
-//         property: "x",
-//         keyframes: [
-//           { fromValue: 0, toValue: 400, start: 0, end: 2, easing: "easeInOut" },
-//           {
-//             fromValue: 400,
-//             toValue: 300,
-//             start: 2.5,
-//             end: 3,
-//             easing: "easeInOut",
-//           },
-//         ],
-//       },
-//       {
-//         id: "track-6",
-//         property: "opacity",
-//         keyframes: [
-//           { fromValue: 1, toValue: 0.2, start: 1, end: 3, easing: "easeOut" },
-//           {
-//             fromValue: 0.2,
-//             toValue: 1,
-//             start: 3.5,
-//             end: 4,
-//             easing: "easeInOut",
-//           },
-//         ],
-//       },
-//     ],
-//   },
-//   {
-//     id: "object-5",
-//     name: "Box E",
-//     tracks: [
-//       {
-//         id: "track-7",
-//         property: "x",
-//         keyframes: [
-//           { fromValue: 400, toValue: 0, start: 0, end: 2, easing: "easeInOut" },
-//         ],
-//       },
-//     ],
-//   },
-//   {
-//     id: "object-6",
-//     name: "Box F",
-//     tracks: [
-//       {
-//         id: "track-8",
-//         property: "x",
-//         keyframes: [
-//           { fromValue: 400, toValue: 0, start: 0, end: 2, easing: "easeInOut" },
-//         ],
-//       },
-//     ],
-//   },
-// ];
+import { LEVA_THEME } from "@/constants/theming";
 
 const unit = 100;
 
@@ -199,23 +78,27 @@ export default function TimelineEditor() {
         <div
           style={{
             position: "absolute",
-            top: "-1vh",
-            left: "16px",
+            top: "-12vh",
+            left: "54px",
+            zIndex: 999,
           }}
         >
           <LevaPanel
+            theme={LEVA_THEME}
             fill
             store={uiStore}
             collapsed={false}
             titleBar={{ title: "Select object" }}
           />
           <LevaPanel
+            theme={LEVA_THEME}
             fill
             store={propertyStore}
             collapsed={false}
             titleBar={{ title: "Select property" }}
           />
           <LevaPanel
+            theme={LEVA_THEME}
             fill
             store={keyframeStore}
             collapsed={false}
