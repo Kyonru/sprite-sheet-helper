@@ -8,6 +8,8 @@ interface ExportOptionsState {
   setIntervals: (interval: number) => void;
   iterations: number;
   setIterations: (iterations: number) => void;
+  frameDelay: number;
+  setFrameDelay: (frameDelay: number) => void;
   width: number;
   setWidth: (width: number) => void;
   height: number;
@@ -19,10 +21,13 @@ interface ExportOptionsState {
 }
 
 export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
-  mode: "zip",
+  mode: "spritesheet",
   setMode: (mode: ExportFormat) => set(() => ({ mode: mode })),
   intervals: 250,
   setIntervals: (intervals: number) => set(() => ({ intervals: intervals })),
+  frameDelay: 250,
+  setFrameDelay: (frameDelay: number) =>
+    set(() => ({ frameDelay: frameDelay })),
   iterations: 10,
   setIterations: (iterations: number) =>
     set(() => ({ iterations: iterations })),

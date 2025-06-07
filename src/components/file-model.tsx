@@ -13,6 +13,7 @@ import { useModelStore } from "@/store/model";
 import { Outlines } from "@react-three/drei";
 import { Select } from "@react-three/postprocessing";
 import { useEffectsStore } from "@/store/effects";
+import { useAnimationStore } from "@/store/animation";
 
 type Props = {
   file: File;
@@ -26,6 +27,8 @@ export function FileModel({ file, ...props }: Props) {
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const setRef = useModelStore((state) => state.setRef);
   const outline = useEffectsStore((state) => state.outline);
+  const setClips = useAnimationStore((state) => state.setClips);
+  const setMixerRef = useAnimationStore((state) => state.setMixerRef);
 
   useEffect(() => {
     const ext = file.name.split(".").pop()?.toLowerCase();
@@ -41,6 +44,11 @@ export function FileModel({ file, ...props }: Props) {
       if (mixerRef.current) mixerRef.current.stopAllAction();
       setObject(null);
 
+      const allAnimationsClips: {
+        action: THREE.AnimationAction;
+        clip: THREE.AnimationClip;
+      }[] = [];
+
       try {
         switch (ext) {
           case "glb":
@@ -51,14 +59,31 @@ export function FileModel({ file, ...props }: Props) {
               const scene = gltf.scene;
               setObject(scene);
 
+              scene.traverse(function (object: {
+                isMesh: boolean;
+                castShadow: boolean;
+              }) {
+                if (object.isMesh) object.castShadow = true;
+              });
+
+              const mixer = new THREE.AnimationMixer(scene);
               if (gltf.animations.length > 0) {
-                const mixer = new THREE.AnimationMixer(scene);
                 gltf.animations.forEach((clip: THREE.AnimationClip) => {
                   console.log(clip.name);
-                  mixer.clipAction(clip).play();
+                  // mixer.clipAction(clip).play();
+                  allAnimationsClips.push({
+                    action: mixer.clipAction(clip),
+                    clip,
+                  });
                 });
+
                 mixerRef.current = mixer;
               }
+
+              setClips(allAnimationsClips);
+              setMixerRef(mixer);
+
+              console.log({ allAnimationsClips });
             });
             break;
           }
@@ -71,7 +96,11 @@ export function FileModel({ file, ...props }: Props) {
             if (scene.animations?.length > 0) {
               const mixer = new THREE.AnimationMixer(scene);
               scene.animations.forEach((clip: THREE.AnimationClip) => {
-                mixer.clipAction(clip).play();
+                const action = mixer.clipAction(clip);
+                allAnimationsClips.push({
+                  action,
+                  clip,
+                });
               });
               mixerRef.current = mixer;
             }

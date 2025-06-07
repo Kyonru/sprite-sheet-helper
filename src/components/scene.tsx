@@ -8,7 +8,6 @@ import {
   OrbitControls,
   OrthographicCamera,
   PerspectiveCamera,
-  TransformControls,
 } from "@react-three/drei";
 import { scheduleInterval } from "../utils/time";
 import { FileModel } from "../components/file-model";
@@ -17,28 +16,22 @@ import { useModelStore } from "../store/model";
 import { useExportOptionsStore } from "../store/export";
 import { PostProcessingEffects } from "../components/effects";
 import { useCameraValues } from "../hooks/use-camera-values";
-import { createSpriteSheet, downloadFile } from "../utils/assets";
+import { createGif, createSpriteSheet, downloadFile } from "../utils/assets";
 import { Box } from "../components/box";
 import { Lighting } from "../components/config/lights-config";
 import { useFrameValues } from "../hooks/use-frame-values";
 import { useEditorStore } from "@/store/editor";
 import { useEffectsStore } from "@/store/effects";
+import { TransformController } from "./transform-controller";
 
 const TransformAsset = () => {
-  const showEditor = useEditorStore((state) => state.showEditor);
   const modelFile = useModelStore((state) => state.file);
   const scale = useModelStore((state) => state.scale);
   const position = useModelStore((state) => state.position);
   const rotation = useModelStore((state) => state.rotation);
 
   return (
-    <TransformControls
-      enabled={showEditor}
-      mode="translate"
-      showX={showEditor}
-      showY={showEditor}
-      showZ={showEditor}
-    >
+    <TransformController>
       {modelFile ? (
         <FileModel
           rotation={rotation}
@@ -49,7 +42,7 @@ const TransformAsset = () => {
       ) : (
         <Box />
       )}
-    </TransformControls>
+    </TransformController>
   );
 };
 
@@ -70,6 +63,7 @@ export const AssetScene = () => {
 
   const intervals = useExportOptionsStore((state) => state.intervals);
   const iterations = useExportOptionsStore((state) => state.iterations);
+  const frameDelay = useExportOptionsStore((state) => state.frameDelay);
 
   const composer = useEffectsStore((state) => state.composer);
 
@@ -98,29 +92,31 @@ export const AssetScene = () => {
     const originalSize = gl.getSize(new THREE.Vector2());
     const originalPixelRatio = gl.getPixelRatio();
 
-    // Resize renderer to custom size
-    gl.setSize(exportWidth, exportHeight);
-    gl.setPixelRatio(1); // Optional: 1:1 pixel ratio for sharp output
-    composer.setSize(exportWidth, exportHeight);
+    // Optional: upscale the output image
+    if (exportWidth && exportHeight) {
+      gl.setSize(exportWidth, exportHeight, true);
+    }
 
-    // Render with postprocessing
+    gl.setPixelRatio(1);
+
+    // Render the postprocessed frame to the canvas
+    composer.setSize(exportWidth, exportWidth, true);
     composer.render();
 
-    const dataURL = gl.domElement.toDataURL(
-      `image_${images.current.length}/png`
-    );
-    const idx = dataURL.indexOf("base64,") + "base64,".length;
-    const content = dataURL.substring(idx);
+    // Capture the current canvas content as PNG
+    const dataURL = gl.domElement.toDataURL("image/png");
+    const base64Data = dataURL.split("base64,")[1];
 
     images.current.push({
-      name: "image" + images.current.length + ".png",
-      dataURL: content,
+      name: `image${images.current.length}.png`,
+      dataURL: base64Data,
     });
 
+    // Restore original size and pixel ratio
     gl.setPixelRatio(originalPixelRatio);
     gl.setSize(originalSize.x, originalSize.y);
     composer.setSize(originalSize.x, originalSize.y);
-  }, [images, gl, exportWidth, exportHeight, composer]);
+  }, [gl, composer, exportWidth, exportHeight, images]);
 
   const downloadImageFiles = useCallback(async () => {
     const zip = new JSZip();
@@ -154,15 +150,37 @@ export const AssetScene = () => {
       iterations,
       async () => {
         console.log("Stopped taking screenshots.");
+        PubSub.emit(EventType.STOP_ASSETS_CREATION);
         setShowEditor(true);
 
-        if (exportFormat === "zip") {
-          await downloadImageFiles();
-        } else {
-          const dataUrl = await createSpriteSheet(
-            images.current.map((img) => img.dataURL)
-          );
-          downloadFile(dataUrl, "spritesheet.png");
+        try {
+          switch (exportFormat) {
+            case "zip":
+              await downloadImageFiles();
+              break;
+            case "spritesheet": {
+              const dataUrl = await createSpriteSheet(
+                images.current.map((img) => img.dataURL),
+                "x",
+                exportWidth,
+                exportHeight
+              );
+              downloadFile(dataUrl, "spritesheet.png");
+              break;
+            }
+            case "gif": {
+              const gifUrl = await createGif(
+                images.current.map((img) => img.dataURL),
+                exportWidth,
+                exportHeight,
+                frameDelay
+              );
+              downloadFile(gifUrl, "spritesheet.gif");
+              break;
+            }
+          }
+        } catch (err) {
+          console.error(err);
         }
       }
     );
@@ -171,6 +189,9 @@ export const AssetScene = () => {
     gl,
     intervals,
     iterations,
+    exportWidth,
+    exportHeight,
+    frameDelay,
     downloadImageFiles,
     captureScreenshotData,
     setShowEditor,
@@ -192,7 +213,7 @@ export const AssetScene = () => {
         <PostProcessingEffects />
         {cameraType === "orthographic" ? (
           <OrthographicCamera
-            makeDefault={true}
+            makeDefault={cameraType === "orthographic"}
             position={cameraPosition}
             zoom={zoom}
           />
@@ -207,11 +228,9 @@ export const AssetScene = () => {
         <TransformAsset />
       </Selection>
       <OrbitControls enabled={showEditor} makeDefault />
-
       {showEditor && (
         <Grid
           visible={showEditor}
-          fadeDistance={25}
           infiniteGrid
           sectionColor={"#a09f9f"}
           cellColor={"#868686"}

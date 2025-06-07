@@ -18,6 +18,8 @@ import { Leva } from "leva";
 import { Input } from "./ui/input";
 import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
 import { useModelStore } from "@/store/model";
+import { useEffect, useState } from "react";
+import { LucideLoaderCircle } from "lucide-react";
 
 const levaTheme = {
   colors: {
@@ -56,9 +58,22 @@ export function AppSidebar() {
   const background = useAppColorStore((state) => state.color);
   const setBackground = useAppColorStore((state) => state.setColor);
   const setModelFile = useModelStore((state) => state.setFile);
+  const [exporting, setExporting] = useState(false);
   const takeScreenshot = () => {
+    setExporting(true);
     PubSub.emit(EventType.START_ASSETS_CREATION);
   };
+
+  useEffect(() => {
+    const stopExporting = () => {
+      setExporting(false);
+    };
+
+    PubSub.on(EventType.STOP_ASSETS_CREATION, stopExporting);
+    return () => {
+      PubSub.off(EventType.STOP_ASSETS_CREATION, stopExporting);
+    };
+  }, []);
 
   return (
     <Sidebar>
@@ -107,7 +122,13 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-border">
-        <Button onClick={takeScreenshot}>Create assets</Button>
+        <Button disabled={exporting} onClick={takeScreenshot}>
+          {exporting ? (
+            <LucideLoaderCircle className="animate-spin" />
+          ) : (
+            "Create assets"
+          )}
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );

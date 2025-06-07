@@ -5,9 +5,15 @@ import type {
   TrackProperty,
 } from "@/components/timeline/types";
 import { getDuration } from "@/utils/animation";
+import * as THREE from "three";
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { RefObject } from "react";
 import { create } from "zustand";
+
+export interface AnimationClipAction {
+  action: THREE.AnimationAction;
+  clip: THREE.AnimationClip;
+}
 
 interface AnimationState {
   timeline: AnimationObject[];
@@ -38,6 +44,10 @@ interface AnimationState {
   motionValuesRef?: RefObject<Record<string, MotionValues>>;
   setMotionValuesRef: (ref: RefObject<Record<string, MotionValues>>) => void;
   unit: number;
+  clips: AnimationClipAction[];
+  setClips: (clip: AnimationClipAction[]) => void;
+  mixerRef: THREE.AnimationMixer | null;
+  setMixerRef: (mixer: THREE.AnimationMixer | null) => void;
 }
 
 export const useAnimationStore = create<AnimationState>((set) => ({
@@ -46,6 +56,17 @@ export const useAnimationStore = create<AnimationState>((set) => ({
   setMotionValuesRef: (ref: RefObject<Record<string, MotionValues>>) =>
     set(() => ({ motionValuesRef: ref })),
   timeline: [],
+  clips: [],
+  mixerRef: null,
+  setMixerRef: (mixer: THREE.AnimationMixer | null) =>
+    set(() => ({ mixerRef: mixer })),
+  setClips: (clips: AnimationClipAction[]) =>
+    set((state) => {
+      return {
+        ...state,
+        clips: clips,
+      };
+    }),
   onUpdateZoom: (newZoom: number) =>
     set({
       zoom: newZoom,

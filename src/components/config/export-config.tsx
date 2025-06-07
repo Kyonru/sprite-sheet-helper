@@ -75,15 +75,23 @@ export const ExportConfig = () => {
   const setIntervals = useExportOptionsStore((state) => state.setIntervals);
   const iterationsDefault = useExportOptionsStore((state) => state.iterations);
   const setIterations = useExportOptionsStore((state) => state.setIterations);
+  const frameDelayDefault = useExportOptionsStore((state) => state.frameDelay);
+  const setFrameDelay = useExportOptionsStore((state) => state.setFrameDelay);
 
-  const { mode, intervals, count } = useControls({
+  const { mode, intervals, count, frameDelay } = useControls({
     "export options": folder({
       mode: {
-        options: ["zip", "spritesheet"] as ExportFormat[],
+        options: ["zip", "spritesheet", "gif"] as ExportFormat[],
         value: exportModeDefault,
       },
       intervals: intervalsDefault,
       count: iterationsDefault,
+      frameDelay: {
+        value: frameDelayDefault,
+        min: 0,
+        max: 1000,
+        step: 1,
+      },
     }),
   });
 
@@ -98,6 +106,10 @@ export const ExportConfig = () => {
   useEffect(() => {
     setIterations(count);
   }, [count, setIterations]);
+
+  useEffect(() => {
+    setFrameDelay(frameDelay);
+  }, [frameDelay, setFrameDelay]);
 
   return (
     <>

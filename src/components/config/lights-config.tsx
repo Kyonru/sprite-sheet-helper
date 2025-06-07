@@ -5,13 +5,105 @@ import type {
   SpotLight as SpotLightType,
 } from "@/types/lighting";
 import { folder, useControls } from "leva";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { TransformController } from "../transform-controller";
+import { useHelper } from "@react-three/drei";
+import { useEditorStore } from "@/store/editor";
+
+const SpotLightObject = ({ light }: { light: SpotLightType }) => {
+  const model = useModelStore((state) => state.ref);
+  const showEditor = useEditorStore((state) => state.showEditor);
+
+  const lightRef = useRef(null!);
+  const helper = useHelper(lightRef, THREE.SpotLightHelper, light.color);
+
+  useEffect(() => {
+    if (!helper.current) {
+      return;
+    }
+    if (showEditor) {
+      helper.current.visible = true;
+    } else {
+      helper.current.visible = false;
+    }
+  }, [showEditor, helper]);
+
+  useEffect(() => {
+    if (!helper.current) {
+      return;
+    }
+    helper.current.update();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [light.color]);
+
+  return (
+    <TransformController position={light.position} mode={light.transform}>
+      <spotLight
+        ref={lightRef}
+        angle={light.angle}
+        penumbra={light.penumbra}
+        decay={light.decay}
+        intensity={light.intensity}
+        distance={light.distance}
+        color={light.color}
+        power={light.power}
+        castShadow={light.castShadow}
+        target={model!}
+      />
+    </TransformController>
+  );
+};
+
+export const PointLightObject = ({ light }: { light: PointLightType }) => {
+  const showEditor = useEditorStore((state) => state.showEditor);
+
+  const lightRef = useRef(null!);
+  const helper = useHelper(
+    lightRef,
+    THREE.PointLightHelper,
+    light.distance,
+    light.color
+  );
+
+  useEffect(() => {
+    if (!helper.current) {
+      return;
+    }
+    if (showEditor) {
+      helper.current.visible = true;
+    } else {
+      helper.current.visible = false;
+    }
+  }, [showEditor, helper]);
+
+  useEffect(() => {
+    if (!helper.current) {
+      return;
+    }
+
+    helper.current?.update();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [light.distance, light.color]);
+
+  return (
+    <TransformController position={light.position}>
+      <pointLight
+        ref={lightRef}
+        intensity={light.intensity}
+        distance={light.distance}
+        color={light.color}
+        power={light.power}
+        decay={light.decay}
+      />
+    </TransformController>
+  );
+};
 
 export const Lighting = () => {
   const ambientLight = useLightStore((state) => state.ambientLight);
   const pointLights = useLightStore((state) => state.pointLights);
   const spotLights = useLightStore((state) => state.spotLights);
-  const modelPosition = useModelStore((state) => state.position);
 
   return (
     <>
@@ -22,36 +114,11 @@ export const Lighting = () => {
         />
       )}
       {pointLights.map((light, index) =>
-        light.enabled ? (
-          <pointLight
-            key={index}
-            position={light.position}
-            decay={light.decay}
-            intensity={light.intensity}
-            distance={light.distance}
-            color={light.color}
-            lookAt={modelPosition}
-            power={light.power}
-          />
-        ) : null
+        light.enabled ? <PointLightObject light={light} key={index} /> : null
       )}
 
       {spotLights.map((light, index) =>
-        light.enabled ? (
-          <spotLight
-            key={index}
-            position={light.position}
-            angle={light.angle}
-            penumbra={light.penumbra}
-            decay={light.decay}
-            intensity={light.intensity}
-            distance={light.distance}
-            color={light.color}
-            power={light.power}
-            castShadow={light.castShadow}
-            lookAt={modelPosition}
-          />
-        ) : null
+        light.enabled ? <SpotLightObject light={light} key={index} /> : null
       )}
     </>
   );
@@ -100,8 +167,11 @@ const PointLight = ({
   light: PointLightType;
 }) => {
   const setPointLight = useLightStore((state) => state.updatePointLight);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { type, ...pointLightDefaults } = light;
+  const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    type,
+    ...pointLightDefaults
+  } = light;
 
   const { enabled, intensity, color, decay, distance, position, power } =
     useControls({
@@ -198,8 +268,14 @@ const SportLight = ({
   light: SpotLightType;
 }) => {
   const setSpotLight = useLightStore((state) => state.updateSpotLight);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { type, ...pointLightDefaults } = light;
+  const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    type,
+    lookAtObject: lookAtObjectDefault,
+    rotation: rotationDefault,
+    transform: transformDefault,
+    ...spotLightDefaults
+  } = light;
 
   const {
     enabled,
@@ -211,31 +287,50 @@ const SportLight = ({
     penumbra,
     power,
     angle,
-  } = useControls({
-    lighting: folder(
-      {
-        spot: folder({
-          [index + 1]: folder(
-            {
-              ...pointLightDefaults,
-              penumbra: {
-                value: pointLightDefaults.penumbra,
-                min: 0,
-                max: 1,
-                step: 0.01,
+    rotation,
+    lookAtObject,
+    transform,
+  } = useControls(
+    {
+      lighting: folder(
+        {
+          spot: folder({
+            [index + 1]: folder(
+              {
+                ...spotLightDefaults,
+                penumbra: {
+                  value: spotLightDefaults.penumbra,
+                  min: 0,
+                  max: 1,
+                  step: 0.01,
+                },
+                lookAtObject: lookAtObjectDefault,
+                rotation: {
+                  value: rotationDefault,
+                  step: 0.01,
+                  editable: !lookAtObjectDefault,
+                },
+                transform: {
+                  options: ["translate", "scale", "rotate"] as
+                    | "translate"
+                    | "scale"
+                    | "rotate"[],
+                  value: transformDefault!,
+                },
               },
-            },
-            {
-              collapsed: true,
-            }
-          ),
-        }),
-      },
-      {
-        collapsed: true,
-      }
-    ),
-  });
+              {
+                collapsed: true,
+              }
+            ),
+          }),
+        },
+        {
+          collapsed: true,
+        }
+      ),
+    },
+    [lookAtObjectDefault]
+  );
 
   useEffect(() => {
     setSpotLight(index, {
@@ -248,6 +343,9 @@ const SportLight = ({
       power,
       penumbra,
       angle,
+      lookAtObject,
+      rotation,
+      transform: transform as "translate" | "scale" | "rotate",
     });
   }, [
     enabled,
@@ -259,7 +357,10 @@ const SportLight = ({
     power,
     penumbra,
     angle,
+    lookAtObject,
+    rotation,
     setSpotLight,
+    transform,
     index,
   ]);
 

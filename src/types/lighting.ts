@@ -25,5 +25,8 @@ export interface SpotLight extends Light {
   penumbra: number;
   decay: number;
   power: number;
+  lookAtObject: boolean;
+  rotation: [number, number, number];
+  transform: "translate" | "scale" | "rotate";
   castShadow: boolean;
 }

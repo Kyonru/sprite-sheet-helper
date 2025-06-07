@@ -43,12 +43,11 @@ export const useLightStore = create<LightingState>((set) => ({
             ...Array(count - state.pointLights.length).fill({
               type: "point",
               enabled: true,
-              intensity: 20,
+              intensity: 10,
               color: getRandomHexColor(),
               decay: 0,
-              distance: 150,
-              position: getRandomVector3(25, 50, {
-                z: 10,
+              distance: 15,
+              position: getRandomVector3(3, 5, {
                 randomizeSign: true,
               }),
               power: 100,
@@ -89,18 +88,20 @@ export const useLightStore = create<LightingState>((set) => ({
             ...Array(count - state.spotLights.length).fill({
               type: "spot",
               enabled: true,
-              intensity: Math.PI / 2,
+              intensity: 10,
               color: getRandomHexColor(),
               decay: 0,
-              distance: 100,
-              position: getRandomVector3(25, 50, {
-                z: 10,
+              distance: 50,
+              lookAtObject: true,
+              rotation: [0, 0, 0],
+              position: getRandomVector3(3, 5, {
                 randomizeSign: true,
               }),
-              angle: Math.PI / 4,
+              angle: 0.1,
               penumbra: 0.1,
               castShadow: true,
               power: 100,
+              transform: "translate",
             } as SpotLight),
           ],
         };
