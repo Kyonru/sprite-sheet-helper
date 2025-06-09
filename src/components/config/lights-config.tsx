@@ -10,6 +10,7 @@ import * as THREE from "three";
 import { TransformController } from "../transform-controller";
 import { useHelper } from "@react-three/drei";
 import { useEditorStore } from "@/store/editor";
+import { TRANSFORM_OPTIONS } from "@/constants/objects";
 
 const SpotLightObject = ({ light }: { light: SpotLightType }) => {
   const model = useModelStore((state) => state.ref);
@@ -311,10 +312,7 @@ const SportLight = ({
                   editable: !lookAtObjectDefault,
                 },
                 transform: {
-                  options: ["translate", "scale", "rotate"] as
-                    | "translate"
-                    | "scale"
-                    | "rotate"[],
+                  options: TRANSFORM_OPTIONS,
                   value: transformDefault!,
                 },
               },

@@ -27,9 +27,9 @@ interface ExportOptionsState {
 export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
   mode: "spritesheet",
   setMode: (mode: ExportFormat) => set(() => ({ mode: mode })),
-  intervals: 250,
+  intervals: 100,
   setIntervals: (intervals: number) => set(() => ({ intervals: intervals })),
-  frameDelay: 250,
+  frameDelay: 100,
   setFrameDelay: (frameDelay: number) =>
     set(() => ({ frameDelay: frameDelay })),
   iterations: 10,

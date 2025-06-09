@@ -19,7 +19,7 @@ type Props = {
   file: File;
   position?: [number, number, number];
   rotation?: [number, number, number];
-  scale?: number;
+  scale?: [number, number, number];
 };
 
 export function FileModel({ file, ...props }: Props) {
@@ -69,8 +69,6 @@ export function FileModel({ file, ...props }: Props) {
               const mixer = new THREE.AnimationMixer(scene);
               if (gltf.animations.length > 0) {
                 gltf.animations.forEach((clip: THREE.AnimationClip) => {
-                  console.log(clip.name);
-                  // mixer.clipAction(clip).play();
                   allAnimationsClips.push({
                     action: mixer.clipAction(clip),
                     clip,
@@ -82,8 +80,6 @@ export function FileModel({ file, ...props }: Props) {
 
               setClips(allAnimationsClips);
               setMixerRef(mixer);
-
-              console.log({ allAnimationsClips });
             });
             break;
           }

@@ -8,9 +8,6 @@ import { useAnimationStore } from "@/store/animation";
 import { interpolateKeyframes } from "@/utils/easing";
 
 export function Box(props: ThreeElements["mesh"]) {
-  const position = useModelStore((state) => state.position);
-  const rotation = useModelStore((state) => state.rotation);
-  const scale = useModelStore((state) => state.scale);
   const modelRef = useModelStore((state) => state.ref);
   const setModelRef = useModelStore((state) => state.setRef);
   const outline = useEffectsStore((state) => state.outline);
@@ -36,7 +33,6 @@ export function Box(props: ThreeElements["mesh"]) {
     }
 
     if (opacityTrack) {
-      console.log(interpolateKeyframes(opacityTrack.keyframes, time));
       materialRef.current.opacity = interpolateKeyframes(
         opacityTrack.keyframes,
         time
@@ -53,9 +49,6 @@ export function Box(props: ThreeElements["mesh"]) {
         ref={(node: THREE.Object3D) => {
           setModelRef(node);
         }}
-        scale={scale}
-        position={position}
-        rotation={rotation}
       >
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial

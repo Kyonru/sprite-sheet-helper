@@ -1,13 +1,21 @@
-import { useCameraStore } from "@/store/camera.";
+import { useCameraStore } from "@/store/camera";
 
 export const useCameraValues = () => {
   const position = useCameraStore((state) => state.position);
+  const rotation = useCameraStore((state) => state.rotation);
+  const scale = useCameraStore((state) => state.scale);
   const zoom = useCameraStore((state) => state.zoom);
   const fov = useCameraStore((state) => state.fov);
   const type = useCameraStore((state) => state.type);
+  const useGesturesControls = useCameraStore(
+    (state) => state.useGesturesControls
+  );
 
   return {
+    useGesturesControls,
     position,
+    rotation,
+    scale,
     zoom,
     fov,
     type,

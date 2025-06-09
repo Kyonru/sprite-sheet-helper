@@ -66,11 +66,8 @@ export async function createGif(
 
     let loaded = 0;
 
-    console.log({ images, width, height, ctx });
-
     images.forEach((src, index) => {
       const img = new Image();
-      console.log({ images });
       img.onload = () => {
         ctx.reset();
         ctx.drawImage(img, 0, 0, width, height);

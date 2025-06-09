@@ -65,7 +65,6 @@ const FrameConfig = () => {
   useEffect(() => {
     setExportHeight(height);
     setExportWidth(width);
-    console.log({ height, width });
   }, [height, width, setExportHeight, setExportWidth]);
 
   return null;
@@ -92,8 +91,6 @@ export const PreviewConfig = () => {
     }),
     [exportWidthDefault, images, exportHeightDefault]
   );
-
-  console.log({ exportHeightDefault, exportWidthDefault });
 
   const [{ frameDelay }, set] = useControls(
     () => ({
