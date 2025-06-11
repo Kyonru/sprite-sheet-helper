@@ -1,4 +1,5 @@
 import type { ExportFormat } from "@/types/file";
+import { getBasedOnDisplaySize } from "@/utils/query";
 import { create } from "zustand";
 
 interface ExportOptionsState {
@@ -39,9 +40,23 @@ export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
   setImages: (images: string[]) => set(() => ({ images: images })),
   preview: false,
   setPreview: (preview: boolean) => set(() => ({ preview: preview })),
-  width: 1000,
+  width: getBasedOnDisplaySize({
+    xs: 64,
+    sm: 128,
+    md: 256,
+    lg: 512,
+    xl: 1024,
+    xxl: 2048,
+  }),
   setWidth: (width: number) => set(() => ({ width: width })),
-  height: 1000,
+  height: getBasedOnDisplaySize({
+    xs: 64,
+    sm: 128,
+    md: 256,
+    lg: 512,
+    xl: 1024,
+    xxl: 2048,
+  }),
   setHeight: (height: number) => set(() => ({ height: height })),
   exportWidth: 64,
   setExportWidth: (exportWidth: number) =>
