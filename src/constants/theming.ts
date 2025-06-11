@@ -30,3 +30,33 @@ export const LEVA_THEME = {
     toolTip: "11px",
   },
 };
+
+export const FONTS = [
+  "arial",
+  "helvetica",
+  "times new roman",
+  "georgia",
+  "verdana",
+  "tahoma",
+  "trebuchet ms",
+  "courier new",
+  "lucida console",
+  "impact",
+  "comic sans ms",
+  "palatino linotype",
+  "segoe ui",
+  "candara",
+  "geneva",
+  "optima",
+  "monaco",
+  "brush script mt",
+  "consolas",
+  "franklin gothic medium",
+  // Generic font families
+  "serif",
+  "sans-serif",
+  "monospace",
+  "cursive",
+  "fantasy",
+  "system-ui",
+] as const;

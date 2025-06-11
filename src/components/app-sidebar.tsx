@@ -22,7 +22,6 @@ import { useEffect, useState } from "react";
 import { LucideLoaderCircle } from "lucide-react";
 import { LEVA_THEME } from "@/constants/theming";
 
-
 export function AppSidebar() {
   const background = useAppColorStore((state) => state.color);
   const setBackground = useAppColorStore((state) => state.setColor);
@@ -75,7 +74,11 @@ export function AppSidebar() {
                 }}
               />
               <Leva
-                titleBar={false}
+                titleBar={{
+                  drag: false,
+                  filter: true,
+                }}
+                neverHide
                 // theme={myTheme} // you can pass a custom theme (see the styling section)
                 fill // default = false,  true makes the pane fill the parent dom node it's rendered in
                 flat // default = false,  true removes border radius and shadow

@@ -22,7 +22,7 @@ const FrameConfig = () => {
   const setExportWidth = useExportOptionsStore((state) => state.setExportWidth);
 
   const { height, width, previewHeight, previewWidth } = useControls({
-    "export options": folder({
+    editor: folder({
       size: folder(
         {
           preview: folder(
@@ -147,14 +147,17 @@ export const ExportConfig = () => {
   const setPreview = useExportOptionsStore((state) => state.setPreview);
 
   const { mode, intervals, count, preview } = useControls({
-    "export options": folder({
+    editor: folder({
       mode: {
         options: ["zip", "spritesheet", "gif"] as ExportFormat[],
         value: exportModeDefault,
       },
       intervals: intervalsDefault,
       count: iterationsDefault,
-      preview: previewDefault,
+      preview: {
+        label: "Pixel Grid",
+        value: previewDefault,
+      },
     }),
   });
 
@@ -177,7 +180,7 @@ export const ExportConfig = () => {
   return (
     <>
       <FrameConfig />
-      {preview && <PreviewConfig />}
+      <PreviewConfig />
     </>
   );
 };

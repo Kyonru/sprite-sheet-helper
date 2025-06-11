@@ -7,6 +7,10 @@ export const useCameraValues = () => {
   const zoom = useCameraStore((state) => state.zoom);
   const fov = useCameraStore((state) => state.fov);
   const type = useCameraStore((state) => state.type);
+  const setPosition = useCameraStore((state) => state.setPosition);
+  const setRotation = useCameraStore((state) => state.setRotation);
+  const setScale = useCameraStore((state) => state.setScale);
+  const setZoom = useCameraStore((state) => state.setZoom);
   const useGesturesControls = useCameraStore(
     (state) => state.useGesturesControls
   );
@@ -19,5 +23,9 @@ export const useCameraValues = () => {
     zoom,
     fov,
     type,
+    setPosition,
+    setRotation,
+    setScale,
+    setZoom,
   };
 };
