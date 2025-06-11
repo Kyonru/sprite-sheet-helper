@@ -639,7 +639,7 @@ const HueSaturationEffect = () => {
   return null;
 };
 
-const ScanlineEffect = () => {
+const ScanLineEffect = () => {
   const setScanline = useEffectsStore((state) => state.setScanline);
   const scanline = useEffectsStore((state) => state.scanline);
 
@@ -708,25 +708,25 @@ const SepiaEffect = () => {
 export const EffectsConfig = () => {
   return (
     <>
-      <PixelationEffect />
-      <BloomEffect />
-      <NoiseEffect />
-      <DepthOfFieldEffect />
-      <GlitchEffect />
-      <OutlineEffect />
       <ASCIIEffect />
+      <BloomEffect />
       <BrightnessContrastEffect />
       <ChromaticAberrationEffect />
-      <VignetteEffect />
       <ColorAverageEffect />
       <ColorDepthEffect />
       <DepthEffect />
+      <DepthOfFieldEffect />
+      <DotScreenEffect />
+      <GlitchEffect />
+      <HueSaturationEffect />
+      <NoiseEffect />
+      <OutlineEffect />
+      <PixelationEffect />
+      <ScanLineEffect />
+      <SepiaEffect />
       <TiltShiftEffect />
       <TiltShift2Effect />
-      <DotScreenEffect />
-      <HueSaturationEffect />
-      <ScanlineEffect />
-      <SepiaEffect />
+      <VignetteEffect />
     </>
   );
 };

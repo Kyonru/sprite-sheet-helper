@@ -9,10 +9,20 @@ interface LightingState {
   pointLights: PointLight[];
   setPointLightsAmount: (count: number) => void;
   updatePointLight: (index: number, props: Partial<PointLight>) => void;
+  pointLightsUIState: Record<number, <T>(uiState: T) => void>;
+  setPointLightsUIStateFunction: (
+    id: number,
+    fn: <T>(uiState: T) => void
+  ) => void;
 
   spotLights: SpotLight[];
   setSpotLightsAmount: (count: number) => void;
   updateSpotLight: (index: number, props: Partial<SpotLight>) => void;
+  spotLightsUIState: Record<number, <T>(uiState: T) => void>;
+  setSpotLightsUIStateFunction: (
+    id: number,
+    fn: <T>(uiState: T) => void
+  ) => void;
 }
 
 export const useLightStore = create<LightingState>((set) => ({
@@ -102,6 +112,7 @@ export const useLightStore = create<LightingState>((set) => ({
               castShadow: true,
               power: 100,
               transform: "translate",
+              direction: [0, 0, 0],
             } as SpotLight),
           ],
         };
@@ -123,4 +134,23 @@ export const useLightStore = create<LightingState>((set) => ({
         ],
       };
     }),
+  pointLightsUIState: {},
+  setPointLightsUIStateFunction: (id: number, fn: <T>(uiState: T) => void) =>
+    set((state) => ({
+      ...state,
+      pointLightsUIState: {
+        ...state.pointLightsUIState,
+        [id]: fn,
+      },
+    })),
+
+  spotLightsUIState: {},
+  setSpotLightsUIStateFunction: (id: number, fn: <T>(uiState: T) => void) =>
+    set((state) => ({
+      ...state,
+      spotLightsUIState: {
+        ...state.spotLightsUIState,
+        [id]: fn,
+      },
+    })),
 }));

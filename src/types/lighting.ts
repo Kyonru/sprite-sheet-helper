@@ -29,4 +29,5 @@ export interface SpotLight extends Light {
   rotation: [number, number, number];
   transform: "translate" | "scale" | "rotate";
   castShadow: boolean;
+  direction: [number, number, number];
 }

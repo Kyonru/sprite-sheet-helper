@@ -19,7 +19,13 @@ export function Box(props: ThreeElements["mesh"]) {
   const playing = useAnimationStore((state) => state.playing);
 
   useFrame((_, delta) => {
-    if (!modelRef || !playing) return;
+    if (!modelRef || !playing) {
+      if (modelRef) {
+        modelRef.rotation.x += 1 * delta;
+        modelRef.rotation.y += 0.5 * delta;
+      }
+      return;
+    }
     const time = currentTime + delta;
     const object = timeline.find((m) => m.id === modelRef?.uuid);
 

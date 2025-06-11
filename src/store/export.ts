@@ -39,9 +39,9 @@ export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
   setImages: (images: string[]) => set(() => ({ images: images })),
   preview: false,
   setPreview: (preview: boolean) => set(() => ({ preview: preview })),
-  width: 500,
+  width: 1000,
   setWidth: (width: number) => set(() => ({ width: width })),
-  height: 500,
+  height: 1000,
   setHeight: (height: number) => set(() => ({ height: height })),
   exportWidth: 64,
   setExportWidth: (exportWidth: number) =>
