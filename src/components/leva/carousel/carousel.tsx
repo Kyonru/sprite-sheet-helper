@@ -8,7 +8,7 @@ import {
   type CarouselApi,
 } from "../../ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   TransformWrapper,
   TransformComponent,
@@ -176,6 +176,18 @@ export const LevaCarousel = () => {
     };
   }, []);
 
+  const imagesLength = useMemo(() => {
+    if (images.length > 6 || images.length <= 1) {
+      return images.length;
+    }
+
+    if (images.length === 2) {
+      return 1;
+    }
+
+    return 2;
+  }, [images]);
+
   if (images.length === 0) {
     return null;
   }
@@ -236,7 +248,10 @@ export const LevaCarousel = () => {
         >
           <CarouselContent className="w-full">
             {images.map((imageSrc, index) => (
-              <CarouselItem className="basis-1/5" key={index}>
+              <CarouselItem
+                className={imagesLength > 1 ? `basis-1/${imagesLength}` : ""}
+                key={index}
+              >
                 <img
                   className={`h-10 w-10 rounded-md ${
                     index === selectedSnap ? "border-2 border-chart-3" : ""
