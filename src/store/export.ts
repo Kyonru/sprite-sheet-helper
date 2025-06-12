@@ -46,7 +46,7 @@ export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
     md: 256,
     lg: 512,
     xl: 1024,
-    xxl: 2048,
+    xxl: 1024,
   }),
   setWidth: (width: number) => set(() => ({ width: width })),
   height: getBasedOnDisplaySize({
@@ -55,7 +55,7 @@ export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
     md: 256,
     lg: 512,
     xl: 1024,
-    xxl: 2048,
+    xxl: 1024,
   }),
   setHeight: (height: number) => set(() => ({ height: height })),
   exportWidth: 64,

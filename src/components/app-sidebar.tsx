@@ -18,7 +18,7 @@ import { Leva } from "leva";
 import { Input } from "./ui/input";
 import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
 import { useModelStore } from "@/store/model";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LucideLoaderCircle } from "lucide-react";
 import { LEVA_THEME } from "@/constants/theming";
 
@@ -31,6 +31,7 @@ export function AppSidebar() {
     setExporting(true);
     PubSub.emit(EventType.START_ASSETS_CREATION);
   };
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const stopExporting = () => {
@@ -42,6 +43,10 @@ export function AppSidebar() {
       PubSub.off(EventType.STOP_ASSETS_CREATION, stopExporting);
     };
   }, []);
+
+  const handleClick = () => {
+    fileInputRef.current?.click();
+  };
 
   return (
     <Sidebar>
@@ -65,14 +70,23 @@ export function AppSidebar() {
                 </div>
               </SidebarMenuItem>
               <Input
+                ref={fileInputRef}
                 id="model"
                 type="file"
+                className="hidden"
                 accept={`.${ACCEPTED_MODEL_FILE_TYPES.join(",.")}`}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) setModelFile(file);
                 }}
               />
+              <Button
+                className="mt-2 mb-2"
+                variant="default"
+                onClick={handleClick}
+              >
+                Load Model
+              </Button>
               <Leva
                 titleBar={{
                   drag: false,

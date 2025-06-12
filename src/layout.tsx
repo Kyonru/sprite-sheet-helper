@@ -10,7 +10,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <main className="flex-1 overflow-auto">
           <div className="relative">
-            <SidebarTrigger className="absolute top-0 left-0" />
+            <SidebarTrigger className="absolute top-0 left-0 z-50" />
           </div>
           <div className="h-full min-w-0">{children}</div>
         </main>

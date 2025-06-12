@@ -23,8 +23,8 @@ function AssetCreation() {
           style={{
             position: "absolute",
             zIndex: 999,
-            top: "0vh",
-            right: "0",
+            top: "4vh",
+            right: "4vw",
           }}
         >
           <LevaPanel
