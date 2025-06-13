@@ -15,6 +15,7 @@ import {
   useControls,
 } from "react-zoom-pan-pinch";
 import {
+  LucideCircleX,
   LucideFullscreen,
   LucideInfinity,
   LucidePlay,
@@ -26,12 +27,14 @@ import { EventType, PubSub } from "@/lib/events";
 import Autoplay from "embla-carousel-autoplay";
 import { useExportOptionsStore } from "@/store/export";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 const { Row } = Components;
 
 type LevaCarouselSettings = { alpha?: number };
 type LevaCarouselType = {
-  images: string[];
+  images: Array<{ name: string; label: string; images: string[] }>;
   width: number;
   height: number;
 };
@@ -138,6 +141,48 @@ const ZoomControls = () => {
   );
 };
 
+const CarrouselRow = ({
+  images,
+  name,
+  label,
+  selected,
+  onClick,
+}: {
+  images: string[];
+  name: string;
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) => {
+  return (
+    <div
+      className={`flex flex-row w-full h-11 gap-2 items-center p-2 rounded-md ${
+        selected ? "border-2 border-chart-3" : ""
+      }`}
+      onClick={onClick}
+    >
+      <RadioGroupItem checked={selected} value={name} id={name} />
+      <Label className="w-32 text-ellipsis truncate" htmlFor="option-two">
+        {label}
+      </Label>
+      <div className="relative h-10 flex flex-1 gap-2 overflow-hidden">
+        {images?.slice(0, 10).map((imageSrc, i) => (
+          <img
+            style={{
+              opacity: 2 * (1 / (i + 1)),
+              transform: `translateX(${i * 50}%)`,
+            }}
+            key={`${name}-${i}`}
+            className={`h-10 w-10 rounded-md  absolute`}
+            src={imageSrc}
+            alt={`Frame ${i}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // Could be reused for others, but for now it's just for exporting
 export const LevaCarousel = () => {
   const props = useInputContext<LevaCarouselProps>();
@@ -153,6 +198,19 @@ export const LevaCarousel = () => {
   const [loop, setLoop] = useState(false);
 
   const frameDelay = useExportOptionsStore((state) => state.frameDelay);
+  const removeImagesRow = useExportOptionsStore(
+    (state) => state.removeImagesRow
+  );
+
+  const [selectedRow, setSelectedRow] = useState(0);
+  const onRemoveRow = useCallback(
+    (index: number) => {
+      removeImagesRow(index);
+
+      setSelectedRow(0);
+    },
+    [removeImagesRow]
+  );
 
   const onExport = useCallback(() => {
     PubSub.emit(EventType.START_EXPORT);
@@ -177,126 +235,164 @@ export const LevaCarousel = () => {
   }, []);
 
   const imagesLength = useMemo(() => {
-    if (images.length > 6 || images.length <= 1) {
-      return images.length;
+    const displayedImages = images[selectedRow]?.images;
+
+    if (!displayedImages) return 0;
+
+    if (displayedImages.length > 6 || displayedImages.length <= 1) {
+      return displayedImages.length;
     }
 
-    if (images.length === 2) {
+    if (displayedImages.length === 2) {
       return 1;
     }
 
     return 2;
-  }, [images]);
+  }, [images, selectedRow]);
 
   if (images.length === 0) {
     return null;
   }
 
+  console.log({ imagesLength });
+
   return (
-    <Row>
-      <div
-        draggable={false}
-        className="flex flex-col w-full gap-2 max-w-xs mb-2"
-      >
-        <Card className="p-0">
-          <CardContent className="flex aspect-square p-0">
-            <TransformWrapper
-              maxScale={50}
-              pinch={{
-                step: 100,
-              }}
+    <>
+      <Row className="max-h-64 pr-2 pt-8 pb-8 overflow-y-scroll">
+        <RadioGroup>
+          {images.map((row, index) => (
+            <div
+              key={index}
+              className="flex flex-row items-center cursor-pointer"
             >
-              <ZoomControls />
-              <TransformComponent
-                wrapperStyle={{
-                  width: "100%",
-                  height: "100%",
+              <CarrouselRow
+                images={row.images}
+                name={row.name}
+                label={row.label}
+                selected={selectedRow === index}
+                onClick={() => {
+                  setSelectedRow(index);
                 }}
-                wrapperClass="items-center justify-center"
-              >
-                <div className="flex">
-                  <img
-                    className="align-middle"
-                    style={{
-                      width: width,
-                      height: height,
-                    }}
-                    src={images[selectedSnap]}
-                    alt="Picture"
-                  />
-                </div>
-              </TransformComponent>
-            </TransformWrapper>
-          </CardContent>
-        </Card>
-        <Carousel
-          opts={{
-            dragFree: true,
-            startIndex: 0,
-            loop: true,
-          }}
-          plugins={[
-            Autoplay({
-              delay: frameDelay,
-              playOnInit: false,
-              stopOnInteraction: true,
-              stopOnLastSnap: !loop,
-            }),
-          ]}
-          setApi={setApi}
-          className="w-full"
-        >
-          <CarouselContent className="w-full">
-            {images.map((imageSrc, index) => (
-              <CarouselItem
-                className={imagesLength > 1 ? `basis-1/${imagesLength}` : ""}
-                key={index}
-              >
-                <img
-                  className={`h-10 w-10 rounded-md ${
-                    index === selectedSnap ? "border-2 border-chart-3" : ""
-                  }`}
-                  src={imageSrc}
-                  alt={`Frame ${index}`}
+              />
+              <div className="flex justify-center items-center">
+                <LucideCircleX
+                  onClick={() => onRemoveRow(index)}
+                  className="ml-2 hover:text-chart-3 active:size-4 size-6 active:animate-in transition-all duration-200"
                 />
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext />
-        </Carousel>
+              </div>
+            </div>
+          ))}
+        </RadioGroup>
+      </Row>
+      <Row>
+        <div
+          draggable={false}
+          className="flex flex-col w-full gap-2 max-w-xs mb-2"
+        >
+          <Card className="p-0">
+            <CardContent className="flex aspect-square p-0">
+              <TransformWrapper
+                maxScale={50}
+                pinch={{
+                  step: 100,
+                }}
+              >
+                <ZoomControls />
+                <TransformComponent
+                  wrapperStyle={{
+                    width: "100%",
+                    height: "100%",
+                  }}
+                  wrapperClass="items-center justify-center"
+                >
+                  <div className="flex">
+                    <img
+                      className="align-middle"
+                      style={{
+                        width: width,
+                        height: height,
+                      }}
+                      src={
+                        images[selectedRow]
+                          ? images[selectedRow]?.images[selectedSnap]
+                          : ""
+                      }
+                      alt="Picture"
+                    />
+                  </div>
+                </TransformComponent>
+              </TransformWrapper>
+            </CardContent>
+          </Card>
+          <Carousel
+            opts={{
+              dragFree: true,
+              startIndex: 0,
+              loop: true,
+            }}
+            plugins={[
+              Autoplay({
+                delay: frameDelay,
+                playOnInit: false,
+                stopOnInteraction: true,
+                stopOnLastSnap: !loop,
+              }),
+            ]}
+            setApi={setApi}
+            className="w-full"
+          >
+            <CarouselContent className="w-full">
+              {(images[selectedRow]?.images || []).map((imageSrc, index) => (
+                <CarouselItem
+                  className={imagesLength > 2 ? `basis-1/${imagesLength}` : ""}
+                  key={index}
+                >
+                  <img
+                    className={`h-10 w-10 rounded-md ${
+                      index === selectedSnap ? "border-2 border-chart-3" : ""
+                    }`}
+                    src={imageSrc}
+                    alt={`Frame ${index}`}
+                  />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
 
-        <div className="flex flex-row justify-center">
-          <div className="text-muted-foreground py-2 text-center text-sm">
-            Frame {selectedSnap + 1} of {snapCount}
+          <div className="flex flex-row justify-center">
+            <div className="text-muted-foreground py-2 text-center text-sm">
+              Frame {selectedSnap + 1} of {snapCount}
+            </div>
+            <div></div>
+            <ToggleGroup
+              className="absolute top-2 right-2"
+              type="single"
+              value={autoplayIsPlaying ? "on" : "off"}
+              onValueChange={toggleAutoplay}
+            >
+              <ToggleGroupItem value="on" aria-label="on">
+                <LucidePlay className="size-6" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              className="absolute top-12 right-2"
+              type="single"
+              value={loop ? "on" : "off"}
+              onValueChange={onToggleLoop}
+            >
+              <ToggleGroupItem value="on" aria-label="on">
+                <LucideInfinity className="size-6" />
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
-          <div></div>
-          <ToggleGroup
-            className="absolute top-2 right-2"
-            type="single"
-            value={autoplayIsPlaying ? "on" : "off"}
-            onValueChange={toggleAutoplay}
-          >
-            <ToggleGroupItem value="on" aria-label="on">
-              <LucidePlay className="size-6" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <ToggleGroup
-            className="absolute top-12 right-2"
-            type="single"
-            value={loop ? "on" : "off"}
-            onValueChange={onToggleLoop}
-          >
-            <ToggleGroupItem value="on" aria-label="on">
-              <LucideInfinity className="size-6" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
 
-        <Button disabled={exporting} onClick={onExport}>
-          Export
-        </Button>
-      </div>
-    </Row>
+          <Button disabled={exporting} onClick={onExport}>
+            Export
+          </Button>
+        </div>
+      </Row>
+    </>
   );
 };

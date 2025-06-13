@@ -21,6 +21,8 @@ export const Camera = () => {
     setRotation,
     setScale,
     setZoom,
+    orbitSettings,
+    setOrbitRef,
   } = useCameraValues();
 
   const camera = useThree((state) => state.camera);
@@ -49,6 +51,11 @@ export const Camera = () => {
       )}
       {useGesturesControls && (
         <OrbitControls
+          {...orbitSettings}
+          ref={(ref) => setOrbitRef(ref)}
+          enablePan={orbitSettings.enablePan && showEditor}
+          enableRotate={orbitSettings.enableRotate && showEditor}
+          enableZoom={orbitSettings.enableZoom && showEditor}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onEnd={(e: any) => {
             if (!e?.target || !e.target.object) return;
@@ -79,7 +86,7 @@ export const Camera = () => {
             });
           }}
           camera={camera}
-          enabled={showEditor}
+          target={[0, 0, 0]}
           makeDefault
         />
       )}

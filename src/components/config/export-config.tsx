@@ -70,7 +70,6 @@ const FrameConfig = () => {
   return null;
 };
 
-// test: carousel(),
 export const PreviewConfig = () => {
   const { levaStore } = useSharedContext();
   const exportHeightDefault = useExportOptionsStore(
@@ -81,6 +80,8 @@ export const PreviewConfig = () => {
   );
   const images = useExportOptionsStore((state) => state.images);
   const frameDelayDefault = useExportOptionsStore((state) => state.frameDelay);
+  const exportModeDefault = useExportOptionsStore((state) => state.mode);
+  const setExportMode = useExportOptionsStore((state) => state.setMode);
   const setFrameDelay = useExportOptionsStore((state) => state.setFrameDelay);
 
   const state = useMemo(
@@ -92,8 +93,12 @@ export const PreviewConfig = () => {
     [exportWidthDefault, images, exportHeightDefault]
   );
 
-  const [{ frameDelay }, set] = useControls(
+  const [{ frameDelay, mode }, set] = useControls(
     () => ({
+      mode: {
+        options: ["zip", "spritesheet", "gif"] as ExportFormat[],
+        value: exportModeDefault,
+      },
       frameDelay: {
         label: "Delay",
         value: frameDelayDefault,
@@ -126,19 +131,26 @@ export const PreviewConfig = () => {
   useEffect(() => {
     set({
       preview: {
-        images: images.map((i) => `data:image/png;base64,${i}`),
+        images: images.map((i) => {
+          return {
+            ...i,
+            images: i.images.map((i) => `data:image/png;base64,${i}`),
+          };
+        }),
         width: state.width,
         height: state.height,
       },
     });
   }, [images, state, set]);
 
+  useEffect(() => {
+    setExportMode(mode);
+  }, [mode, setExportMode]);
+
   return null;
 };
 
 export const ExportConfig = () => {
-  const exportModeDefault = useExportOptionsStore((state) => state.mode);
-  const setExportMode = useExportOptionsStore((state) => state.setMode);
   const intervalsDefault = useExportOptionsStore((state) => state.intervals);
   const setIntervals = useExportOptionsStore((state) => state.setIntervals);
   const iterationsDefault = useExportOptionsStore((state) => state.iterations);
@@ -146,12 +158,8 @@ export const ExportConfig = () => {
   const previewDefault = useExportOptionsStore((state) => state.preview);
   const setPreview = useExportOptionsStore((state) => state.setPreview);
 
-  const { mode, intervals, count, preview } = useControls({
+  const { intervals, count, preview } = useControls({
     editor: folder({
-      mode: {
-        options: ["zip", "spritesheet", "gif"] as ExportFormat[],
-        value: exportModeDefault,
-      },
       intervals: intervalsDefault,
       count: iterationsDefault,
       preview: {
@@ -160,10 +168,6 @@ export const ExportConfig = () => {
       },
     }),
   });
-
-  useEffect(() => {
-    setExportMode(mode);
-  }, [mode, setExportMode]);
 
   useEffect(() => {
     setIntervals(intervals);

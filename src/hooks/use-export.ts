@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import JSZip from "jszip";
 import { scheduleInterval } from "../utils/time";
@@ -9,6 +9,7 @@ import { createGif, createSpriteSheet, downloadFile } from "../utils/assets";
 import { useFrameValues } from "../hooks/use-frame-values";
 import { useEditorStore } from "@/store/editor";
 import { useEffectsStore } from "@/store/effects";
+import { useModelStore } from "@/store/model";
 
 export const useExport = () => {
   const images = useRef<
@@ -28,9 +29,15 @@ export const useExport = () => {
   const iterations = useExportOptionsStore((state) => state.iterations);
   const frameDelay = useExportOptionsStore((state) => state.frameDelay);
 
-  const setImages = useExportOptionsStore((state) => state.setImages);
+  const addImages = useExportOptionsStore((state) => state.addImagesRow);
+  const exportedImages = useExportOptionsStore((state) => state.images);
+  const exportLabel = useExportOptionsStore((state) => state.label);
+  const setExportLabel = useExportOptionsStore((state) => state.setLabel);
+
+  const animation = useModelStore((state) => state.animation);
 
   const composer = useEffectsStore((state) => state.composer);
+  const [exportedImagesCount, setExportedImagesCount] = useState(0);
 
   const { exportHeight, exportWidth } = useFrameValues();
   const { gl } = useThree();
@@ -79,57 +86,77 @@ export const useExport = () => {
   const downloadImageFiles = useCallback(async () => {
     const zip = new JSZip();
 
-    for (let i = 0; i < images.current.length; i++) {
-      zip.file(images.current[i].name, images.current[i].dataURL, {
-        base64: true,
-      });
+    for (let i = 0; i < exportedImages.length; i++) {
+      const folder = zip.folder(exportedImages[i].label)!;
+
+      for (let j = 0; j < exportedImages[i].images.length; j++) {
+        folder.file(
+          `${exportedImages[i].name}_${j}.png`,
+          exportedImages[i].images[j],
+          {
+            base64: true,
+          }
+        );
+      }
     }
 
     const zipData = await zip.generateAsync({ type: "base64" });
 
     downloadFile("data:application/zip;base64," + zipData, "images.zip");
-  }, [images]);
+  }, [exportedImages]);
+
+  const downloadGifFiles = useCallback(async () => {
+    const zip = new JSZip();
+
+    for (let i = 0; i < exportedImages.length; i++) {
+      console.log(exportedImages[i])!;
+      const gifUrl = await createGif(
+        exportedImages[i].images,
+        exportWidth,
+        exportHeight,
+        frameDelay
+      );
+
+      const content = await (await fetch(gifUrl)).arrayBuffer();
+      zip.file(`${exportedImages[i].name}.gif`, content);
+    }
+
+    const zipData = await zip.generateAsync({ type: "base64" });
+
+    downloadFile("data:application/zip;base64," + zipData, "gif.zip");
+  }, [exportedImages, exportWidth, exportHeight, frameDelay]);
+
+  const downloadSpriteSheet = useCallback(async () => {
+    const dataUrl = await createSpriteSheet(
+      exportedImages.map((img) => img.images),
+      exportWidth,
+      exportHeight
+    );
+    await downloadFile(dataUrl, "spritesheet.png");
+  }, [exportedImages, exportWidth, exportHeight]);
 
   const exportSpriteSheet = useCallback(async () => {
     try {
       switch (exportFormat) {
-        case "zip":
+        case "zip": {
           await downloadImageFiles();
           break;
+        }
         case "spritesheet": {
-          const dataUrl = await createSpriteSheet(
-            images.current.map((img) => img.dataURL),
-            "x",
-            exportWidth,
-            exportHeight
-          );
-          downloadFile(dataUrl, "spritesheet.png");
+          await downloadSpriteSheet();
           break;
         }
         case "gif": {
-          const gifUrl = await createGif(
-            images.current.map((img) => img.dataURL),
-            exportWidth,
-            exportHeight,
-            frameDelay
-          );
-          downloadFile(gifUrl, "spritesheet.gif");
+          await downloadGifFiles();
           break;
         }
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      PubSub.emit(EventType.STOP_EXPORT);
     }
-
-    PubSub.emit(EventType.STOP_EXPORT);
-  }, [
-    exportFormat,
-    exportWidth,
-    exportHeight,
-    frameDelay,
-    downloadImageFiles,
-    images,
-  ]);
+  }, [exportFormat, downloadSpriteSheet, downloadGifFiles, downloadImageFiles]);
 
   const takeScreenshot = useCallback(() => {
     if (!gl) return;
@@ -151,14 +178,24 @@ export const useExport = () => {
         console.log("Stopped taking screenshots.");
         PubSub.emit(EventType.STOP_ASSETS_CREATION);
         setShowEditor(true);
-        setImages(images.current.map((img) => img.dataURL));
+        addImages(
+          animation || Date.now().toString(),
+          exportLabel,
+          images.current.map((img) => img.dataURL)
+        );
+        setExportLabel(`animation_${exportedImagesCount + 1}`);
+        setExportedImagesCount(exportedImagesCount + 1);
       }
     );
   }, [
     gl,
     intervals,
     iterations,
-    setImages,
+    animation,
+    exportLabel,
+    exportedImagesCount,
+    setExportLabel,
+    addImages,
     captureScreenshotData,
     setShowEditor,
   ]);

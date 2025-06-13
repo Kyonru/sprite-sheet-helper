@@ -21,8 +21,22 @@ interface ExportOptionsState {
   setExportHeight: (exportHeight: number) => void;
   preview: boolean;
   setPreview: (preview: boolean) => void;
-  images: string[];
-  setImages: (images: string[]) => void;
+  label: string;
+  setLabel: (label: string) => void;
+  images: {
+    name: string;
+    label: string;
+    images: string[];
+  }[];
+  setImages: (
+    images: {
+      name: string;
+      label: string;
+      images: string[];
+    }[]
+  ) => void;
+  addImagesRow: (name: string, label: string, images: string[]) => void;
+  removeImagesRow: (index: number) => void;
 }
 
 export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
@@ -37,7 +51,23 @@ export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
   setIterations: (iterations: number) =>
     set(() => ({ iterations: iterations })),
   images: [],
-  setImages: (images: string[]) => set(() => ({ images: images })),
+  label: "animation_0",
+  setLabel: (label: string) => set(() => ({ label: label })),
+  setImages: (
+    images: {
+      name: string;
+      label: string;
+      images: string[];
+    }[]
+  ) => set(() => ({ images: images })),
+  addImagesRow: (name: string, label: string, images: string[]) =>
+    set((state) => ({
+      images: [...state.images, { name: name, label: label, images: images }],
+    })),
+  removeImagesRow: (index: number) =>
+    set((state) => ({
+      images: state.images.filter((_, i) => i !== index),
+    })),
   preview: false,
   setPreview: (preview: boolean) => set(() => ({ preview: preview })),
   width: getBasedOnDisplaySize({

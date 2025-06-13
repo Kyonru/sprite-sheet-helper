@@ -14,6 +14,8 @@ export const useCameraValues = () => {
   const useGesturesControls = useCameraStore(
     (state) => state.useGesturesControls
   );
+  const orbitSettings = useCameraStore((state) => state.orbitSettings);
+  const setOrbitRef = useCameraStore((state) => state.setOrbitRef);
 
   return {
     useGesturesControls,
@@ -23,9 +25,11 @@ export const useCameraValues = () => {
     zoom,
     fov,
     type,
+    orbitSettings,
     setPosition,
     setRotation,
     setScale,
     setZoom,
+    setOrbitRef,
   };
 };

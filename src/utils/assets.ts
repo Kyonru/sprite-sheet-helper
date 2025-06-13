@@ -1,13 +1,17 @@
 import GIF from "gif.js.optimized";
 
 export async function createSpriteSheet(
-  images: string[],
-  axis: "x" | "y" = "x",
+  images: string[][],
   xWidth: number,
   xHeight: number
 ): Promise<string> {
+  const rows = images.length;
+  const cols = Math.max(...images.map((row) => row.length));
+
+  // Flatten and load all images
+  const flatImages = images.flat();
   const loadedImages = await Promise.all(
-    images.map((src) => {
+    flatImages.map((src) => {
       return new Promise<HTMLImageElement>((resolve) => {
         const img = new Image();
         img.onload = () => resolve(img);
@@ -16,29 +20,24 @@ export async function createSpriteSheet(
     })
   );
 
-  // Set canvas size based on custom dimensions
-  const width = axis === "x" ? xWidth * images.length : xWidth;
-  const height = axis === "y" ? xHeight * images.length : xHeight;
-
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = cols * xWidth;
+  canvas.height = rows * xHeight;
   const ctx = canvas.getContext("2d")!;
 
-  let x = 0;
-  let y = 0;
-
-  for (const img of loadedImages) {
-    ctx.drawImage(img, x, y, xWidth, xHeight);
-    if (axis === "x") {
-      x += xWidth;
-    } else {
-      y += xHeight;
+  let i = 0;
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < images[row].length; col++) {
+      const x = col * xWidth;
+      const y = row * xHeight;
+      const img = loadedImages[i++];
+      ctx.drawImage(img, x, y, xWidth, xHeight);
     }
   }
 
   return canvas.toDataURL("image/png");
 }
+
 export async function createGif(
   images: string[],
   width: number,

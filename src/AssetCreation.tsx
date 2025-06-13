@@ -1,5 +1,5 @@
 import "./App.css";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import TimelineEditor from "./components/timeline";
 import { useFrameValues } from "./hooks/use-frame-values";
@@ -7,6 +7,7 @@ import { AssetScene } from "./components/scene";
 import { LevaPanel } from "leva";
 import { useSharedContext } from "./context/sharedContext";
 import { LEVA_THEME } from "./constants/theming";
+import { useExportOptionsStore } from "./store/export";
 
 const ENABLE_TIMELINE = false;
 
@@ -15,6 +16,22 @@ function AssetCreation() {
 
   const { previewHeight, previewWidth } = useFrameValues();
   const { levaStore } = useSharedContext();
+  const exportedImages = useExportOptionsStore((state) => state.images);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (exportedImages.length === 0) return;
+      e.preventDefault();
+      // Deprecated, but still required for most browsers to trigger the confirmation
+      e.returnValue = true;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [exportedImages]);
 
   return (
     <div className="flex flex-1 w-full h-full flex-col">

@@ -1,6 +1,7 @@
 import { useCameraStore } from "@/store/camera";
+import { useModelStore } from "@/store/model";
 import type { CameraType } from "@/types/camera";
-import { folder, useControls } from "leva";
+import { button, folder, useControls } from "leva";
 import { useEffect } from "react";
 
 export const CameraConfig = () => {
@@ -10,6 +11,10 @@ export const CameraConfig = () => {
   const zoomDefault = useCameraStore((state) => state.zoom);
   const fovDefault = useCameraStore((state) => state.fov);
   const typeDefault = useCameraStore((state) => state.type);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { target0, ...orbitSettingsDefault } = useCameraStore(
+    (state) => state.orbitSettings
+  );
   const useGesturesControlsDefault = useCameraStore(
     (state) => state.useGesturesControls
   );
@@ -25,6 +30,11 @@ export const CameraConfig = () => {
   const setZoom = useCameraStore((state) => state.setZoom);
   const setFov = useCameraStore((state) => state.setFov);
   const setType = useCameraStore((state) => state.setType);
+  const updateOrbitSettings = useCameraStore(
+    (state) => state.updateOrbitSettings
+  );
+  const orbitRef = useCameraStore((state) => state.orbitRef);
+  const modelRef = useModelStore((state) => state.ref);
 
   const [
     { position, rotation, scale, zoom, fov, type, useGesturesControls },
@@ -53,6 +63,35 @@ export const CameraConfig = () => {
       }
     ),
   }));
+
+  const orbit = useControls(
+    {
+      camera: folder(
+        {
+          "orbit settings": folder(
+            {
+              ...orbitSettingsDefault,
+              focus: button(() => {
+                if (!orbitRef || !modelRef) return;
+                orbitRef.target.set(
+                  modelRef.position.x,
+                  modelRef.position.y,
+                  modelRef.position.z
+                );
+              }),
+            },
+            {
+              collapsed: true,
+            }
+          ),
+        },
+        {
+          collapsed: true,
+        }
+      ),
+    },
+    [modelRef, orbitRef]
+  );
 
   useEffect(() => {
     setPosition(position);
@@ -85,6 +124,10 @@ export const CameraConfig = () => {
   useEffect(() => {
     setUIStateFunction(set as unknown as <T>(uiState: T) => void);
   }, [setUIStateFunction, set]);
+
+  useEffect(() => {
+    updateOrbitSettings(orbit);
+  }, [orbit, updateOrbitSettings]);
 
   return null;
 };
