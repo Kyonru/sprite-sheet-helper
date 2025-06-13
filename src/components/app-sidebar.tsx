@@ -108,11 +108,15 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-border">
-        <Button disabled={exporting} onClick={takeScreenshot}>
+        <Button
+          className="bg-chart-3 text-primary-foreground"
+          disabled={exporting}
+          onClick={takeScreenshot}
+        >
           {exporting ? (
             <LucideLoaderCircle className="animate-spin" />
           ) : (
-            "Create assets"
+            "Add sequence"
           )}
         </Button>
       </SidebarFooter>

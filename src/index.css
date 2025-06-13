@@ -137,7 +137,6 @@
 
   /* Track */
   ::-webkit-scrollbar-track {
-    background: var(--popover);
     border-radius: 5px;
   }
 

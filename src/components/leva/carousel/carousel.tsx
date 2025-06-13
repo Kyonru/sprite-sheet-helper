@@ -156,13 +156,13 @@ const CarrouselRow = ({
 }) => {
   return (
     <div
-      className={`flex flex-row w-full h-11 gap-2 items-center p-2 rounded-md ${
+      className={`flex flex-row w-full h-10 gap-2 items-center pl-2 pr-2 rounded-md ${
         selected ? "border-2 border-chart-3" : ""
       }`}
       onClick={onClick}
     >
       <RadioGroupItem checked={selected} value={name} id={name} />
-      <Label className="w-32 text-ellipsis truncate" htmlFor="option-two">
+      <Label className="w-24 text-ellipsis truncate" htmlFor="option-two">
         {label}
       </Label>
       <div className="relative h-10 flex flex-1 gap-2 overflow-hidden">
@@ -170,10 +170,10 @@ const CarrouselRow = ({
           <img
             style={{
               opacity: 2 * (1 / (i + 1)),
-              transform: `translateX(${i * 50}%)`,
+              transform: `translateX(${i * 45}%)`,
             }}
             key={`${name}-${i}`}
-            className={`h-10 w-10 rounded-md  absolute`}
+            className={`h-10 w-10 rounded-md absolute object-contain`}
             src={imageSrc}
             alt={`Frame ${i}`}
           />
@@ -254,11 +254,9 @@ export const LevaCarousel = () => {
     return null;
   }
 
-  console.log({ imagesLength });
-
   return (
     <>
-      <Row className="max-h-64 pr-2 pt-8 pb-8 overflow-y-scroll">
+      <Row className="max-h-40 pr-2 pb-4 overflow-y-scroll pt-2">
         <RadioGroup>
           {images.map((row, index) => (
             <div
@@ -285,10 +283,7 @@ export const LevaCarousel = () => {
         </RadioGroup>
       </Row>
       <Row>
-        <div
-          draggable={false}
-          className="flex flex-col w-full gap-2 max-w-xs mb-2"
-        >
+        <div draggable={false} className="flex flex-col w-72 gap-2 mb-2">
           <Card className="p-0">
             <CardContent className="flex aspect-square p-0">
               <TransformWrapper
@@ -331,6 +326,7 @@ export const LevaCarousel = () => {
               loop: true,
             }}
             plugins={[
+              // TODO: Make my own autoplay or Use carousel as frame display with watchDrag = false
               Autoplay({
                 delay: frameDelay,
                 playOnInit: false,
@@ -388,7 +384,11 @@ export const LevaCarousel = () => {
             </ToggleGroup>
           </div>
 
-          <Button disabled={exporting} onClick={onExport}>
+          <Button
+            className="bg-chart-2 text-primary-foreground"
+            disabled={exporting}
+            onClick={onExport}
+          >
             Export
           </Button>
         </div>

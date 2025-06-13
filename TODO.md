@@ -16,14 +16,20 @@
 
 ### Export
 
-- Gif export
+- Fix carousel when items < 6
+- Add option to rename animations
 
 ### Preview
 
-- Light position overlay
-  - possibly another canvas showing the lights positions without casting light
-  - or maybe hiding the lights when screenshots start
+- More control over positioning
+  - Maybe presets like ortogonal, isometric, top-down, side-view, etc
+  - Grid
+    - Grid Color
 
-### Tech dev
+### Timeline
 
-- Use Key Value instead of helper functions on leva selects
+- Add timeline
+- Add timeline controls
+- Add timeline preview
+- Add timeline export
+- Add animation keyframes for all properties
