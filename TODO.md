@@ -33,3 +33,10 @@
 - Add timeline preview
 - Add timeline export
 - Add animation keyframes for all properties
+
+### AI Assistant
+
+- Add "AI" assistant
+  - Being able to ask about the tool and how to use it
+  - Doesn't need to be a chatbot, just a simple question and answer system
+  - Using window.ai and knowledge graphs

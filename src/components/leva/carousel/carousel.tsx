@@ -19,6 +19,7 @@ import {
   LucideFullscreen,
   LucideInfinity,
   LucidePlay,
+  LucideTrash,
   LucideZoomIn,
   LucideZoomOut,
 } from "lucide-react";
@@ -183,6 +184,38 @@ const CarrouselRow = ({
   );
 };
 
+const CarouselAnimatedRowContent = ({
+  onRemove,
+  index,
+  src,
+  selectedSnap,
+  className,
+}: {
+  onRemove: () => void;
+  index: number;
+  src: string;
+  selectedSnap: number;
+  className?: string;
+}) => {
+  return (
+    <div className={className}>
+      <img
+        className={`h-10 w-10 rounded-md ${
+          index === selectedSnap ? "border-2 border-chart-3" : ""
+        }`}
+        src={src}
+        alt={`Frame ${index}`}
+      />
+      <div className="absolute flex size-10 top-0 right-0 items-center justify-center group">
+        <LucideTrash
+          onClick={onRemove}
+          className="size-5 active:size-3 self-center text-chart-3 hidden group-hover:flex transition-all duration-200"
+        />
+      </div>
+    </div>
+  );
+};
+
 // Could be reused for others, but for now it's just for exporting
 export const LevaCarousel = () => {
   const props = useInputContext<LevaCarouselProps>();
@@ -202,6 +235,14 @@ export const LevaCarousel = () => {
     (state) => state.removeImagesRow
   );
 
+  const removeImageFromRow = useExportOptionsStore(
+    (state) => state.removeImageFromRow
+  );
+
+  const onTogglePlay = useCallback(() => {
+    toggleAutoplay();
+  }, [toggleAutoplay]);
+
   const [selectedRow, setSelectedRow] = useState(0);
   const onRemoveRow = useCallback(
     (index: number) => {
@@ -210,6 +251,13 @@ export const LevaCarousel = () => {
       setSelectedRow(0);
     },
     [removeImagesRow]
+  );
+
+  const onRemoveImageFromRow = useCallback(
+    (index: number, imageIndex: number) => {
+      removeImageFromRow(index, imageIndex);
+    },
+    [removeImageFromRow]
   );
 
   const onExport = useCallback(() => {
@@ -340,15 +388,18 @@ export const LevaCarousel = () => {
             <CarouselContent className="w-full">
               {(images[selectedRow]?.images || []).map((imageSrc, index) => (
                 <CarouselItem
-                  className={imagesLength > 2 ? `basis-1/${imagesLength}` : ""}
+                  className={`${
+                    imagesLength > 2 ? `basis-1/${imagesLength}` : ""
+                  }`}
                   key={index}
                 >
-                  <img
-                    className={`h-10 w-10 rounded-md ${
-                      index === selectedSnap ? "border-2 border-chart-3" : ""
-                    }`}
+                  <CarouselAnimatedRowContent
+                    key={index}
+                    onRemove={() => onRemoveImageFromRow(selectedRow, index)}
+                    index={index}
                     src={imageSrc}
-                    alt={`Frame ${index}`}
+                    selectedSnap={selectedSnap}
+                    className={`relative`}
                   />
                 </CarouselItem>
               ))}
@@ -356,7 +407,24 @@ export const LevaCarousel = () => {
             <CarouselPrevious />
             <CarouselNext />
           </Carousel>
-
+          {imagesLength <= 2 && (
+            <div className="flex flex-row w-full h-10 gap-2 items-center pl-2 pr-2 rounded-md">
+              {(images[selectedRow]?.images || []).map((imageSrc, index) => (
+                <CarouselAnimatedRowContent
+                  key={index}
+                  onRemove={() => {
+                    onRemoveImageFromRow(selectedRow, index);
+                  }}
+                  index={index}
+                  src={imageSrc}
+                  selectedSnap={selectedSnap}
+                  className={`relative ${
+                    imagesLength > 2 ? `basis-1/${imagesLength}` : ""
+                  }`}
+                />
+              ))}
+            </div>
+          )}
           <div className="flex flex-row justify-center">
             <div className="text-muted-foreground py-2 text-center text-sm">
               Frame {selectedSnap + 1} of {snapCount}
@@ -366,7 +434,7 @@ export const LevaCarousel = () => {
               className="absolute top-2 right-2"
               type="single"
               value={autoplayIsPlaying ? "on" : "off"}
-              onValueChange={toggleAutoplay}
+              onValueChange={onTogglePlay}
             >
               <ToggleGroupItem value="on" aria-label="on">
                 <LucidePlay className="size-6" />
