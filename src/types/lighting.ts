@@ -5,6 +5,11 @@ export interface Light {
   color: string;
 }
 
+export interface DirectionalLight extends Light {
+  type: "directional";
+  position: [number, number, number];
+}
+
 export interface AmbientLight extends Light {
   type: "ambient";
 }
@@ -28,6 +33,5 @@ export interface SpotLight extends Light {
   lookAtObject: boolean;
   rotation: [number, number, number];
   transform: "translate" | "scale" | "rotate";
-  castShadow: boolean;
   direction: [number, number, number];
 }

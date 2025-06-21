@@ -57,12 +57,7 @@ export function Box(props: ThreeElements["mesh"]) {
         }}
       >
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial
-          transparent
-          ref={materialRef}
-          color={"#2f74c0"}
-          depthWrite={false}
-        />
+        <meshStandardMaterial transparent ref={materialRef} color={"#2f74c0"} />
       </mesh>
     </Select>
   );
