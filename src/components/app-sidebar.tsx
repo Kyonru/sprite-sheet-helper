@@ -19,8 +19,16 @@ import { Input } from "./ui/input";
 import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
 import { useModelStore } from "@/store/model";
 import { useEffect, useRef, useState } from "react";
-import { LucideLoaderCircle } from "lucide-react";
+import { LucideInfo, LucideLoaderCircle } from "lucide-react";
 import { LEVA_THEME } from "@/constants/theming";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+
+const DOCS_URL = "https://kyonru.github.io/sprite-sheet-helper-docs/";
 
 export function AppSidebar() {
   const background = useAppColorStore((state) => state.color);
@@ -32,6 +40,10 @@ export function AppSidebar() {
     PubSub.emit(EventType.START_ASSETS_CREATION);
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const openDocs = () => {
+    window.open(DOCS_URL, "_blank");
+  };
 
   useEffect(() => {
     const stopExporting = () => {
@@ -52,7 +64,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent className="no-scrollbar">
         <SidebarGroup>
-          <SidebarGroupLabel>Sprite Helper</SidebarGroupLabel>
+          <SidebarGroupLabel>Sprite sheet Helper</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem className="pt-1" key={"background"}>
@@ -66,6 +78,24 @@ export function AppSidebar() {
                   </div>
                   <div className="flex-none">
                     <ModeToggle />
+                  </div>
+                  <div className="flex-none">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={openDocs}
+                            variant="outline"
+                            size="icon"
+                          >
+                            <LucideInfo className="size-6 text-chart-2" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Documentation</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               </SidebarMenuItem>

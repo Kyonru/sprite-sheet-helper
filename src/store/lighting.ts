@@ -1,10 +1,20 @@
-import type { AmbientLight, PointLight, SpotLight } from "@/types/lighting";
+import type {
+  AmbientLight,
+  DirectionalLight,
+  PointLight,
+  SpotLight,
+} from "@/types/lighting";
 import { getRandomHexColor, getRandomVector3 } from "@/utils/random";
 import { create } from "zustand";
 
 interface LightingState {
   ambientLight: AmbientLight;
   setAmbientLight: (props: Partial<AmbientLight>) => void;
+
+  directionalLight: DirectionalLight;
+  setDirectionalLight: (props: Partial<DirectionalLight>) => void;
+  directionalLightUIState: <T>(uiState: T) => void;
+  setDirectionalLightUIStateFunction: (fn: <T>(uiState: T) => void) => void;
 
   pointLights: PointLight[];
   setPointLightsAmount: (count: number) => void;
@@ -36,6 +46,19 @@ export const useLightStore = create<LightingState>((set) => ({
     set((state) => ({
       ...state,
       ambientLight: { ...state.ambientLight, ...props },
+    })),
+
+  directionalLight: {
+    type: "directional",
+    enabled: false,
+    intensity: Math.PI / 2,
+    color: "#ffffff",
+    position: [1, 1, 1],
+  },
+  setDirectionalLight: (props: Partial<DirectionalLight>) =>
+    set((state) => ({
+      ...state,
+      directionalLight: { ...state.directionalLight, ...props },
     })),
 
   pointLights: [],
@@ -109,7 +132,6 @@ export const useLightStore = create<LightingState>((set) => ({
               }),
               angle: 0.1,
               penumbra: 0.1,
-              castShadow: true,
               power: 100,
               transform: "translate",
               direction: [0, 0, 0],
@@ -152,5 +174,11 @@ export const useLightStore = create<LightingState>((set) => ({
         ...state.spotLightsUIState,
         [id]: fn,
       },
+    })),
+  directionalLightUIState: () => null,
+  setDirectionalLightUIStateFunction: (fn: <T>(uiState: T) => void) =>
+    set((state) => ({
+      ...state,
+      directionalLightUIState: fn,
     })),
 }));

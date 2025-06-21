@@ -106,7 +106,6 @@ const SpotLightObject = ({
           distance={light.distance}
           color={light.color}
           power={light.power}
-          castShadow={light.castShadow}
         />
       </TransformController>
       <TransformControls
@@ -206,10 +205,66 @@ export const PointLightObject = ({
   );
 };
 
+const DirectionalLightObject = () => {
+  const directionalLight = useLightStore((state) => state.directionalLight);
+  const dirLight = useRef<THREE.DirectionalLight>(null!);
+  const showEditor = useEditorStore((state) => state.showEditor);
+  const setUIState = useLightStore((state) => state.directionalLightUIState);
+  const helper = useHelper(
+    dirLight,
+    THREE.DirectionalLightHelper,
+    10,
+    directionalLight.color
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transformRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!helper.current) {
+      return;
+    }
+    if (showEditor) {
+      helper.current.visible = true;
+    } else {
+      helper.current.visible = false;
+    }
+  }, [showEditor, helper]);
+
+  useEffect(() => {
+    if (!helper.current) {
+      return;
+    }
+
+    helper.current?.update();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directionalLight.color]);
+
+  return (
+    <TransformController
+      ref={transformRef}
+      onMouseUp={() => {
+        if (!transformRef.current?.object) return;
+        const object = transformRef.current.object;
+        setUIState({
+          position: [object.position.x, object.position.y, object.position.z],
+        });
+      }}
+      position={directionalLight.position}
+    >
+      <directionalLight
+        ref={dirLight}
+        intensity={directionalLight.intensity}
+        color={directionalLight.color}
+      />
+    </TransformController>
+  );
+};
+
 export const Lighting = () => {
   const ambientLight = useLightStore((state) => state.ambientLight);
   const pointLights = useLightStore((state) => state.pointLights);
   const spotLights = useLightStore((state) => state.spotLights);
+  const directionalLight = useLightStore((state) => state.directionalLight);
 
   return (
     <>
@@ -219,12 +274,12 @@ export const Lighting = () => {
           color={ambientLight.color}
         />
       )}
+      {directionalLight.enabled && <DirectionalLightObject />}
       {pointLights.map((light, index) =>
         light.enabled ? (
           <PointLightObject id={index} light={light} key={index} />
         ) : null
       )}
-
       {spotLights.map((light, index) =>
         light.enabled ? (
           <SpotLightObject id={index} light={light} key={index} />
@@ -265,6 +320,46 @@ const AmbientLight = () => {
       color,
     });
   }, [enabled, intensity, color, setAmbientLight]);
+
+  return null;
+};
+
+const DirectionalLight = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { type, ...directionalLightDefaults } = useLightStore(
+    (state) => state.directionalLight
+  );
+  const setUIStateFunction = useLightStore(
+    (state) => state.setDirectionalLightUIStateFunction
+  );
+  const setDirectionalLight = useLightStore(
+    (state) => state.setDirectionalLight
+  );
+  const [props, set] = useControls(() => ({
+    lighting: folder(
+      {
+        directional: folder(
+          {
+            ...directionalLightDefaults,
+          },
+          {
+            collapsed: true,
+          }
+        ),
+      },
+      {
+        collapsed: true,
+      }
+    ),
+  }));
+
+  useEffect(() => {
+    setDirectionalLight(props);
+  }, [props, setDirectionalLight]);
+
+  useEffect(() => {
+    setUIStateFunction(set as unknown as <T>(uiState: T) => void);
+  }, [setUIStateFunction, set]);
 
   return null;
 };
@@ -473,6 +568,7 @@ export const LightsConfig = () => {
   return (
     <>
       <AmbientLight />
+      <DirectionalLight />
       <PointLights />
       <SportLights />
     </>
