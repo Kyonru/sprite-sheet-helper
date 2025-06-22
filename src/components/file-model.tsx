@@ -98,7 +98,11 @@ export function FileModel({ file, ...props }: Props) {
                   clip,
                 });
               });
+
               mixerRef.current = mixer;
+
+              setClips(allAnimationsClips);
+              setMixerRef(mixer);
             }
             break;
           }
