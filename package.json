@@ -47,10 +47,12 @@
     "leva": "^0.10.0",
     "lucide-react": "^0.511.0",
     "motion": "^12.12.1",
+    "next-themes": "^0.4.6",
     "react": "19.1.2",
     "react-colorful": "^5.6.1",
     "react-dom": "19.1.2",
     "react-zoom-pan-pinch": "^3.7.0",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.0",
     "tailwindcss": "^4.1.7",
     "three": "^0.176.0",
@@ -69,6 +71,7 @@
     "tw-animate-css": "^1.3.0",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.30.1",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vite-plugin-pwa": "^1.2.0"
   }
 }
