@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useCreateStore } from "leva";
 import type { StoreType } from "leva/dist/declarations/src/types";
 import React, { type PropsWithChildren } from "react";
@@ -12,7 +13,7 @@ export function useSharedContext() {
   const context = React.useContext(sharedContext);
   if (!context) {
     throw new Error(
-      "useSharedContext must be used within a SharedContextProvider."
+      "useSharedContext must be used within a SharedContextProvider.",
     );
   }
 

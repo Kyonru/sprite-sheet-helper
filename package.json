@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "build:tauri": "TAURI_BUILD=true tsc -b && TAURI_BUILD=true vite build",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json --composite false",
     "preview": "vite preview",
     "tauri": "tauri"
   },
