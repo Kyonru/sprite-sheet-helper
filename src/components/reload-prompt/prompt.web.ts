@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { useRegisterSW } from "virtual:pwa-register/react";
 
-export default function ReloadPrompt() {
+export default function useReloadPrompt() {
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
@@ -15,7 +15,6 @@ export default function ReloadPrompt() {
       console.log("SW registration error", error);
     },
   });
-
   useEffect(() => {
     if (offlineReady) {
       toast.success("App ready to work offline", {
@@ -28,7 +27,6 @@ export default function ReloadPrompt() {
       });
     }
   }, [offlineReady, setOfflineReady]);
-
   useEffect(() => {
     if (needRefresh) {
       toast("New update available", {
@@ -45,6 +43,5 @@ export default function ReloadPrompt() {
       });
     }
   }, [needRefresh, setNeedRefresh, updateServiceWorker]);
-
   return null;
 }

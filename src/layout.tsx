@@ -1,9 +1,12 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./components/app-sidebar";
 import { useAppColorStore } from "./store/app-color";
+import useReloadPrompt from "./components/reload-prompt/prompt.web";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const background = useAppColorStore((state) => state.color);
+
+  useReloadPrompt();
   return (
     <div className="w-full" style={{ background: background }}>
       <SidebarProvider>

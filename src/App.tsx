@@ -4,7 +4,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import AssetCreation from "./AssetCreation";
 import Layout from "./layout";
 import { SharedContextProvider } from "./context/sharedContext";
-import ReloadPrompt from "./components/reload-prompt";
 
 function App() {
   return (
@@ -15,7 +14,6 @@ function App() {
         </Layout>
       </SharedContextProvider>
       <Toaster richColors />
-      <ReloadPrompt />
     </ThemeProvider>
   );
 }
