@@ -1,54 +1,141 @@
-# React + TypeScript + Vite
+# 🧱 Sprite Sheet Helper
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Generate sprite sheets and export renders from 3D scenes — fast and simple.
 
-Currently, two official plugins are available:
+Built with **Vite + React + Tauri** for a lightweight, native desktop experience.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## Expanding the ESLint configuration
+## 📦 Download
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Prebuilt desktop binaries are available on the [Releases page](https://github.com/Kyonru/sprite-sheet-helper/releases).
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+| Platform | File                  |
+| -------- | --------------------- |
+| macOS    | `.dmg`                |
+| Windows  | `.msi` or `.exe`      |
+| Linux    | `.AppImage` or `.deb` |
+
+Download the appropriate file for your OS and run it directly — no setup required.
+
+---
+
+## 🚀 Development Setup
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (LTS recommended)
+- [Rust toolchain](https://www.rust-lang.org/tools/install)
+- Tauri platform dependencies → [Official guide](https://tauri.app/start/prerequisites/)
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Kyonru/sprite-sheet-helper.git
+cd sprite-sheet-helper
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Install Dependencies
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+```bash
+npm install
 ```
+
+### 3. Run in Development Mode
+
+```bash
+npm run tauri dev
+```
+
+This starts Vite and launches the Tauri desktop app with hot reload.
+
+---
+
+## 🛠 Build
+
+### Debug build
+
+```bash
+npm run tauri build -- --debug
+```
+
+### Production build
+
+```bash
+npm run tauri build
+```
+
+The compiled application will be output to `src-tauri/target/`.
+
+---
+
+## 📜 Scripts
+
+| Command                          | Description                      |
+| -------------------------------- | -------------------------------- |
+| `npm install`                    | Install all dependencies         |
+| `npm run tauri dev`              | Run the app in development mode  |
+| `npm run tauri build`            | Build the production desktop app |
+| `npm run tauri build -- --debug` | Build a debug desktop app        |
+| `npm run build`                  | Build the web frontend only      |
+
+---
+
+## 🏗 Architecture
+
+Sprite Sheet Helper is **pwa + web-first**. The app runs as a standard web app by default and is also packaged as a native desktop app via Tauri.
+
+### Platform-specific Code
+
+When a feature requires different implementations between web and native (Tauri), the following file naming convention is used:
+
+| File               | Used when                                         |
+| ------------------ | ------------------------------------------------- |
+| `feature.web.ts`   | Default — runs in the browser / web build         |
+| `feature.tauri.ts` | Native override — runs in the Tauri desktop build |
+
+At build time, a Vite plugin (`WebTauriSwapPlugin`) automatically swaps `.web.*` imports for their `.tauri.*` counterpart when building for desktop. If no `.tauri.*` file exists, the `.web.*` version is used as the fallback.
+
+**Example:**
+
+```bash
+src/components/reload-prompt/
+├── prompt.web.ts     ← used in web builds (PWA service worker)
+└── prompt.tauri.ts   ← used in Tauri builds (no-op or native equivalent)
+```
+
+When adding a feature that behaves differently on each platform:
+
+1. Implement the web version in `feature.web.ts`
+2. Implement the native version in `feature.tauri.ts`
+3. Import using the `.web` suffix — the build system handles the rest:
+
+```ts
+import useMyFeature from "./feature.web";
+```
+
+> ℹ️ Never import `.tauri.*` files directly. Always import the `.web.*` version and let the plugin swap it at build time.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how to get started:
+
+```bash
+# 1. Fork and clone the repo, then:
+git checkout -b feature/your-feature-name
+
+# 2. Install dependencies
+npm install
+
+# 3. Make your changes, then commit
+git commit -m "feat: describe your change"
+
+# 4. Push and open a Pull Request
+git push origin feature/your-feature-name
+```
+
+Please keep commits clear and scoped. Bug fixes, performance improvements, and new features are all appreciated.
+
+---
