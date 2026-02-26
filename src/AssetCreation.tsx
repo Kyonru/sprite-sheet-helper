@@ -5,11 +5,21 @@ import TimelineEditor from "./components/timeline";
 import { useFrameValues } from "./hooks/use-frame-values";
 import { AssetScene } from "./components/scene";
 import { LevaPanel } from "leva";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useSharedContext } from "./context/sharedContext";
 import { LEVA_THEME } from "./constants/theming";
 import { useExportOptionsStore } from "./store/export";
+import { Editor } from "./components/editor";
 
 const ENABLE_TIMELINE = false;
+const ENABLE_CODE_EDITOR = false;
 
 function AssetCreation() {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -71,6 +81,19 @@ function AssetCreation() {
         </div>
       </div>
       {ENABLE_TIMELINE && <TimelineEditor />}
+      {ENABLE_CODE_EDITOR && (
+        <Sheet>
+          <SheetTrigger>Open</SheetTrigger>
+          <SheetContent side="bottom" className="z-[999] h-[90vh]">
+            <SheetHeader>
+              <SheetTitle>Are you absolutely sure?</SheetTitle>
+              <SheetDescription>This action cannot be undone.</SheetDescription>
+            </SheetHeader>
+
+            <Editor />
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }
