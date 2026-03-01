@@ -5,10 +5,19 @@ import {
   OrbitControls,
   OrthographicCamera,
   PerspectiveCamera,
+  useHelper,
 } from "@react-three/drei";
+import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
+import { useEffect, useRef } from "react";
 
-export const Camera = () => {
+export const Camera = ({
+  isDefault = true,
+  useOrbitControls = true,
+}: {
+  isDefault?: boolean;
+  useOrbitControls?: boolean;
+}) => {
   const {
     position: cameraPosition,
     rotation: cameraRotation,
@@ -29,11 +38,39 @@ export const Camera = () => {
   const showEditor = useEditorStore((state) => state.showEditor);
   const setUIState = useCameraStore((state) => state.setUIState);
 
+  const ortCamRef = useRef(null!);
+  const persCamRef = useRef(null!);
+  const ortHelper = useHelper(ortCamRef, THREE.CameraHelper);
+  const persHelper = useHelper(persCamRef, THREE.CameraHelper);
+
+  useEffect(() => {
+    if (!ortHelper.current) {
+      return;
+    }
+    if (showEditor && cameraType === "orthographic") {
+      ortHelper.current.visible = true;
+    } else {
+      ortHelper.current.visible = false;
+    }
+  }, [showEditor, ortHelper, cameraType]);
+
+  useEffect(() => {
+    if (!persHelper.current) {
+      return;
+    }
+    if (showEditor && cameraType === "perspective") {
+      persHelper.current.visible = true;
+    } else {
+      persHelper.current.visible = false;
+    }
+  }, [showEditor, persHelper, cameraType]);
+
   return (
     <>
       {cameraType === "orthographic" ? (
         <OrthographicCamera
-          makeDefault={cameraType === "orthographic"}
+          ref={ortCamRef}
+          makeDefault={cameraType === "orthographic" && isDefault}
           position={cameraPosition}
           zoom={zoom}
           rotation={cameraRotation}
@@ -41,7 +78,8 @@ export const Camera = () => {
         />
       ) : (
         <PerspectiveCamera
-          makeDefault={true}
+          ref={persCamRef}
+          makeDefault={cameraType === "perspective" && isDefault}
           position={cameraPosition}
           fov={fov}
           zoom={zoom}
@@ -49,7 +87,7 @@ export const Camera = () => {
           scale={cameraScale}
         />
       )}
-      {useGesturesControls && (
+      {useGesturesControls && useOrbitControls && (
         <OrbitControls
           {...orbitSettings}
           ref={(ref) => setOrbitRef(ref)}

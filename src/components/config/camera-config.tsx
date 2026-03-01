@@ -13,16 +13,16 @@ export const CameraConfig = () => {
   const typeDefault = useCameraStore((state) => state.type);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { target0, ...orbitSettingsDefault } = useCameraStore(
-    (state) => state.orbitSettings
+    (state) => state.orbitSettings,
   );
   const useGesturesControlsDefault = useCameraStore(
-    (state) => state.useGesturesControls
+    (state) => state.useGesturesControls,
   );
   const setUseGesturesControls = useCameraStore(
-    (state) => state.setUseGesturesControls
+    (state) => state.setUseGesturesControls,
   );
   const setUIStateFunction = useCameraStore(
-    (state) => state.setUIStateFunction
+    (state) => state.setUIStateFunction,
   );
   const setPosition = useCameraStore((state) => state.setPosition);
   const setRotation = useCameraStore((state) => state.setRotation);
@@ -31,7 +31,7 @@ export const CameraConfig = () => {
   const setFov = useCameraStore((state) => state.setFov);
   const setType = useCameraStore((state) => state.setType);
   const updateOrbitSettings = useCameraStore(
-    (state) => state.updateOrbitSettings
+    (state) => state.updateOrbitSettings,
   );
   const orbitRef = useCameraStore((state) => state.orbitRef);
   const modelRef = useModelStore((state) => state.ref);
@@ -60,7 +60,7 @@ export const CameraConfig = () => {
       },
       {
         collapsed: true,
-      }
+      },
     ),
   }));
 
@@ -76,21 +76,21 @@ export const CameraConfig = () => {
                 orbitRef.target.set(
                   modelRef.position.x,
                   modelRef.position.y,
-                  modelRef.position.z
+                  modelRef.position.z,
                 );
               }),
             },
             {
               collapsed: true,
-            }
+            },
           ),
         },
         {
           collapsed: true,
-        }
+        },
       ),
     },
-    [modelRef, orbitRef]
+    [modelRef, orbitRef],
   );
 
   useEffect(() => {

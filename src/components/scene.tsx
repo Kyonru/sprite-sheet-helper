@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import React, { useRef, type PropsWithChildren } from "react";
 import { Selection } from "@react-three/postprocessing";
 import { Grid } from "@react-three/drei";
 import { FileModel } from "../components/file-model";
@@ -11,7 +11,7 @@ import { TransformController } from "./transform-controller";
 import { Camera } from "./camera";
 import { useExport } from "@/hooks/use-export";
 
-const TransformAsset = () => {
+export const TransformAsset = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transformRef = useRef<any>(null);
   const modelFile = useModelStore((state) => state.file);
@@ -62,6 +62,33 @@ const TransformAsset = () => {
   );
 };
 
+export const WithoutCamera = ({
+  camera,
+}: PropsWithChildren<{
+  camera: React.ReactNode;
+}>) => {
+  const showEditor = useEditorStore((state) => state.showEditor);
+
+  return (
+    <>
+      <Lighting />
+      <Selection>
+        <PostProcessingEffects />
+        {camera}
+        <TransformAsset />
+      </Selection>
+      {showEditor && (
+        <Grid
+          visible={showEditor}
+          infiniteGrid
+          sectionColor={"#a09f9f"}
+          cellColor={"#868686"}
+        />
+      )}
+    </>
+  );
+};
+
 export const AssetScene = () => {
   const showEditor = useEditorStore((state) => state.showEditor);
 
@@ -72,7 +99,7 @@ export const AssetScene = () => {
       <Lighting />
       <Selection>
         <PostProcessingEffects />
-        <Camera />
+        <Camera isDefault={true} />
         <TransformAsset />
       </Selection>
       {showEditor && (

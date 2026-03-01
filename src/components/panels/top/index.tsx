@@ -21,7 +21,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { EFFECTS, LIGHTS } from "@/constants/effects";
+import { useModelStore } from "@/store/model";
 import type { LightType } from "@/types/lighting";
+import type { Transform } from "@/types/transform";
 import {
   CameraIcon,
   ConeIcon,
@@ -70,7 +72,28 @@ const MenuOption = ({
   );
 };
 
+const TransformOptions = [
+  {
+    value: "translate",
+    title: "Translate",
+    icon: <Move3DIcon className="w-4 h-4 text-emerald-700" />,
+  },
+  {
+    value: "scale",
+    title: "Scale",
+    icon: <Scale3DIcon className="w-4 h-4 text-rose-700" />,
+  },
+  {
+    value: "rotate",
+    title: "Rotate",
+    icon: <Rotate3DIcon className="w-4 h-4 text-cyan-700" />,
+  },
+];
+
 const TopPanel = () => {
+  const setTransform = useModelStore((state) => state.setTransform);
+  const transform = useModelStore((state) => state.transform);
+
   return (
     <Menubar className="w-full rounded-none justify-between">
       <div className="flex items-center flex-row">
@@ -208,22 +231,22 @@ const TopPanel = () => {
           size="sm"
           defaultValue="transform"
           variant="default"
+          value={transform}
+          onValueChange={(value?: string) => {
+            if (value) {
+              setTransform(value as Transform);
+            }
+          }}
         >
-          <ToggleGroupItem value="transform" aria-label="Toggle transform">
-            <MenuOption title="Transform">
-              <Move3DIcon className="w-4 h-4 text-emerald-700" />
-            </MenuOption>
-          </ToggleGroupItem>
-          <ToggleGroupItem value="scale" aria-label="Toggle scale">
-            <MenuOption title="Scale">
-              <Scale3DIcon className="w-4 h-4 text-rose-700" />
-            </MenuOption>
-          </ToggleGroupItem>
-          <ToggleGroupItem value="rotate" aria-label="Toggle rotate">
-            <MenuOption title="Rotate">
-              <Rotate3DIcon className="w-4 h-4 text-cyan-700" />
-            </MenuOption>
-          </ToggleGroupItem>
+          {TransformOptions.map((option) => (
+            <ToggleGroupItem
+              key={option.value}
+              value={option.value}
+              aria-label={`Toggle ${option.title}`}
+            >
+              <MenuOption title={option.title}>{option.icon}</MenuOption>
+            </ToggleGroupItem>
+          ))}
         </ToggleGroup>
       </div>
       <div className="flex items-center flex-row gap-2 pr-4">
