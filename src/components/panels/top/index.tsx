@@ -21,7 +21,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { EFFECTS, LIGHTS } from "@/constants/effects";
+import { useAddLight } from "@/hooks/next/use-add-light";
 import { useModelStore } from "@/store/model";
+import { useHistoryStore } from "@/store/next/history";
 import type { LightType } from "@/types/lighting";
 import type { Transform } from "@/types/transform";
 import {
@@ -89,6 +91,73 @@ const TransformOptions = [
     icon: <Rotate3DIcon className="w-4 h-4 text-cyan-700" />,
   },
 ];
+
+const LightMenu = () => {
+  const addLight = useAddLight();
+  return (
+    <MenubarMenu>
+      <MenubarTrigger>
+        <SunIcon className="w-4 h-4" />
+      </MenubarTrigger>
+      <MenubarContent>
+        <MenubarGroup>
+          <MenubarSub>
+            <MenubarSubTrigger>Add light</MenubarSubTrigger>
+            <MenubarSubContent>
+              <MenubarGroup className="overflow-y-scroll">
+                {LIGHTS.map((light) => (
+                  <MenubarItem
+                    onClick={() => addLight(light.key, light.name)}
+                    key={light.key}
+                  >
+                    <LightIcon type={light.key} />
+                    {light.name}
+                  </MenubarItem>
+                ))}
+              </MenubarGroup>
+            </MenubarSubContent>
+          </MenubarSub>
+        </MenubarGroup>
+      </MenubarContent>
+    </MenubarMenu>
+  );
+};
+
+const HistoryActions = () => {
+  const undo = useHistoryStore((state) => state.undo);
+  const redo = useHistoryStore((state) => state.redo);
+
+  const canUndo = useHistoryStore((state) => state.past.length > 0);
+  const canRedo = useHistoryStore((state) => state.future.length > 0);
+
+  return (
+    <div className="flex items-center flex-row gap-2 pr-4">
+      <MenuOption title="Undo">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6 rounded-xs"
+          disabled={!canUndo}
+          onClick={() => undo()}
+        >
+          <UndoIcon className="size-4" />
+        </Button>
+      </MenuOption>
+
+      <MenuOption title="Redo">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6 rounded-xs"
+          disabled={!canRedo}
+          onClick={() => redo()}
+        >
+          <RedoIcon className="size-4" />
+        </Button>
+      </MenuOption>
+    </div>
+  );
+};
 
 const TopPanel = () => {
   const setTransform = useModelStore((state) => state.setTransform);
@@ -161,28 +230,7 @@ const TopPanel = () => {
             </MenubarGroup>
           </MenubarContent>
         </MenubarMenu>
-        <MenubarMenu>
-          <MenubarTrigger>
-            <SunIcon className="w-4 h-4" />
-          </MenubarTrigger>
-          <MenubarContent>
-            <MenubarGroup>
-              <MenubarSub>
-                <MenubarSubTrigger>Add light</MenubarSubTrigger>
-                <MenubarSubContent>
-                  <MenubarGroup className="overflow-y-scroll">
-                    {LIGHTS.map((effect) => (
-                      <MenubarItem key={effect.key}>
-                        <LightIcon type={effect.key} />
-                        {effect.name}
-                      </MenubarItem>
-                    ))}
-                  </MenubarGroup>
-                </MenubarSubContent>
-              </MenubarSub>
-            </MenubarGroup>
-          </MenubarContent>
-        </MenubarMenu>
+        <LightMenu />
         <MenubarMenu>
           <MenubarTrigger>
             <SparklesIcon className="w-4 h-4" />
@@ -249,19 +297,7 @@ const TopPanel = () => {
           ))}
         </ToggleGroup>
       </div>
-      <div className="flex items-center flex-row gap-2 pr-4">
-        <MenuOption title="Undo">
-          <Button variant="ghost" size="icon" className="size-6 rounded-xs">
-            <UndoIcon className="size-4" />
-          </Button>
-        </MenuOption>
-
-        <MenuOption title="Redo">
-          <Button variant="ghost" size="icon" className="size-6 rounded-xs">
-            <RedoIcon className="size-4" />
-          </Button>
-        </MenuOption>
-      </div>
+      <HistoryActions />
     </Menubar>
   );
 };
