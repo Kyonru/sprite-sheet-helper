@@ -1,5 +1,12 @@
+export type LightType =
+  | "ambient"
+  | "directional"
+  | "point"
+  | "spot"
+  | "hemisphere";
+
 export interface Light {
-  type?: "ambient" | "directional" | "point" | "spot";
+  type?: LightType;
   enabled: boolean;
   intensity: number;
   color: string;
