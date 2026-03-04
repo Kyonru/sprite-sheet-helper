@@ -19,19 +19,21 @@ export const LIGHT_DEFAULTS: Record<string, LightComponent> = {
     type: "point",
     color: "#ffffff",
     intensity: 1,
-    distance: 0,
-    decay: 2,
-    castShadow: false,
+    distance: 10,
+    decay: 0,
+    castShadow: true,
+    power: 10,
   },
   spot: {
     type: "spot",
     color: "#ffffff",
     intensity: 1,
-    distance: 0,
-    angle: Math.PI / 6,
+    distance: 10,
+    angle: 60,
     penumbra: 0.1,
-    decay: 2,
-    castShadow: false,
+    decay: 0,
+    castShadow: true,
+    power: 10.0,
   },
   hemisphere: {
     type: "hemisphere",
@@ -81,5 +83,5 @@ export const useLightsStore = create<LightsState & LightsActions>((set) => ({
   hydrate: (lights) => set({ lights }),
 }));
 
-export const useLight = (uuid: string) =>
-  useLightsStore((state) => state.lights[uuid] ?? null);
+export const useLight = (uuid?: string) =>
+  useLightsStore((state) => (uuid ? state.lights[uuid] : undefined));

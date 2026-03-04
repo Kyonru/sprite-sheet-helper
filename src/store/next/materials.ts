@@ -62,5 +62,7 @@ export const useMaterialsStore = create<MaterialsState & MaterialsActions>(
   }),
 );
 
-export const useMaterial = (uuid: string) =>
-  useMaterialsStore((state) => state.materials[uuid] ?? DEFAULT_MATERIAL);
+export const useMaterial = (uuid?: string) =>
+  useMaterialsStore((state) =>
+    uuid ? state.materials[uuid] : DEFAULT_MATERIAL,
+  );

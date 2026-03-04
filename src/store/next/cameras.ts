@@ -17,9 +17,14 @@ export const DEFAULT_ORTHOGRAPHIC_CAMERA: CameraComponent = {
   far: 1000,
 };
 
+export interface GlobalSettings {
+  orbitControls: boolean;
+}
+
 interface CamerasState {
   cameras: Record<string, CameraComponent>;
   activeCameraUuid: string | null;
+  globalSettings: GlobalSettings;
 }
 
 interface CamerasActions {
@@ -27,6 +32,7 @@ interface CamerasActions {
   setCamera: (uuid: string, props: Partial<CameraComponent>) => void;
   setActiveCamera: (uuid: string) => void;
   removeCamera: (uuid: string) => void;
+  setGlobalSettings: (settings: Partial<GlobalSettings>) => void;
   hydrate: (
     cameras: Record<string, CameraComponent>,
     activeCameraUuid: string | null,
@@ -36,6 +42,9 @@ interface CamerasActions {
 export const useCamerasStore = create<CamerasState & CamerasActions>((set) => ({
   cameras: {},
   activeCameraUuid: null,
+  globalSettings: {
+    orbitControls: true,
+  },
 
   initCamera: (uuid, overrides = {}) =>
     set((state) => ({
@@ -70,11 +79,21 @@ export const useCamerasStore = create<CamerasState & CamerasActions>((set) => ({
       };
     }),
 
+  setGlobalSettings: (settings) =>
+    set((state) => {
+      return {
+        globalSettings: {
+          ...state.globalSettings,
+          ...settings,
+        },
+      };
+    }),
+
   hydrate: (cameras, activeCameraUuid) => set({ cameras, activeCameraUuid }),
 }));
 
-export const useCamera = (uuid: string) =>
-  useCamerasStore((state) => state.cameras[uuid] ?? null);
+export const useCamera = (uuid?: string) =>
+  useCamerasStore((state) => (uuid ? state.cameras[uuid] : undefined));
 
 export const useActiveCamera = () =>
   useCamerasStore((state) =>

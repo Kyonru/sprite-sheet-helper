@@ -1,4 +1,5 @@
 import type { Transform } from "@/types/ecs";
+import type { Transform as TransformMode } from "@/types/transform";
 import { create } from "zustand";
 
 const DEFAULT_TRANSFORM: Transform = {
@@ -9,18 +10,21 @@ const DEFAULT_TRANSFORM: Transform = {
 
 interface TransformsState {
   transforms: Record<string, Transform>;
+  mode: TransformMode;
 }
 
 interface TransformsActions {
   setTransform: (uuid: string, transform: Partial<Transform>) => void;
   initTransform: (uuid: string, transform?: Partial<Transform>) => void;
   removeTransform: (uuid: string) => void;
+  setMode: (mode: TransformMode) => void;
   hydrate: (transforms: Record<string, Transform>) => void;
 }
 
 export const useTransformsStore = create<TransformsState & TransformsActions>(
   (set) => ({
     transforms: {},
+    mode: "translate",
 
     initTransform: (uuid, transform = {}) =>
       set((state) => ({
@@ -45,9 +49,11 @@ export const useTransformsStore = create<TransformsState & TransformsActions>(
         return { transforms: rest };
       }),
 
+    setMode: (mode) => set({ mode }),
+
     hydrate: (transforms) => set({ transforms }),
   }),
 );
 
-export const useTransform = (uuid: string) =>
-  useTransformsStore((state) => state.transforms[uuid] ?? DEFAULT_TRANSFORM);
+export const useTransform = (uuid?: string) =>
+  useTransformsStore((state) => (uuid ? state.transforms[uuid] : undefined));

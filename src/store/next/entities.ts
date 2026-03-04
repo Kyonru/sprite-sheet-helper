@@ -5,6 +5,7 @@ import { create } from "zustand";
 interface EntitiesState {
   entities: Record<string, Entity>;
   children: Record<string, Record<string, boolean>>;
+  selected?: string;
 }
 
 interface EntitiesActions {
@@ -20,6 +21,8 @@ interface EntitiesActions {
   updateChildren: (uuid: string, child: string) => void;
   setChildren: (uuid: string, children: string[]) => void;
   removeChild: (uuid: string, child: string) => void;
+  selectEntity: (uuid: string) => void;
+  unselectEntity: () => void;
   hydrate: (
     entities: Record<string, Entity>,
     children: Record<string, Record<string, boolean>>,
@@ -107,6 +110,10 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>(
         };
       }),
 
+    selectEntity: (uuid: string) => set({ selected: uuid }),
+
+    unselectEntity: () => set({ selected: undefined }),
+
     hydrate: (entities, children) => set({ entities, children }),
   }),
 );
@@ -116,5 +123,5 @@ export const useEntitiesByType = (type: ObjectType) =>
     Object.values(state.entities).filter((e) => e.type === type),
   );
 
-export const useEntity = (uuid: string) =>
-  useEntitiesStore((state) => state.entities[uuid]);
+export const useEntity = (uuid?: string) =>
+  useEntitiesStore((state) => (uuid ? state.entities[uuid] : undefined));

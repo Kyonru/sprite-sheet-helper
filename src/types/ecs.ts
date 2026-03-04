@@ -134,6 +134,7 @@ export interface PointLightComponent {
   distance: number; // 0 = infinite
   decay: number;
   castShadow: boolean;
+  power: number;
 }
 
 export interface SpotLightComponent {
@@ -145,6 +146,7 @@ export interface SpotLightComponent {
   penumbra: number; // 0-1
   decay: number;
   castShadow: boolean;
+  power: number;
 }
 
 export interface HemisphereLightComponent {
@@ -160,6 +162,14 @@ export type LightComponent =
   | PointLightComponent
   | SpotLightComponent
   | HemisphereLightComponent;
+
+export const LightTypeMap = {
+  ambient: {} as AmbientLightComponent,
+  directional: {} as DirectionalLightComponent,
+  point: {} as PointLightComponent,
+  spot: {} as SpotLightComponent,
+  hemisphere: {} as HemisphereLightComponent,
+};
 
 // --- EFFECTS (post-processing) ---
 

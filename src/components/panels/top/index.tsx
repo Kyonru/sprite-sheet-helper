@@ -22,8 +22,8 @@ import {
 } from "@/components/ui/tooltip";
 import { EFFECTS, LIGHTS } from "@/constants/effects";
 import { useAddLight } from "@/hooks/next/use-add-light";
-import { useModelStore } from "@/store/model";
 import { useHistoryStore } from "@/store/next/history";
+import { useTransformsStore } from "@/store/next/transforms";
 import type { LightType } from "@/types/lighting";
 import type { Transform } from "@/types/transform";
 import {
@@ -160,8 +160,8 @@ const HistoryActions = () => {
 };
 
 const TopPanel = () => {
-  const setTransform = useModelStore((state) => state.setTransform);
-  const transform = useModelStore((state) => state.transform);
+  const transformMode = useTransformsStore((state) => state.mode);
+  const setTransformMode = useTransformsStore((state) => state.setMode);
 
   return (
     <Menubar className="w-full rounded-none justify-between">
@@ -277,12 +277,12 @@ const TopPanel = () => {
         <ToggleGroup
           type="single"
           size="sm"
-          defaultValue="transform"
+          defaultValue="translate"
           variant="default"
-          value={transform}
+          value={transformMode}
           onValueChange={(value?: string) => {
             if (value) {
-              setTransform(value as Transform);
+              setTransformMode(value as Transform);
             }
           }}
         >
