@@ -25,8 +25,8 @@ export const BlendFunctionSelect = ({
       <SelectContent>
         {Object.keys(BlendFunction).map((key) => (
           <SelectItem
-            key={`item-${(BlendFunction as any)[key]}-${key}`}
-            value={`${(BlendFunction as any)[key]}`}
+            key={`item-${(BlendFunction as unknown as Record<string, number>)[key]}-${key}`}
+            value={`${(BlendFunction as unknown as Record<string, number>)[key]}`}
           >
             {key}
           </SelectItem>
