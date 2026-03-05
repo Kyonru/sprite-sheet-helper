@@ -5,6 +5,7 @@ import {
   LevaPanel,
   LevaStoreProvider,
   useControls,
+  useCreateStore,
   useStoreContext,
 } from "leva";
 import type { Schema } from "leva/plugin";
@@ -130,10 +131,17 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
 
 export const ObjectContext = () => {
   const selected = useEntitiesStore((state) => state.selected);
-  const { store } = useMainPanelContext();
+  const { setStore } = useMainPanelContext();
+  const objectStore = useCreateStore();
+
+  // Use unique store for each object
+  // Since we need to share the store for outside components
+  useEffect(() => {
+    setStore(objectStore);
+  }, [objectStore, setStore, selected]);
 
   return (
-    <LevaStoreProvider key={selected} store={store!}>
+    <LevaStoreProvider key={selected} store={objectStore}>
       <ObjectDetails uuid={selected} />
     </LevaStoreProvider>
   );

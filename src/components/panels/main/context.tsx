@@ -1,28 +1,28 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { StoreType } from "leva/dist/declarations/src/types";
-import React, { type PropsWithChildren } from "react";
+import React, { useState, type PropsWithChildren } from "react";
 
 interface MainPanelContextProps {
   store?: StoreType;
+  setStore: (store: StoreType) => void;
 }
 
 export const MainPanelContext = React.createContext<MainPanelContextProps>({
   store: undefined,
+  setStore: () => {},
 });
 
 export const MainPanelContextProvider = ({
   children,
-  store,
+  defaultStore,
 }: PropsWithChildren<{
   children: React.ReactNode;
-  store?: StoreType;
+  defaultStore?: StoreType;
 }>) => {
+  const [store, setStore] = useState(defaultStore);
+
   return (
-    <MainPanelContext.Provider
-      value={{
-        store,
-      }}
-    >
+    <MainPanelContext.Provider value={{ store, setStore }}>
       {children}
     </MainPanelContext.Provider>
   );

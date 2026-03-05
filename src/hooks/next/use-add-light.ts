@@ -3,6 +3,7 @@ import { useHistoryStore } from "@/store/next/history";
 import { useLightsStore } from "@/store/next/lights";
 import { useTransformsStore } from "@/store/next/transforms";
 import type { LightType } from "@/types/ecs";
+import { capitalize } from "@/utils/strings";
 
 export const useAddLight = (select = true) => {
   const addEntity = useEntitiesStore((state) => state.addEntity);
@@ -12,7 +13,8 @@ export const useAddLight = (select = true) => {
   const push = useHistoryStore((state) => state.push);
 
   return (type: LightType, name?: string) => {
-    const uuid = addEntity("light", name ?? `${type} light`, {
+    const label = name ?? capitalize(`${type} light`, true);
+    const uuid = addEntity("light", label, {
       type,
     });
     initLight(uuid, type);

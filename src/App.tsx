@@ -38,7 +38,7 @@ function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <SharedContextProvider>
-        <MainPanelContextProvider store={mainPanelStore}>
+        <MainPanelContextProvider defaultStore={mainPanelStore}>
           <Layout>
             <ResizablePanelGroup
               orientation="horizontal"

@@ -6,23 +6,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEntitiesStore } from "@/store/next/entities";
 import { ObjectContext } from "./object";
+import { useEntitiesStore } from "@/store/next/entities";
 
 export const ExplorerTabs = () => {
   const selected = useEntitiesStore((state) => state.selected);
-
   return (
-    <Tabs
-      key={selected}
-      defaultValue="object"
-      className="w-full h-full gap-2 p-2"
-    >
+    <Tabs defaultValue="object" className="w-full h-full gap-2 p-2">
       <TabsList className="flex w-full">
         <TabsTrigger value="object">Object</TabsTrigger>
         <TabsTrigger value="material">Material</TabsTrigger>
       </TabsList>
       <TabsContent
+        key={selected}
         value="object"
         className="h-full overflow-y-scroll no-scrollbar"
       >

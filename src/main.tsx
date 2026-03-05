@@ -11,6 +11,10 @@ createRoot(document.getElementById("root")!).render(
     <App />
 
     <TanStackDevtools
+      config={{
+        urlFlag: "devtools",
+        requireUrlFlag: true,
+      }}
       plugins={[
         {
           id: "react-devtools",
