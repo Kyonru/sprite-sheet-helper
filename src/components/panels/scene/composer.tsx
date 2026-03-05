@@ -1,0 +1,224 @@
+import {
+  Bloom,
+  ChromaticAberration,
+  DepthOfField,
+  EffectComposer,
+  Glitch,
+  Noise,
+  Outline,
+  Pixelation,
+  Vignette,
+  DotScreen,
+  HueSaturation,
+  Scanline,
+  Sepia,
+  BrightnessContrast,
+  ColorAverage,
+  ColorDepth,
+  TiltShift,
+  TiltShift2,
+} from "@react-three/postprocessing";
+import { useThree } from "@react-three/fiber";
+import { useEffectsStore, type EffectComponent } from "@/store/next/effects";
+
+function EffectNode({ effect }: { effect: EffectComponent }) {
+  if (!effect.enabled) return null;
+
+  console.log(effect);
+
+  switch (effect.type) {
+    case "pixelation":
+      return <Pixelation granularity={effect.granularity} />;
+
+    case "glitch":
+      return (
+        <Glitch
+          blendFunction={effect.blendFunction}
+          // delay={effect.delay}
+          // duration={effect.duration}
+          // strength={effect.strength}
+          dtSize={effect.dtSize}
+          columns={effect.columns}
+          mode={effect.mode}
+          ratio={effect.ratio}
+        />
+      );
+
+    case "bloom":
+      return (
+        <Bloom
+          blendFunction={effect.blendFunction}
+          luminanceThreshold={effect.luminanceThreshold}
+          luminanceSmoothing={effect.luminanceSmoothing}
+          intensity={effect.intensity}
+          mipmapBlur={effect.mipmapBlur}
+          resolutionX={effect.resolutionX}
+          resolutionY={effect.resolutionY}
+          levels={effect.levels}
+          radius={effect.radius}
+        />
+      );
+
+    case "depthOfField":
+      return (
+        <DepthOfField
+          blendFunction={effect.blendFunction}
+          focusDistance={effect.focusDistance}
+          focusRange={effect.focusRange}
+          worldFocusDistance={effect.worldFocusDistance}
+          worldFocusRange={effect.worldFocusRange}
+          bokehScale={effect.bokehScale}
+          resolutionScale={effect.resolutionScale}
+          resolutionX={effect.resolutionX}
+          resolutionY={effect.resolutionY}
+        />
+      );
+
+    case "noise":
+      return (
+        <Noise
+          premultiply={effect.premultiply}
+          blendFunction={effect.blendFunction}
+        />
+      );
+
+    case "vignette":
+      return (
+        <Vignette
+          technique={effect.technique}
+          offset={effect.offset}
+          darkness={effect.darkness}
+        />
+      );
+
+    case "outline":
+      return (
+        <Outline
+          blendFunction={effect.blendFunction}
+          selectionLayer={effect.selectionLayer}
+          edgeStrength={effect.edgeStrength}
+          pulseSpeed={effect.pulseSpeed}
+          visibleEdgeColor={effect.visibleEdgeColor as unknown as number}
+          hiddenEdgeColor={effect.hiddenEdgeColor as unknown as number}
+          kernelSize={effect.kernelSize}
+          blur={effect.blur}
+          xRay={effect.xRay}
+          multisampling={effect.multisampling}
+          resolutionScale={effect.resolutionScale}
+          resolutionX={effect.resolutionX}
+          resolutionY={effect.resolutionY}
+        />
+      );
+
+    case "ascii":
+      // ASCII is a custom effect — wire up however your impl expects
+      return null;
+
+    case "brightnessContrast":
+      return (
+        <BrightnessContrast
+          brightness={effect.brightness}
+          contrast={effect.contrast}
+          blendFunction={effect.blendFunction}
+        />
+      );
+
+    case "chromaticAberration":
+      return (
+        <ChromaticAberration
+          radialModulation={effect.radialModulation}
+          modulationOffset={effect.modulationOffset}
+          offset={effect.offset}
+          blendFunction={effect.blendFunction}
+        />
+      );
+
+    case "colorAverage":
+      return <ColorAverage blendFunction={effect.blendFunction} />;
+
+    case "colorDepth":
+      return (
+        <ColorDepth bits={effect.bits} blendFunction={effect.blendFunction} />
+      );
+
+    case "depth":
+      return (
+        <DepthOfField /> // swap for actual Depth effect if available
+      );
+
+    case "tiltShift":
+      return (
+        <TiltShift
+          blendFunction={effect.blendFunction}
+          offset={effect.offset}
+          rotation={effect.rotation}
+          focusArea={effect.focusArea}
+          feather={effect.feather}
+          kernelSize={effect.kernelSize}
+          resolutionScale={effect.resolutionScale}
+          resolutionX={effect.resolutionX}
+          resolutionY={effect.resolutionY}
+        />
+      );
+
+    case "tiltShift2":
+      return (
+        <TiltShift2
+          blendFunction={effect.blendFunction}
+          blur={effect.blur}
+          taper={effect.taper}
+          samples={effect.samples}
+        />
+      );
+
+    case "dotScreen":
+      return (
+        <DotScreen
+          blendFunction={effect.blendFunction}
+          angle={effect.angle}
+          scale={effect.scale}
+        />
+      );
+
+    case "hueSaturation":
+      return (
+        <HueSaturation
+          hue={effect.hue}
+          saturation={effect.saturation}
+          blendFunction={effect.blendFunction}
+        />
+      );
+
+    case "scanline":
+      return (
+        <Scanline
+          blendFunction={effect.blendFunction}
+          density={effect.density}
+        />
+      );
+
+    case "sepia":
+      return (
+        <Sepia
+          intensity={effect.intensity}
+          blendFunction={effect.blendFunction}
+        />
+      );
+
+    default:
+      return null;
+  }
+}
+
+export function PostProcessingEffectsComposer() {
+  const { scene, camera } = useThree();
+  const effects = useEffectsStore((state) => state.effects);
+
+  return (
+    <EffectComposer scene={scene} camera={camera}>
+      {Object.entries(effects).map(([uuid, effect]) => (
+        <EffectNode key={uuid} effect={effect} />
+      ))}
+    </EffectComposer>
+  );
+}

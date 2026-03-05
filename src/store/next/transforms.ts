@@ -1,6 +1,7 @@
 import type { Transform } from "@/types/ecs";
 import type { Transform as TransformMode } from "@/types/transform";
 import { create } from "zustand";
+import { inspector } from "../../../devtools/inspector-middleware";
 
 const DEFAULT_TRANSFORM: Transform = {
   position: [0, 0, 0],
@@ -21,38 +22,43 @@ interface TransformsActions {
   hydrate: (transforms: Record<string, Transform>) => void;
 }
 
-export const useTransformsStore = create<TransformsState & TransformsActions>(
-  (set) => ({
-    transforms: {},
-    mode: "translate",
+export const useTransformsStore = create<TransformsState & TransformsActions>()(
+  inspector(
+    (set) => ({
+      transforms: {},
+      mode: "translate",
 
-    initTransform: (uuid, transform = {}) =>
-      set((state) => ({
-        transforms: {
-          ...state.transforms,
-          [uuid]: { ...DEFAULT_TRANSFORM, ...transform },
-        },
-      })),
+      initTransform: (uuid, transform = {}) =>
+        set((state) => ({
+          transforms: {
+            ...state.transforms,
+            [uuid]: { ...DEFAULT_TRANSFORM, ...transform },
+          },
+        })),
 
-    setTransform: (uuid, transform) =>
-      set((state) => ({
-        transforms: {
-          ...state.transforms,
-          [uuid]: { ...state.transforms[uuid], ...transform },
-        },
-      })),
+      setTransform: (uuid, transform) =>
+        set((state) => ({
+          transforms: {
+            ...state.transforms,
+            [uuid]: { ...state.transforms[uuid], ...transform },
+          },
+        })),
 
-    removeTransform: (uuid) =>
-      set((state) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { [uuid]: _, ...rest } = state.transforms;
-        return { transforms: rest };
-      }),
+      removeTransform: (uuid) =>
+        set((state) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { [uuid]: _, ...rest } = state.transforms;
+          return { transforms: rest };
+        }),
 
-    setMode: (mode) => set({ mode }),
+      setMode: (mode) => set({ mode }),
 
-    hydrate: (transforms) => set({ transforms }),
-  }),
+      hydrate: (transforms) => set({ transforms }),
+    }),
+    {
+      name: "Transforms",
+    },
+  ),
 );
 
 export const useTransform = (uuid?: string) =>

@@ -9,7 +9,6 @@ import { useEntitiesStore } from "@/store/next/entities";
 import { useCamerasStore } from "@/store/next/cameras";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
-  View,
   OrbitControls,
   PerspectiveCamera,
   Grid,
@@ -22,19 +21,15 @@ import {
 } from "@react-three/drei";
 import * as THREE from "three";
 import { EntityComponent } from "@/components/entity";
+import { PostProcessingEffectsComposer } from "./composer";
+import { Select } from "@react-three/postprocessing";
 
-// ------------------------------------------------------------------
-// Types
-// ------------------------------------------------------------------
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;
   quaternion: THREE.Quaternion;
   target: THREE.Vector3;
 }>;
 
-// ------------------------------------------------------------------
-// Shared scene content
-// ------------------------------------------------------------------
 function SharedScene({
   cameraRef,
   isPreview,
@@ -46,14 +41,19 @@ function SharedScene({
 
   return (
     <>
-      <mesh>
-        <boxGeometry />
-        <meshStandardMaterial color="hotpink" />
-      </mesh>
-      <mesh position={[0, 0, 2]}>
-        <boxGeometry />
-        <meshStandardMaterial color="hotpink" />
-      </mesh>
+      <Select enabled>
+        <group>
+          <mesh>
+            <boxGeometry />
+            <meshStandardMaterial color="hotpink" />
+          </mesh>
+          <mesh position={[0, 0, 2]}>
+            <boxGeometry />
+            <meshStandardMaterial color="hotpink" />
+          </mesh>
+        </group>
+      </Select>
+
       {Object.values(entities).map((entity) => (
         <EntityComponent
           isPreview={isPreview}
@@ -136,9 +136,6 @@ function BidirectionalCameraSync({
   return null;
 }
 
-// ------------------------------------------------------------------
-// View 1 — main editor
-// ------------------------------------------------------------------
 function EditorScene({
   orbitEnabled,
   sharedCameraState,
@@ -173,7 +170,7 @@ function EditorScene({
         isDragging={isDragging}
       />
 
-      <GizmoHelper renderPriority={2} alignment="bottom-right">
+      <GizmoHelper renderPriority={1} alignment="bottom-right">
         <GizmoViewport labelColor="white" />
       </GizmoHelper>
       <Grid infiniteGrid sectionColor="#a09f9f" cellColor="#868686" />
@@ -189,9 +186,6 @@ function EditorScene({
   );
 }
 
-// ------------------------------------------------------------------
-// View 2 — sprite preview
-// ------------------------------------------------------------------
 function PreviewScene({
   orbitEnabled,
   sharedCameraState,
@@ -213,11 +207,13 @@ function PreviewScene({
         isDragging={isDragging}
         controlsRef={controlsRef}
       />
+      <PostProcessingEffectsComposer />
+
       <SharedScene isPreview />
       {showGizmo && (
         <GizmoHelper
           position={[-10, 0, 0]}
-          renderPriority={3}
+          renderPriority={1}
           alignment="bottom-right"
         >
           <GizmoViewport labelColor="white" />
@@ -230,16 +226,13 @@ function PreviewScene({
 export function AssetCreation() {
   const exportedImages = useExportOptionsStore((state) => state.images);
   const cameraGlobalSettings = useCamerasStore((state) => state.globalSettings);
-
-  const containerRef = useRef<HTMLDivElement>(null!);
-  const view1Ref = useRef<HTMLDivElement>(null!);
-  const view2Ref = useRef<HTMLDivElement>(null!);
   const isDragging = useRef(false);
+  const [showGizmo, setShowGizmo] = useState(false);
 
   const sharedCameraState = useRef({
     position: new THREE.Vector3(5, 5, 5),
     quaternion: new THREE.Quaternion(),
-    target: new THREE.Vector3(0, 0, 0), // ← add this
+    target: new THREE.Vector3(0, 0, 0),
   });
 
   useEffect(() => {
@@ -252,83 +245,142 @@ export function AssetCreation() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [exportedImages]);
 
-  const [showGizmo, setShowGizmo] = useState(false);
-
   return (
     <ResizablePanel defaultSize="75%">
-      <div
-        ref={containerRef}
-        style={{
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          overflow: "hidden", // ← this is what clips the canvas
-        }}
-      >
-        <ResizablePanelGroup orientation="vertical">
-          <ResizablePanel defaultSize="60%">
-            <div ref={view1Ref} style={{ width: "100%", height: "100%" }} />
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          <ResizablePanel
-            defaultSize="40%"
-            className="overflow-hidden flex justify-center items-center w-full"
-          >
-            <div
-              style={{
-                // minHeight: previewHeight,
-                // minWidth: previewWidth,
-                height: "100%",
-                width: "100%",
-                overflow: "hidden",
-              }}
-            >
-              <button onClick={() => setShowGizmo(!showGizmo)}>
-                {showGizmo ? "Hide Gizmo" : "Show Gizmo"}
-              </button>
-
-              <button
-                onClick={() =>
-                  (sharedCameraState.current.target = new THREE.Vector3(
-                    0,
-                    0,
-                    0,
-                  ))
-                }
-              >
-                Set Target
-              </button>
-              <div ref={view2Ref} style={{ width: "100%", height: "100%" }} />
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-
-        <Canvas
-          eventSource={containerRef}
-          style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-        >
-          <View track={view1Ref} index={1}>
+      <ResizablePanelGroup orientation="vertical">
+        <ResizablePanel defaultSize="60%" style={{ position: "relative" }}>
+          <Canvas>
             <EditorScene
               isDragging={isDragging}
               orbitEnabled={cameraGlobalSettings.orbitControls}
               sharedCameraState={sharedCameraState}
             />
-          </View>
-          <View track={view2Ref} index={2}>
+          </Canvas>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        <ResizablePanel defaultSize="40%" style={{ position: "relative" }}>
+          <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
+            <button onClick={() => setShowGizmo(!showGizmo)}>
+              {showGizmo ? "Hide Gizmo" : "Show Gizmo"}
+            </button>
+          </div>
+          <Canvas className="rendering-[pixelated]">
             <PreviewScene
               isDragging={isDragging}
               showGizmo={showGizmo}
               orbitEnabled={cameraGlobalSettings.orbitControls}
               sharedCameraState={sharedCameraState}
             />
-          </View>
-          <View.Port />
-        </Canvas>
-      </div>
+          </Canvas>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </ResizablePanel>
   );
 }
+
+// export function AssetCreation() {
+//   const exportedImages = useExportOptionsStore((state) => state.images);
+//   const cameraGlobalSettings = useCamerasStore((state) => state.globalSettings);
+
+//   const containerRef = useRef<HTMLDivElement>(null!);
+//   const view1Ref = useRef<HTMLDivElement>(null!);
+//   const view2Ref = useRef<HTMLDivElement>(null!);
+//   const isDragging = useRef(false);
+
+//   const sharedCameraState = useRef({
+//     position: new THREE.Vector3(5, 5, 5),
+//     quaternion: new THREE.Quaternion(),
+//     target: new THREE.Vector3(0, 0, 0), // ← add this
+//   });
+
+//   useEffect(() => {
+//     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+//       if (exportedImages.length === 0) return;
+//       e.preventDefault();
+//       e.returnValue = true;
+//     };
+//     window.addEventListener("beforeunload", handleBeforeUnload);
+//     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+//   }, [exportedImages]);
+
+//   const [showGizmo, setShowGizmo] = useState(false);
+
+//   return (
+//     <ResizablePanel defaultSize="75%">
+//       <div
+//         ref={containerRef}
+//         style={{
+//           position: "relative",
+//           width: "100%",
+//           height: "100%",
+//           overflow: "hidden", // ← this is what clips the canvas
+//         }}
+//       >
+//         <ResizablePanelGroup orientation="vertical">
+//           <ResizablePanel defaultSize="60%">
+//             <div ref={view1Ref} style={{ width: "100%", height: "100%" }} />
+//           </ResizablePanel>
+
+//           <ResizableHandle withHandle />
+
+//           <ResizablePanel
+//             defaultSize="40%"
+//             className="overflow-hidden flex justify-center items-center w-full"
+//           >
+//             <div
+//               style={{
+//                 height: "100%",
+//                 width: "100%",
+//                 overflow: "hidden",
+//                 position: "relative",
+//               }}
+//             >
+//               {/* Buttons float above, not inside the tracked div */}
+//               <div
+//                 style={{
+//                   position: "absolute",
+//                   top: 8,
+//                   left: 8,
+//                   zIndex: 10,
+//                   pointerEvents: "auto",
+//                 }}
+//               >
+//                 <button onClick={() => setShowGizmo(!showGizmo)}>
+//                   {showGizmo ? "Hide Gizmo" : "Show Gizmo"}
+//                 </button>
+//               </div>
+//               <div ref={view2Ref} style={{ width: "100%", height: "100%" }} />
+//             </div>
+//           </ResizablePanel>
+//         </ResizablePanelGroup>
+
+//         <Canvas
+//           eventSource={containerRef}
+//           style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+//         >
+//           <View track={view1Ref} index={1}>
+//             <EditorScene
+//               isDragging={isDragging}
+//               orbitEnabled={cameraGlobalSettings.orbitControls}
+//               sharedCameraState={sharedCameraState}
+//             />
+//           </View>
+//           <View track={view2Ref} index={2}>
+//             <PreviewScene
+//               isDragging={isDragging}
+//               showGizmo={showGizmo}
+//               orbitEnabled={cameraGlobalSettings.orbitControls}
+//               sharedCameraState={sharedCameraState}
+//             />
+//           </View>
+//           <View.Port />
+//           <PreviewEffects />
+//         </Canvas>
+//       </div>
+//     </ResizablePanel>
+//   );
+// }
 
 export default AssetCreation;

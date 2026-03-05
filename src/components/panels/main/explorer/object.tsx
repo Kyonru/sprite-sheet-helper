@@ -17,15 +17,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { useEntitiesStore } from "@/store/next/entities";
 import { useSetEntityChildren } from "@/hooks/next/use-set-entity-children";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { useMainPanelStore, type MainPanelTab } from "./store";
 
 const ItemTypeIconMap: Record<string, React.ReactNode> = {
   spot: <SpotlightIcon className="w-4 h-4" />,
@@ -36,13 +27,13 @@ const ItemTypeIconMap: Record<string, React.ReactNode> = {
   camera: <CameraIcon className="w-4 h-4" />,
 };
 
-export const FileExplorer = () => {
+export const ObjectExplorer = () => {
   const entities = useEntitiesStore((state) => state.entities);
   const children = useEntitiesStore((state) => state.children);
+  const selected = useEntitiesStore((state) => state.selected);
   const setChildren = useSetEntityChildren();
   const selectEntity = useEntitiesStore((state) => state.selectEntity);
   const unselectEntity = useEntitiesStore((state) => state.unselectEntity);
-  const setTab = useMainPanelStore((state) => state.setTab);
 
   const dataProvider = React.useMemo(() => {
     const data: Record<string, TreeItem<string> & { type: string }> = {
@@ -65,7 +56,8 @@ export const FileExplorer = () => {
 
       data[uuid] = {
         index: uuid,
-        isFolder: true,
+        // TODO: Re-enable folder when parents are supported
+        isFolder: false,
         children: entityChildren,
         data: entity.name,
         type: (entity.metadata?.type as string) || entity.type,
@@ -125,72 +117,42 @@ export const FileExplorer = () => {
     console.log(dataProvider.data);
   }, [dataProvider, entities, children]);
 
-  // const dataProvider = new StaticTreeDataProvider(tree, (item, newName) => ({
-  //   ...item,
-  //   data: newName,
-  // }));
   return (
-    <div className="flex flex-col h-full gap-2 p-2 ">
-      <div className="flex flex-col overflow-y-scroll rounded-sm h-full">
-        <Tabs
-          // key={selected}
-          defaultValue="explorer"
-          className="w-full h-full"
-          onValueChange={(value) => setTab(value as MainPanelTab)}
-        >
-          <TabsList className="flex w-full">
-            <TabsTrigger value="explorer">Explorer</TabsTrigger>
-            <TabsTrigger value="effects">Effects</TabsTrigger>
-          </TabsList>
-          <TabsContent value="explorer" className="h-full overflow-y-scroll">
-            <UncontrolledTreeEnvironment
-              dataProvider={dataProvider}
-              getItemTitle={(item) => item.data}
-              viewState={{}}
-              canDragAndDrop={true}
-              canDropOnFolder={true}
-              canReorderItems={true}
-              onSelectItems={(item) => {
-                if (item.length === 0) {
-                  unselectEntity();
-                  return;
-                }
+    <UncontrolledTreeEnvironment
+      key={selected}
+      dataProvider={dataProvider}
+      getItemTitle={(item) => item.data}
+      viewState={{
+        "object-tree": {
+          selectedItems: [selected ? selected : ""],
+        },
+      }}
+      canDragAndDrop={true}
+      canDropOnFolder={true}
+      canReorderItems={true}
+      onSelectItems={(item) => {
+        if (item.length === 0) {
+          unselectEntity();
+          return;
+        }
 
-                console.log(item);
+        console.log(item);
 
-                selectEntity(item[0] as string);
-              }}
-              defaultInteractionMode={InteractionMode.ClickItemToExpand}
-              renderItemTitle={({ title, item }) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const icon = ItemTypeIconMap[(item as any).type];
-                return (
-                  <Label className="text-sm font-thin">
-                    {icon}
-                    {title}
-                  </Label>
-                );
-              }}
-            >
-              <Tree treeId="tree-1" rootItem="root" treeLabel="Tree Example" />
-            </UncontrolledTreeEnvironment>
-          </TabsContent>
-          <TabsContent value="effects" className="overflow-y-scroll">
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>Material</CardTitle>
-                <CardDescription>
-                  Track performance and user engagement metrics. Monitor trends
-                  and identify growth opportunities.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="text-muted-foreground text-sm ">
-                Page views are up 25% compared to last month.
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+        selectEntity(item[0] as string);
+      }}
+      defaultInteractionMode={InteractionMode.ClickItemToExpand}
+      renderItemTitle={({ title, item }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const icon = ItemTypeIconMap[(item as any).type];
+        return (
+          <Label className="text-sm font-thin">
+            {icon}
+            {title}
+          </Label>
+        );
+      }}
+    >
+      <Tree treeId="object-tree" rootItem="root" treeLabel="Tree Example" />
+    </UncontrolledTreeEnvironment>
   );
 };

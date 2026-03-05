@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig, type UserConfig } from "vite";
+import { devtools } from "@tanstack/devtools-vite";
 import { WebTauriSwapPlugin } from "./vite-plugins/web-tauri-swap";
 
 const host = process.env.TAURI_DEV_HOST;
@@ -55,6 +56,9 @@ export default defineConfig({
           sourcemap: true,
         },
       }),
+    devtools({
+      removeDevtoolsOnBuild: true,
+    }),
   ].filter(Boolean),
   resolve: {
     alias: {

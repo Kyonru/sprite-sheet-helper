@@ -3,8 +3,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { FileExplorer } from "./file-explorer";
-import { SelectedObjectTabs } from "./seleted";
+import { FileExplorer } from "./explorer/index";
+import { SelectedObjectTabs } from "./selected";
 
 const MainPanel = () => {
   return (

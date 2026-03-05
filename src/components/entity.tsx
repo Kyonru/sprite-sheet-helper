@@ -27,6 +27,10 @@ export function EntityComponent({
     child = <LightComponent uuid={uuid} />;
   }
 
+  if (entity.type === "camera") {
+    return <></>;
+  }
+
   return (
     <EntityContextProvider isPreview={isPreview}>
       <TransformControls

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { LightComponent } from "@/types/ecs";
+import { inspector } from "../../../devtools/inspector-middleware";
 
 export const LIGHT_DEFAULTS: Record<string, LightComponent> = {
   ambient: {
@@ -54,34 +55,39 @@ interface LightsActions {
   hydrate: (lights: Record<string, LightComponent>) => void;
 }
 
-export const useLightsStore = create<LightsState & LightsActions>((set) => ({
-  lights: {},
+export const useLightsStore = create<LightsState & LightsActions>()(
+  inspector(
+    (set) => ({
+      lights: {},
 
-  initLight: (uuid, type) =>
-    set((state) => ({
-      lights: {
-        ...state.lights,
-        [uuid]: { ...LIGHT_DEFAULTS[type] },
-      },
-    })),
+      initLight: (uuid, type) =>
+        set((state) => ({
+          lights: {
+            ...state.lights,
+            [uuid]: { ...LIGHT_DEFAULTS[type] },
+          },
+        })),
 
-  setLight: (uuid, props) =>
-    set((state) => ({
-      lights: {
-        ...state.lights,
-        [uuid]: { ...state.lights[uuid], ...props } as LightComponent,
-      },
-    })),
+      setLight: (uuid, props) =>
+        set((state) => ({
+          lights: {
+            ...state.lights,
+            [uuid]: { ...state.lights[uuid], ...props } as LightComponent,
+          },
+        })),
 
-  removeLight: (uuid) =>
-    set((state) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [uuid]: _, ...rest } = state.lights;
-      return { lights: rest };
+      removeLight: (uuid) =>
+        set((state) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { [uuid]: _, ...rest } = state.lights;
+          return { lights: rest };
+        }),
+
+      hydrate: (lights) => set({ lights }),
     }),
-
-  hydrate: (lights) => set({ lights }),
-}));
+    { name: "Lights" },
+  ),
+);
 
 export const useLight = (uuid?: string) =>
   useLightsStore((state) => (uuid ? state.lights[uuid] : undefined));

@@ -1,5 +1,6 @@
 // stores/cameras.ts
 import { create } from "zustand";
+import { inspector } from "../../../devtools/inspector-middleware";
 import type { CameraComponent } from "@/types/ecs";
 import type { CameraType } from "@/types/camera";
 
@@ -8,6 +9,8 @@ export const DEFAULT_PERSPECTIVE_CAMERA: CameraComponent = {
   fov: 75,
   near: 0.1,
   far: 1000,
+  zoom: 50,
+  target: [0, 0, 0],
 };
 
 export const DEFAULT_ORTHOGRAPHIC_CAMERA: CameraComponent = {
@@ -15,6 +18,7 @@ export const DEFAULT_ORTHOGRAPHIC_CAMERA: CameraComponent = {
   zoom: 50,
   near: 0.1,
   far: 1000,
+  target: [0, 0, 0],
 };
 
 export interface GlobalSettings {
@@ -39,58 +43,64 @@ interface CamerasActions {
   ) => void;
 }
 
-export const useCamerasStore = create<CamerasState & CamerasActions>((set) => ({
-  cameras: {},
-  activeCameraUuid: null,
-  globalSettings: {
-    orbitControls: true,
-  },
-
-  initCamera: (uuid, overrides = {}) =>
-    set((state) => ({
-      cameras: {
-        ...state.cameras,
-        [uuid]: {
-          ...DEFAULT_PERSPECTIVE_CAMERA,
-          type: "perspective" as CameraType,
-          ...overrides,
-        },
+export const useCamerasStore = create<CamerasState & CamerasActions>()(
+  inspector(
+    (set) => ({
+      cameras: {},
+      activeCameraUuid: null,
+      globalSettings: {
+        orbitControls: true,
       },
-    })),
 
-  setCamera: (uuid, props) =>
-    set((state) => ({
-      cameras: {
-        ...state.cameras,
-        [uuid]: { ...state.cameras[uuid], ...props } as CameraComponent,
-      },
-    })),
+      initCamera: (uuid, overrides = {}) =>
+        set((state) => ({
+          cameras: {
+            ...state.cameras,
+            [uuid]: {
+              ...DEFAULT_PERSPECTIVE_CAMERA,
+              type: "perspective" as CameraType,
+              ...overrides,
+            },
+          },
+        })),
 
-  setActiveCamera: (uuid) => set({ activeCameraUuid: uuid }),
+      setCamera: (uuid, props) =>
+        set((state) => ({
+          cameras: {
+            ...state.cameras,
+            [uuid]: { ...state.cameras[uuid], ...props } as CameraComponent,
+          },
+        })),
 
-  removeCamera: (uuid) =>
-    set((state) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [uuid]: _, ...rest } = state.cameras;
-      return {
-        cameras: rest,
-        activeCameraUuid:
-          state.activeCameraUuid === uuid ? null : state.activeCameraUuid,
-      };
+      setActiveCamera: (uuid) => set({ activeCameraUuid: uuid }),
+
+      removeCamera: (uuid) =>
+        set((state) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { [uuid]: _, ...rest } = state.cameras;
+          return {
+            cameras: rest,
+            activeCameraUuid:
+              state.activeCameraUuid === uuid ? null : state.activeCameraUuid,
+          };
+        }),
+
+      setGlobalSettings: (settings) =>
+        set((state) => {
+          return {
+            globalSettings: {
+              ...state.globalSettings,
+              ...settings,
+            },
+          };
+        }),
+
+      hydrate: (cameras, activeCameraUuid) =>
+        set({ cameras, activeCameraUuid }),
     }),
-
-  setGlobalSettings: (settings) =>
-    set((state) => {
-      return {
-        globalSettings: {
-          ...state.globalSettings,
-          ...settings,
-        },
-      };
-    }),
-
-  hydrate: (cameras, activeCameraUuid) => set({ cameras, activeCameraUuid }),
-}));
+    { name: "Cameras" },
+  ),
+);
 
 export const useCamera = (uuid?: string) =>
   useCamerasStore((state) => (uuid ? state.cameras[uuid] : undefined));

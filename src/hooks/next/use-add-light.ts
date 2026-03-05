@@ -4,8 +4,9 @@ import { useLightsStore } from "@/store/next/lights";
 import { useTransformsStore } from "@/store/next/transforms";
 import type { LightType } from "@/types/ecs";
 
-export const useAddLight = () => {
+export const useAddLight = (select = true) => {
   const addEntity = useEntitiesStore((state) => state.addEntity);
+  const selectEntity = useEntitiesStore((state) => state.selectEntity);
   const initLight = useLightsStore((state) => state.initLight);
   const initTransform = useTransformsStore((state) => state.initTransform);
   const push = useHistoryStore((state) => state.push);
@@ -16,6 +17,10 @@ export const useAddLight = () => {
     });
     initLight(uuid, type);
     initTransform(uuid);
+
+    if (select) {
+      selectEntity(uuid);
+    }
 
     push({
       type: "entity/add",

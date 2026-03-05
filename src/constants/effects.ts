@@ -1,3 +1,4 @@
+import type { EffectType } from "@/store/next/effects";
 import type { LightType } from "@/types/lighting";
 import { BlendFunction, GlitchMode, VignetteTechnique } from "postprocessing";
 
@@ -25,83 +26,26 @@ export const VIGNETTE_TECHNIQUES = Object.keys(VignetteTechnique)
   })
   .reduce((a, b) => Object.assign(a, b), {});
 
-export const EFFECTS = [
-  {
-    name: "Ascii",
-    key: "ascii",
-  },
-  {
-    name: "Bloom",
-    key: "bloom",
-  },
-  {
-    name: "Brightness and Contrast",
-    key: "brightnessContrast",
-  },
-  {
-    name: "Chromatic Aberration",
-    key: "chromaticAberration",
-  },
-  {
-    name: "Color Average",
-    key: "colorAverage",
-  },
-  {
-    name: "Color Depth",
-    key: "colorDepth",
-  },
-  {
-    name: "Depth",
-    key: "depth",
-  },
-  {
-    name: "Depth of Field",
-    key: "depthOfField",
-  },
-  {
-    name: "Dot Screen",
-    key: "dotScreen",
-  },
-  {
-    name: "Glitch",
-    key: "glitch",
-  },
-  {
-    name: "Hue and Saturation",
-    key: "hueSaturation",
-  },
-  {
-    name: "Noise",
-    key: "noise",
-  },
-  {
-    name: "Outline",
-    key: "outline",
-  },
-  {
-    name: "Pixelation",
-    key: "pixelation",
-  },
-  {
-    name: "Scanline",
-    key: "scanline",
-  },
-  {
-    name: "Sepia",
-    key: "sepia",
-  },
-  {
-    name: "Tilt Shift",
-    key: "tiltShift",
-  },
-  {
-    name: "Tilt Shift 2",
-    key: "tiltShift2",
-  },
-  {
-    name: "Vignette",
-    key: "vignette",
-  },
+export const EFFECTS: { key: EffectType; name: string }[] = [
+  { key: "pixelation", name: "Pixelation" },
+  { key: "glitch", name: "Glitch" },
+  { key: "bloom", name: "Bloom" },
+  { key: "depthOfField", name: "Depth of Field" },
+  { key: "noise", name: "Noise" },
+  { key: "vignette", name: "Vignette" },
+  { key: "outline", name: "Outline" },
+  { key: "ascii", name: "ASCII" },
+  { key: "brightnessContrast", name: "Brightness / Contrast" },
+  { key: "chromaticAberration", name: "Chromatic Aberration" },
+  { key: "colorAverage", name: "Color Average" },
+  { key: "colorDepth", name: "Color Depth" },
+  { key: "depth", name: "Depth" },
+  { key: "tiltShift", name: "Tilt Shift" },
+  { key: "tiltShift2", name: "Tilt Shift 2" },
+  { key: "dotScreen", name: "Dot Screen" },
+  { key: "hueSaturation", name: "Hue / Saturation" },
+  { key: "scanline", name: "Scanline" },
+  { key: "sepia", name: "Sepia" },
 ];
 
 export const LIGHTS: {

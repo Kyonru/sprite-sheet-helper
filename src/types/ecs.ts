@@ -91,12 +91,14 @@ export interface PerspectiveCameraComponent extends CameraBase {
   fov: number;
   near: number;
   far: number;
+  target: [number, number, number];
 }
 
 export interface OrthographicCameraComponent extends CameraBase {
   zoom: number;
   near: number;
   far: number;
+  target: [number, number, number];
 }
 
 export type CameraComponent =
@@ -170,68 +172,3 @@ export const LightTypeMap = {
   spot: {} as SpotLightComponent,
   hemisphere: {} as HemisphereLightComponent,
 };
-
-// --- EFFECTS (post-processing) ---
-
-export interface BloomEffect {
-  type: "bloom";
-  enabled: boolean;
-  intensity: number;
-  threshold: number;
-  smoothing: number;
-  mipmapBlur: boolean;
-}
-
-export interface ChromaticAberrationEffect {
-  type: "chromatic-aberration";
-  enabled: boolean;
-  offset: [number, number];
-}
-
-export interface VignetteEffect {
-  type: "vignette";
-  enabled: boolean;
-  offset: number;
-  darkness: number;
-}
-
-export interface DepthOfFieldEffect {
-  type: "depth-of-field";
-  enabled: boolean;
-  focusDistance: number;
-  focalLength: number;
-  bokehScale: number;
-}
-
-export interface SSAOEffect {
-  type: "ssao";
-  enabled: boolean;
-  intensity: number;
-  radius: number;
-  bias: number;
-}
-
-export interface ToneMappingEffect {
-  type: "tone-mapping";
-  enabled: boolean;
-  mode: "linear" | "reinhard" | "cineon" | "aces-filmic";
-  exposure: number;
-}
-
-export interface NoiseEffect {
-  type: "noise";
-  enabled: boolean;
-  opacity: number;
-  premultiply: boolean;
-}
-
-export type EffectComponent =
-  | BloomEffect
-  | ChromaticAberrationEffect
-  | VignetteEffect
-  | DepthOfFieldEffect
-  | SSAOEffect
-  | ToneMappingEffect
-  | NoiseEffect;
-
-export type EffectType = EffectComponent["type"];
