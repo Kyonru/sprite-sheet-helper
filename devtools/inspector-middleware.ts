@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
   StateCreator,
   StoreApi,
@@ -20,19 +19,28 @@ type InspectorEvent =
 type Listener<E extends InspectorEvent> = (event: E) => void;
 
 function createInspectorClient() {
-  const listeners = new Map<string, Set<Listener<any>>>();
+  const listeners = new Map<string, Set<Listener<InspectorEvent>>>();
 
   function emit<E extends InspectorEvent>(event: E) {
-    listeners.get(event.type)?.forEach((l) => l(event));
+    (listeners.get(event.type) as Set<Listener<E>> | undefined)?.forEach((l) =>
+      l(event),
+    );
   }
 
-  function on<T extends InspectorEvent["type"]>(
-    type: T,
-    listener: Listener<Extract<InspectorEvent, { type: T }>>,
+  function on<K extends InspectorEvent["type"]>(
+    type: K,
+    listener: Listener<Extract<InspectorEvent, { type: K }>>,
   ) {
     if (!listeners.has(type)) listeners.set(type, new Set());
-    listeners.get(type)!.add(listener as Listener<any>);
-    return () => listeners.get(type)?.delete(listener as Listener<any>);
+    (listeners.get(type) as Set<
+      Listener<Extract<InspectorEvent, { type: K }>>
+    >)!.add(listener);
+    return () =>
+      (
+        listeners.get(type) as Set<
+          Listener<Extract<InspectorEvent, { type: K }>>
+        >
+      )?.delete(listener);
   }
 
   return { emit, on };
@@ -41,22 +49,13 @@ function createInspectorClient() {
 export const storeInspector = createInspectorClient();
 
 export interface InspectorOptions {
-  /** Display name shown in the inspector panel */
   name: string;
-  /** Disable in production (defaults to true in non-production) */
   enabled?: boolean;
-  /**
-   * Action type used when setState is called without an explicit name.
-   * Falls back to caller inference → "anonymous".
-   */
   anonymousActionType?: string;
 }
 
 type Action = string | { type: string; [k: string | number | symbol]: unknown };
 
-// Mirrors the TakeTwo helper from the devtools source — extracts the first two
-// args of a tuple regardless of its total length, so we can append `action?`
-// as a third parameter without breaking either setState overload.
 type TakeTwo<T> = T extends { length: 0 }
   ? [undefined, undefined]
   : T extends { length: 1 }
@@ -80,8 +79,6 @@ type TakeTwo<T> = T extends { length: 0 }
 type Cast<T, U> = T extends U ? T : U;
 type Write<T, U> = Omit<T, keyof U> & U;
 
-// Rewrites setState on the store type to accept an optional `action` third arg,
-// matching the same pattern devtools uses for its NamedSet export.
 type StoreInspector<S> = S extends {
   setState: {
     (...args: infer Sa1): infer Sr1;
@@ -120,15 +117,19 @@ const INTERNAL_FRAMES = ["inspector-middleware", "zustand", "node_modules"];
 
 function findCallerName(stack: string | undefined): string | undefined {
   if (!stack) return undefined;
-  const frames = stack.split("\n").slice(1); // drop "Error"
+  const frames = stack.split("\n").slice(1);
   const frame = frames.find(
     (f) => !INTERNAL_FRAMES.some((internal) => f.includes(internal)),
   );
   if (!frame) return undefined;
-  // "  at functionName (file:line:col)"        → "functionName"
-  // "  at Object.methodName (file:line:col)"   → "Object.methodName"
   return /^\s+at ([^\s(]+)/.exec(frame)?.[1];
 }
+
+// Tracks which store action function is currently executing. Set immediately
+// before the action body runs, cleared in `finally` so it's always reset even
+// if the action throws or never calls set() at all.
+
+type CallContext = { fnName: string; args: unknown[] };
 
 const inspectorImpl =
   <T>(
@@ -146,32 +147,46 @@ const inspectorImpl =
 
     if (!enabled) return fn(set, get, api);
 
+    let callContext: CallContext | null = null;
+
     api.setState = ((
       state: Parameters<StoreApi<T>["setState"]>[0],
       replace: Parameters<StoreApi<T>["setState"]>[1],
       nameOrAction?: Action,
     ) => {
-      const result = set(state, replace as any);
+      const result = set(state, replace);
 
+      // Action name: explicit arg > wrapping function name > caller inference
       const action =
-        nameOrAction === undefined
-          ? (anonymousActionType ??
-            findCallerName(new Error().stack) ??
-            "anonymous")
-          : typeof nameOrAction === "string"
+        nameOrAction !== undefined
+          ? typeof nameOrAction === "string"
             ? nameOrAction
-            : nameOrAction.type;
+            : nameOrAction.type
+          : (callContext?.fnName ??
+            anonymousActionType ??
+            findCallerName(new Error().stack) ??
+            "anonymous");
 
+      // Payload priority:
+      //   1. explicit nameOrAction object  → use as-is
+      //   2. callContext.args              → arguments passed to the action fn
+      //      (unwrapped to scalar for single-arg: selectEntity(uuid) → uuid)
+      //   3. state patch for plain object sets
       const payload =
         typeof nameOrAction === "object" && nameOrAction !== null
           ? nameOrAction
-          : {};
+          : callContext !== null
+            ? callContext.args.length === 1
+              ? callContext.args[0]
+              : callContext.args
+            : typeof state === "object" && state !== null
+              ? state
+              : {};
 
       storeInspector.emit({
         type: "action-dispatched",
         payload: { storeName: name, action, payload, timestamp: Date.now() },
       });
-
       storeInspector.emit({
         type: "state-changed",
         payload: { storeName: name, state: get() },
@@ -180,14 +195,28 @@ const inspectorImpl =
       return result;
     }) as NamedSet<T>;
 
-    (api as any).inspector = {
-      cleanup: () => {
-        // Nothing to teardown for the in-process bus,
-        // but hooks into external transports (e.g. WebSocket) would go here.
-      },
+    (api as StoreApi<T> & { inspector: { cleanup: () => void } }).inspector = {
+      cleanup: () => {},
     };
 
     const initialState = fn(api.setState, get, api);
+
+    // Patch each function so it sets callContext before executing, giving
+    // setState the fn name + args without any stack-parsing needed.
+    for (const key of Object.keys(initialState as object)) {
+      const val = (initialState as Record<string, unknown>)[key];
+      if (typeof val !== "function") continue;
+
+      (initialState as Record<string, unknown>)[key] = (...args: unknown[]) => {
+        callContext = { fnName: key, args };
+        try {
+          return (val as (...a: unknown[]) => unknown)(...args);
+        } finally {
+          // Always clear — even if the action throws or calls set() async
+          callContext = null;
+        }
+      };
+    }
 
     storeInspector.emit({
       type: "state-changed",
