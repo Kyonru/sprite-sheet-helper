@@ -3,7 +3,7 @@ import GIF from "gif.js.optimized";
 export async function createSpriteSheet(
   images: string[][],
   xWidth: number,
-  xHeight: number
+  xHeight: number,
 ): Promise<string> {
   const rows = images.length;
   const cols = Math.max(...images.map((row) => row.length));
@@ -17,13 +17,16 @@ export async function createSpriteSheet(
         img.onload = () => resolve(img);
         img.src = "data:image/png;base64," + src;
       });
-    })
+    }),
   );
 
   const canvas = document.createElement("canvas");
   canvas.width = cols * xWidth;
   canvas.height = rows * xHeight;
   const ctx = canvas.getContext("2d")!;
+  // TODO: configurable smoothing
+  ctx.imageSmoothingQuality = "high";
+  ctx.imageSmoothingEnabled = false;
 
   let i = 0;
   for (let row = 0; row < rows; row++) {
@@ -44,7 +47,7 @@ export async function createGif(
   height: number,
   delay: number,
   quality: number = 0,
-  repeat: number = 0
+  repeat: number = 0,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const gif = new GIF({
@@ -60,7 +63,10 @@ export async function createGif(
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
-    const ctx = canvas.getContext("2d");
+
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    ctx.imageSmoothingQuality = "high";
+    ctx.imageSmoothingEnabled = false;
     if (!ctx) return reject("Canvas context not available");
 
     let loaded = 0;

@@ -6,7 +6,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 
-import AssetCreation from "./AssetCreation";
+import AssetCreation from "./components/panels/scene";
 import Layout from "./layout";
 import { SharedContextProvider } from "./context/sharedContext";
 import MainPanel from "./components/panels/main";
@@ -21,7 +21,7 @@ import { useEffect, useRef } from "react";
 function App() {
   const mainPanelStore = useCreateStore();
 
-  const addCamera = useAddCamera();
+  const addCamera = useAddCamera(true);
   const addLight = useAddLight(false);
   const init = useRef(false);
 

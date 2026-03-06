@@ -85,7 +85,6 @@ export const ObjectExplorer = () => {
       ) {
         this.data[itemId].children = newChildren;
         setChildren(itemId as string, newChildren as string[]);
-        console.log(itemId, newChildren);
 
         this.treeChangeListeners.forEach((listener) => listener([itemId]));
       }
@@ -127,16 +126,14 @@ export const ObjectExplorer = () => {
           selectedItems: [selected ? selected : ""],
         },
       }}
-      canDragAndDrop={true}
-      canDropOnFolder={true}
-      canReorderItems={true}
+      canDragAndDrop={false}
+      canDropOnFolder={false}
+      canReorderItems={false}
       onSelectItems={(item) => {
-        if (item.length === 0) {
+        if (item.length === 0 || item[0] === selected) {
           unselectEntity();
           return;
         }
-
-        console.log(item);
 
         selectEntity(item[0] as string);
       }}

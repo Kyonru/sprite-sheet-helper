@@ -21,7 +21,12 @@ export const useExport = () => {
   const intervalRef = useRef<NodeJS.Timeout>(null);
   const exportFormat = useExportOptionsStore((state) => state.mode);
   const renderTarget = useRef<THREE.WebGLRenderTarget | null>(
-    new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight)
+    new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.UnsignedByteType,
+    }),
   );
   const setShowEditor = useEditorStore((state) => state.setShowEditor);
 
@@ -46,7 +51,13 @@ export const useExport = () => {
     if (gl) {
       renderTarget.current = new THREE.WebGLRenderTarget(
         gl.domElement.width,
-        gl.domElement.height
+        gl.domElement.height,
+        {
+          minFilter: THREE.NearestFilter,
+          magFilter: THREE.NearestFilter,
+          format: THREE.RGBAFormat,
+          type: THREE.UnsignedByteType,
+        },
       );
     }
   }, [gl]);
@@ -54,34 +65,56 @@ export const useExport = () => {
   const captureScreenshotData = useCallback(() => {
     if (!gl || !composer) return;
 
+    const target = new THREE.WebGLRenderTarget(exportWidth, exportHeight, {
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.UnsignedByteType,
+    });
+
     const originalSize = gl.getSize(new THREE.Vector2());
     const originalPixelRatio = gl.getPixelRatio();
-
-    // Optional: upscale the output image
-    if (exportWidth && exportHeight) {
-      gl.setSize(exportWidth, exportHeight, true);
-    }
+    const originalTarget = gl.getRenderTarget();
 
     gl.setPixelRatio(1);
-
-    // Render the postprocessed frame to the canvas
-    composer.setSize(exportWidth, exportWidth, true);
+    gl.setSize(exportWidth, exportHeight, true);
+    composer.setSize(exportWidth, exportHeight);
     composer.render();
 
-    // Capture the current canvas content as PNG
-    const dataURL = gl.domElement.toDataURL("image/png");
-    const base64Data = dataURL.split("base64,")[1];
+    // Read pixels directly from the render target — no browser scaling involved
+    const pixels = new Uint8Array(exportWidth * exportHeight * 4);
+    gl.setRenderTarget(target);
+    gl.readRenderTargetPixels(target, 0, 0, exportWidth, exportHeight, pixels);
+    gl.setRenderTarget(originalTarget);
 
+    // Blit to a 2D canvas with smoothing off
+    const canvas = document.createElement("canvas");
+    canvas.width = exportWidth;
+    canvas.height = exportHeight;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    ctx.imageSmoothingEnabled = false;
+
+    // WebGL reads bottom-to-top — flip vertically
+    const imageData = ctx.createImageData(exportWidth, exportHeight);
+    for (let row = 0; row < exportHeight; row++) {
+      const src = (exportHeight - row - 1) * exportWidth * 4;
+      const dst = row * exportWidth * 4;
+      imageData.data.set(pixels.subarray(src, src + exportWidth * 4), dst);
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    const base64Data = canvas.toDataURL("image/png").split("base64,")[1];
     images.current.push({
       name: `image${images.current.length}.png`,
       dataURL: base64Data,
     });
 
-    // Restore original size and pixel ratio
+    target.dispose();
     gl.setPixelRatio(originalPixelRatio);
     gl.setSize(originalSize.x, originalSize.y);
     composer.setSize(originalSize.x, originalSize.y);
-  }, [gl, composer, exportWidth, exportHeight, images]);
+    composer.render();
+  }, [gl, composer, exportWidth, exportHeight]);
 
   const downloadImageFiles = useCallback(async () => {
     const zip = new JSZip();
@@ -95,7 +128,7 @@ export const useExport = () => {
           exportedImages[i].images[j],
           {
             base64: true,
-          }
+          },
         );
       }
     }
@@ -114,7 +147,7 @@ export const useExport = () => {
         exportedImages[i].images,
         exportWidth,
         exportHeight,
-        frameDelay
+        frameDelay,
       );
 
       const content = await (await fetch(gifUrl)).arrayBuffer();
@@ -130,7 +163,7 @@ export const useExport = () => {
     const dataUrl = await createSpriteSheet(
       exportedImages.map((img) => img.images),
       exportWidth,
-      exportHeight
+      exportHeight,
     );
     await downloadFile(dataUrl, "spritesheet.png");
   }, [exportedImages, exportWidth, exportHeight]);
@@ -175,17 +208,16 @@ export const useExport = () => {
       intervals,
       iterations,
       async () => {
-        console.log("Stopped taking screenshots.");
         PubSub.emit(EventType.STOP_ASSETS_CREATION);
         setShowEditor(true);
         addImages(
           animation || Date.now().toString(),
           exportLabel,
-          images.current.map((img) => img.dataURL)
+          images.current.map((img) => img.dataURL),
         );
         setExportLabel(`animation_${exportedImagesCount + 1}`);
         setExportedImagesCount(exportedImagesCount + 1);
-      }
+      },
     );
   }, [
     gl,

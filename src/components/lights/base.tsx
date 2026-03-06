@@ -20,8 +20,11 @@ const PointLightObject = ({
 }) => {
   const lightRef = useRef<THREE.PointLight>(null!);
   const selected = useEntitiesStore((state) => state.selected);
+  const noopRef = useRef<THREE.Object3D>(null!);
+  const { isPreview } = useEntityContext();
+
   const helper = useHelper(
-    lightRef,
+    isPreview ? noopRef : lightRef,
     THREE.PointLightHelper,
     light.distance,
     light.color,
@@ -60,8 +63,15 @@ const SpotLightObject = ({
   uuid: string;
 }) => {
   const lightRef = useRef<THREE.SpotLight>(null!);
-  const helper = useHelper(lightRef, THREE.SpotLightHelper, light.color);
   const selected = useEntitiesStore((state) => state.selected);
+  const noopRef = useRef<THREE.Object3D>(null!);
+  const { isPreview } = useEntityContext();
+
+  const helper = useHelper(
+    isPreview ? noopRef : lightRef,
+    THREE.SpotLightHelper,
+    light.color,
+  );
 
   if (helper.current) {
     helper.current.visible = selected === uuid;

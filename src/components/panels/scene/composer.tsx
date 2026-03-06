@@ -18,8 +18,8 @@ import {
   TiltShift,
   TiltShift2,
 } from "@react-three/postprocessing";
-import { useThree } from "@react-three/fiber";
 import { useEffectsStore, type EffectComponent } from "@/store/next/effects";
+import { useSceneStore } from "./store";
 
 function EffectNode({ effect }: { effect: EffectComponent }) {
   if (!effect.enabled) return null;
@@ -211,11 +211,17 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
 }
 
 export function PostProcessingEffectsComposer() {
-  const { scene, camera } = useThree();
   const effects = useEffectsStore((state) => state.effects);
+  const setComposer = useSceneStore((state) => state.setComposer);
 
   return (
-    <EffectComposer scene={scene} camera={camera}>
+    <EffectComposer
+      multisampling={8}
+      autoClear={false}
+      ref={(ref) => {
+        setComposer(ref);
+      }}
+    >
       {Object.entries(effects).map(([uuid, effect]) => (
         <EffectNode key={uuid} effect={effect} />
       ))}

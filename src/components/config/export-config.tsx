@@ -1,25 +1,20 @@
 import { useSharedContext } from "@/context/sharedContext";
-import { useExportOptionsStore } from "@/store/export";
 import type { ExportFormat } from "@/types/file";
 import { folder, useControls } from "leva";
 import { useEffect, useMemo } from "react";
 import { carousel } from "../leva/carousel";
+import { useImagesStore } from "@/store/next/images";
+import { useSettingsStore } from "@/store/next/settings";
 
 const FrameConfig = () => {
-  const heightDefault = useExportOptionsStore((state) => state.height);
-  const widthDefault = useExportOptionsStore((state) => state.width);
-  const setHeight = useExportOptionsStore((state) => state.setHeight);
-  const setWidth = useExportOptionsStore((state) => state.setWidth);
-  const exportHeightDefault = useExportOptionsStore(
-    (state) => state.exportHeight
-  );
-  const exportWidthDefault = useExportOptionsStore(
-    (state) => state.exportWidth
-  );
-  const setExportHeight = useExportOptionsStore(
-    (state) => state.setExportHeight
-  );
-  const setExportWidth = useExportOptionsStore((state) => state.setExportWidth);
+  const heightDefault = useSettingsStore((state) => state.height);
+  const widthDefault = useSettingsStore((state) => state.width);
+  const setHeight = useSettingsStore((state) => state.setHeight);
+  const setWidth = useSettingsStore((state) => state.setWidth);
+  const exportHeightDefault = useSettingsStore((state) => state.exportHeight);
+  const exportWidthDefault = useSettingsStore((state) => state.exportWidth);
+  const setExportHeight = useSettingsStore((state) => state.setExportHeight);
+  const setExportWidth = useSettingsStore((state) => state.setExportWidth);
 
   const { height, width, previewHeight, previewWidth } = useControls({
     editor: folder({
@@ -38,7 +33,7 @@ const FrameConfig = () => {
             },
             {
               collapsed: true,
-            }
+            },
           ),
           export: folder(
             {
@@ -47,12 +42,12 @@ const FrameConfig = () => {
             },
             {
               collapsed: true,
-            }
+            },
           ),
         },
         {
           collapsed: true,
-        }
+        },
       ),
     }),
   });
@@ -72,17 +67,13 @@ const FrameConfig = () => {
 
 export const PreviewConfig = () => {
   const { levaStore } = useSharedContext();
-  const exportHeightDefault = useExportOptionsStore(
-    (state) => state.exportHeight
-  );
-  const exportWidthDefault = useExportOptionsStore(
-    (state) => state.exportWidth
-  );
-  const images = useExportOptionsStore((state) => state.images);
-  const frameDelayDefault = useExportOptionsStore((state) => state.frameDelay);
-  const exportModeDefault = useExportOptionsStore((state) => state.mode);
-  const setExportMode = useExportOptionsStore((state) => state.setMode);
-  const setFrameDelay = useExportOptionsStore((state) => state.setFrameDelay);
+  const exportHeightDefault = useSettingsStore((state) => state.exportHeight);
+  const exportWidthDefault = useSettingsStore((state) => state.exportWidth);
+  const images = useImagesStore((state) => state.images);
+  const frameDelayDefault = useImagesStore((state) => state.frameDelay);
+  const setFrameDelay = useImagesStore((state) => state.setFrameDelay);
+  const exportModeDefault = useSettingsStore((state) => state.mode);
+  const setExportMode = useSettingsStore((state) => state.setMode);
 
   const state = useMemo(
     () => ({
@@ -90,7 +81,7 @@ export const PreviewConfig = () => {
       width: exportWidthDefault,
       height: exportHeightDefault,
     }),
-    [exportWidthDefault, images, exportHeightDefault]
+    [exportWidthDefault, images, exportHeightDefault],
   );
 
   const [{ frameDelay, mode }, set] = useControls(
@@ -111,7 +102,7 @@ export const PreviewConfig = () => {
     {
       store: levaStore,
     },
-    [exportHeightDefault, exportWidthDefault]
+    [exportHeightDefault, exportWidthDefault],
   );
 
   useEffect(() => {
@@ -151,12 +142,12 @@ export const PreviewConfig = () => {
 };
 
 export const ExportConfig = () => {
-  const intervalsDefault = useExportOptionsStore((state) => state.intervals);
-  const setIntervals = useExportOptionsStore((state) => state.setIntervals);
-  const iterationsDefault = useExportOptionsStore((state) => state.iterations);
-  const setIterations = useExportOptionsStore((state) => state.setIterations);
-  const previewDefault = useExportOptionsStore((state) => state.preview);
-  const setPreview = useExportOptionsStore((state) => state.setPreview);
+  const intervalsDefault = useImagesStore((state) => state.intervals);
+  const setIntervals = useImagesStore((state) => state.setIntervals);
+  const iterationsDefault = useImagesStore((state) => state.iterations);
+  const setIterations = useImagesStore((state) => state.setIterations);
+  const previewDefault = useImagesStore((state) => state.preview);
+  const setPreview = useImagesStore((state) => state.setPreview);
 
   const { intervals, count, preview } = useControls({
     editor: folder({

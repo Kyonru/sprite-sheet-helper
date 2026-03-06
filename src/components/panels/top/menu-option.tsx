@@ -8,12 +8,14 @@ import type { PropsWithChildren } from "react";
 export const MenuOption = ({
   title,
   children,
+  className,
 }: PropsWithChildren<{
   title: string;
+  className?: string;
 }>) => {
   return (
     <Tooltip key="bottom">
-      <TooltipTrigger>{children}</TooltipTrigger>
+      <TooltipTrigger className={className}>{children}</TooltipTrigger>
       <TooltipContent side="bottom">
         <p>{title}</p>
       </TooltipContent>

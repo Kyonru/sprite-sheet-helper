@@ -27,7 +27,7 @@ export interface GlobalSettings {
 
 interface CamerasState {
   cameras: Record<string, CameraComponent>;
-  activeCameraUuid: string | null;
+  mainCamera?: string;
   globalSettings: GlobalSettings;
 }
 
@@ -39,7 +39,7 @@ interface CamerasActions {
   setGlobalSettings: (settings: Partial<GlobalSettings>) => void;
   hydrate: (
     cameras: Record<string, CameraComponent>,
-    activeCameraUuid: string | null,
+    mainCamera?: string,
   ) => void;
 }
 
@@ -47,7 +47,7 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
   inspector(
     (set) => ({
       cameras: {},
-      activeCameraUuid: null,
+      mainCamera: undefined,
       globalSettings: {
         orbitControls: true,
       },
@@ -72,7 +72,7 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
           },
         })),
 
-      setActiveCamera: (uuid) => set({ activeCameraUuid: uuid }),
+      setActiveCamera: (uuid) => set({ mainCamera: uuid }),
 
       removeCamera: (uuid) =>
         set((state) => {
@@ -80,8 +80,8 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
           const { [uuid]: _, ...rest } = state.cameras;
           return {
             cameras: rest,
-            activeCameraUuid:
-              state.activeCameraUuid === uuid ? null : state.activeCameraUuid,
+            mainCamera:
+              state.mainCamera === uuid ? undefined : state.mainCamera,
           };
         }),
 
@@ -95,8 +95,7 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
           };
         }),
 
-      hydrate: (cameras, activeCameraUuid) =>
-        set({ cameras, activeCameraUuid }),
+      hydrate: (cameras, mainCamera) => set({ cameras, mainCamera }),
     }),
     { name: "Cameras" },
   ),
@@ -107,5 +106,5 @@ export const useCamera = (uuid?: string) =>
 
 export const useActiveCamera = () =>
   useCamerasStore((state) =>
-    state.activeCameraUuid ? state.cameras[state.activeCameraUuid] : null,
+    state.mainCamera ? state.cameras[state.mainCamera] : null,
   );

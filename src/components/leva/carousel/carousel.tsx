@@ -94,7 +94,7 @@ const useAutoplay = (emblaApi: CarouselApi | undefined): UseAutoplayType => {
       resetOrStop();
       callback();
     },
-    [emblaApi]
+    [emblaApi],
   );
 
   const toggleAutoplay = useCallback(() => {
@@ -232,11 +232,11 @@ export const LevaCarousel = () => {
 
   const frameDelay = useExportOptionsStore((state) => state.frameDelay);
   const removeImagesRow = useExportOptionsStore(
-    (state) => state.removeImagesRow
+    (state) => state.removeImagesRow,
   );
 
   const removeImageFromRow = useExportOptionsStore(
-    (state) => state.removeImageFromRow
+    (state) => state.removeImageFromRow,
   );
 
   const onTogglePlay = useCallback(() => {
@@ -250,19 +250,20 @@ export const LevaCarousel = () => {
 
       setSelectedRow(0);
     },
-    [removeImagesRow]
+    [removeImagesRow],
   );
 
   const onRemoveImageFromRow = useCallback(
     (index: number, imageIndex: number) => {
       removeImageFromRow(index, imageIndex);
     },
-    [removeImageFromRow]
+    [removeImageFromRow],
   );
 
   const onExport = useCallback(() => {
     PubSub.emit(EventType.START_EXPORT);
     setExporting(true);
+    console.log("Exporting");
   }, []);
 
   const onToggleLoop = useCallback(() => {
@@ -354,6 +355,7 @@ export const LevaCarousel = () => {
                       style={{
                         width: width,
                         height: height,
+                        imageRendering: "pixelated",
                       }}
                       src={
                         images[selectedRow]
@@ -457,7 +459,7 @@ export const LevaCarousel = () => {
             disabled={exporting}
             onClick={onExport}
           >
-            Export
+            {exporting ? "Exporting..." : "Export"}
           </Button>
         </div>
       </Row>

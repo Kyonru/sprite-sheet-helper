@@ -34,10 +34,10 @@ export function EntityComponent({
   return (
     <EntityContextProvider isPreview={isPreview}>
       <TransformControls
-        enabled={selected === uuid}
-        showX={selected === uuid}
-        showY={selected === uuid}
-        showZ={selected === uuid}
+        enabled={selected === uuid && !isPreview}
+        showX={selected === uuid && !isPreview}
+        showY={selected === uuid && !isPreview}
+        showZ={selected === uuid && !isPreview}
         ref={controlsRef}
         mode={transformMode}
         onMouseUp={() => {
