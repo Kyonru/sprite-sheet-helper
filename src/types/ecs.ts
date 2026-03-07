@@ -23,8 +23,14 @@ export interface MaterialComponent {
 }
 
 export interface ModelComponent {
+  file: File;
   filePath: string;
   fileName: string;
+  type: string;
+  fileSize: number;
+  format: "gltf" | "glb" | "fbx" | "obj" | "stl";
+  loadState: "idle" | "loading" | "loaded" | "error";
+  errorMessage: string | null;
 }
 
 // The full serializable snapshot

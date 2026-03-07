@@ -72,6 +72,10 @@ export const PreviewConfig = () => {
   const images = useImagesStore((state) => state.images);
   const frameDelayDefault = useImagesStore((state) => state.frameDelay);
   const setFrameDelay = useImagesStore((state) => state.setFrameDelay);
+  const intervalsDefault = useImagesStore((state) => state.intervals);
+  const iterationsDefault = useImagesStore((state) => state.iterations);
+  const setIntervals = useImagesStore((state) => state.setIntervals);
+  const setIterations = useImagesStore((state) => state.setIterations);
   const exportModeDefault = useSettingsStore((state) => state.mode);
   const setExportMode = useSettingsStore((state) => state.setMode);
 
@@ -84,7 +88,7 @@ export const PreviewConfig = () => {
     [exportWidthDefault, images, exportHeightDefault],
   );
 
-  const [{ frameDelay, mode }, set] = useControls(
+  const [{ frameDelay, mode, intervals, iterations }, set] = useControls(
     () => ({
       mode: {
         options: ["zip", "spritesheet", "gif"] as ExportFormat[],
@@ -95,6 +99,20 @@ export const PreviewConfig = () => {
         value: frameDelayDefault,
         min: 1,
         max: 1000,
+        step: 1,
+      },
+      intervals: {
+        label: "Time between frames",
+        value: intervalsDefault,
+        min: 1,
+        max: 1000,
+        step: 1,
+      },
+      iterations: {
+        label: "Frames amount",
+        value: iterationsDefault,
+        min: 1,
+        max: 100,
         step: 1,
       },
       preview: carousel(state),
@@ -108,6 +126,14 @@ export const PreviewConfig = () => {
   useEffect(() => {
     setFrameDelay(frameDelay);
   }, [frameDelay, setFrameDelay]);
+
+  useEffect(() => {
+    setIntervals(intervals);
+  }, [intervals, setIntervals]);
+
+  useEffect(() => {
+    setIterations(iterations);
+  }, [iterations, setIterations]);
 
   useEffect(() => {
     set({

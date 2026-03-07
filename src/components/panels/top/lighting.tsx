@@ -11,19 +11,21 @@ import {
 import { LIGHTS } from "@/constants/effects";
 import { useAddLight } from "@/hooks/next/use-add-light";
 import type { LightType } from "@/types/lighting";
-import { ConeIcon, SpotlightIcon, SunIcon, SunsetIcon } from "lucide-react";
+import { SunIcon } from "lucide-react";
 import { useMainPanelStore } from "../main/store";
+import { ItemTypeIconMap } from "../main/explorer/constants";
 
 const LightIcon = ({ type }: { type: LightType }) => {
+  const Icon = ItemTypeIconMap[type];
   switch (type) {
     case "ambient":
-      return <SunIcon className="w-4 h-4" />;
+      return Icon;
     case "directional":
-      return <SunsetIcon className="w-4 h-4" />;
+      return Icon;
     case "point":
-      return <ConeIcon className="w-4 h-4" />;
+      return Icon;
     case "spot":
-      return <SpotlightIcon className="w-4 h-4" />;
+      return Icon;
     default:
       return <></>;
   }

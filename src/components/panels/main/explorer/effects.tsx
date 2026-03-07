@@ -9,6 +9,7 @@ import {
 } from "react-complex-tree";
 import { Label } from "@/components/ui/label";
 import { useEffectsStore } from "@/store/next/effects";
+import { cn } from "@/lib/utils";
 
 export const EffectsExplorer = () => {
   const effects = useEffectsStore((state) => state.effects);
@@ -95,8 +96,15 @@ export const EffectsExplorer = () => {
         setSelected(items.length > 0 ? (items[0] as string) : undefined);
       }}
       defaultInteractionMode={InteractionMode.ClickItemToExpand}
-      renderItemTitle={({ title }) => (
-        <Label className="text-sm font-thin capitalize">{title}</Label>
+      renderItemTitle={({ title, context }) => (
+        <Label
+          className={cn({
+            "text-sm font-thin capitalize text-muted-foreground": true,
+            "text-foreground": context.isSelected,
+          })}
+        >
+          {title}
+        </Label>
       )}
     >
       <Tree treeId="effects-tree" rootItem="root" treeLabel="Effects" />

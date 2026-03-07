@@ -7,25 +7,11 @@ import {
   type TreeItemIndex,
   type TreeItem,
 } from "react-complex-tree";
-import {
-  SpotlightIcon,
-  SunIcon,
-  ConeIcon,
-  SunsetIcon,
-  CameraIcon,
-} from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useEntitiesStore } from "@/store/next/entities";
 import { useSetEntityChildren } from "@/hooks/next/use-set-entity-children";
-
-const ItemTypeIconMap: Record<string, React.ReactNode> = {
-  spot: <SpotlightIcon className="w-4 h-4" />,
-  ambient: <SunIcon className="w-4 h-4" />,
-  point: <ConeIcon className="w-4 h-4" />,
-  directional: <SunsetIcon className="w-4 h-4" />,
-  transform: <></>,
-  camera: <CameraIcon className="w-4 h-4" />,
-};
+import { ItemTypeIconMap } from "./constants";
+import { cn } from "@/lib/utils";
 
 export const ObjectExplorer = () => {
   const entities = useEntitiesStore((state) => state.entities);
@@ -138,11 +124,17 @@ export const ObjectExplorer = () => {
         selectEntity(item[0] as string);
       }}
       defaultInteractionMode={InteractionMode.ClickItemToExpand}
-      renderItemTitle={({ title, item }) => {
+      renderItemTitle={({ title, item, context }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const icon = ItemTypeIconMap[(item as any).type];
+
         return (
-          <Label className="text-sm font-thin">
+          <Label
+            className={cn({
+              "text-sm font-thin text-muted-foreground": true,
+              "text-foreground": context.isSelected,
+            })}
+          >
             {icon}
             {title}
           </Label>

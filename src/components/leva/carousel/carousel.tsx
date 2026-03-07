@@ -26,10 +26,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { EventType, PubSub } from "@/lib/events";
 import Autoplay from "embla-carousel-autoplay";
-import { useExportOptionsStore } from "@/store/export";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { useImagesStore } from "@/store/next/images";
 
 const { Row } = Components;
 
@@ -230,12 +230,10 @@ export const LevaCarousel = () => {
   const { autoplayIsPlaying, toggleAutoplay } = useAutoplay(api);
   const [loop, setLoop] = useState(false);
 
-  const frameDelay = useExportOptionsStore((state) => state.frameDelay);
-  const removeImagesRow = useExportOptionsStore(
-    (state) => state.removeImagesRow,
-  );
+  const frameDelay = useImagesStore((state) => state.frameDelay);
+  const removeImagesRow = useImagesStore((state) => state.removeImagesRow);
 
-  const removeImageFromRow = useExportOptionsStore(
+  const removeImageFromRow = useImagesStore(
     (state) => state.removeImageFromRow,
   );
 

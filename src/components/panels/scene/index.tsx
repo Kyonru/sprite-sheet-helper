@@ -22,7 +22,6 @@ import {
 import * as THREE from "three";
 import { EntityComponent } from "@/components/entity";
 import { PostProcessingEffectsComposer } from "./composer";
-import { Select } from "@react-three/postprocessing";
 import { useTransformsStore } from "@/store/next/transforms";
 import { useExport } from "@/hooks/next/use-export";
 import { useFrameValues } from "@/hooks/use-frame-values";
@@ -44,19 +43,6 @@ function SharedScene({
 
   return (
     <>
-      <Select enabled>
-        <group>
-          <mesh>
-            <boxGeometry />
-            <meshStandardMaterial color="hotpink" />
-          </mesh>
-          <mesh position={[0, 0, 2]}>
-            <boxGeometry />
-            <meshStandardMaterial color="hotpink" />
-          </mesh>
-        </group>
-      </Select>
-
       {Object.values(entities).map((entity) => (
         <EntityComponent
           isPreview={isPreview}

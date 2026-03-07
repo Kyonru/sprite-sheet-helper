@@ -1,3 +1,4 @@
+import { Input } from "@/components/ui/input";
 import {
   MenubarContent,
   MenubarGroup,
@@ -10,52 +11,77 @@ import {
   MenubarSubTrigger,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
+import { useAddModel } from "@/hooks/next/use-add-model";
 import { MenuIcon } from "lucide-react";
+import { useRef } from "react";
 
 export const FileMenu = () => {
+  const loadFromFile = useAddModel(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onImportModel = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
-    <MenubarMenu>
-      <MenubarTrigger>
-        <MenuIcon className="w-4 h-4" />
-      </MenubarTrigger>
-      <MenubarContent>
-        <MenubarGroup>
-          <MenubarItem>
-            Import Model <MenubarShortcut>⌘I</MenubarShortcut>
-          </MenubarItem>
-        </MenubarGroup>
-        <MenubarSeparator />
-        <MenubarGroup>
-          <MenubarItem>
-            Open project <MenubarShortcut>⌘N</MenubarShortcut>
-          </MenubarItem>
-          <MenubarItem>
-            Quick save <MenubarShortcut>⌘S</MenubarShortcut>
-          </MenubarItem>
-          <MenubarItem>
-            Save project.. <MenubarShortcut>⌘N</MenubarShortcut>
-          </MenubarItem>
-        </MenubarGroup>
-        <MenubarSeparator />
-        <MenubarGroup>
-          <MenubarSub>
-            <MenubarSubTrigger>Export</MenubarSubTrigger>
-            <MenubarSubContent>
-              <MenubarGroup>
-                <MenubarItem>Export as ZIP</MenubarItem>
-                <MenubarItem>Export as GIF</MenubarItem>
-                <MenubarItem>Export as SPRITESHEET</MenubarItem>
-              </MenubarGroup>
-            </MenubarSubContent>
-          </MenubarSub>
-        </MenubarGroup>
-        <MenubarSeparator />
-        <MenubarGroup>
-          <MenubarItem>
-            Settings... <MenubarShortcut>⌘P</MenubarShortcut>
-          </MenubarItem>
-        </MenubarGroup>
-      </MenubarContent>
-    </MenubarMenu>
+    <>
+      <Input
+        ref={fileInputRef}
+        id="model"
+        type="file"
+        className="hidden"
+        accept={`.${ACCEPTED_MODEL_FILE_TYPES.join(",.")}`}
+        onChange={(e) => {
+          console.log("hello");
+          const file = e.target.files?.[0];
+
+          if (file) loadFromFile(file);
+        }}
+      />
+      <MenubarMenu>
+        <MenubarTrigger>
+          <MenuIcon className="w-4 h-4" />
+        </MenubarTrigger>
+        <MenubarContent>
+          <MenubarGroup>
+            <MenubarItem onClick={onImportModel}>
+              Import Model <MenubarShortcut>⌘I</MenubarShortcut>
+            </MenubarItem>
+          </MenubarGroup>
+          <MenubarSeparator />
+          <MenubarGroup>
+            <MenubarItem>
+              Open project <MenubarShortcut>⌘N</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem>
+              Quick save <MenubarShortcut>⌘S</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem>
+              Save project.. <MenubarShortcut>⌘N</MenubarShortcut>
+            </MenubarItem>
+          </MenubarGroup>
+          <MenubarSeparator />
+          <MenubarGroup>
+            <MenubarSub>
+              <MenubarSubTrigger>Export</MenubarSubTrigger>
+              <MenubarSubContent>
+                <MenubarGroup>
+                  <MenubarItem>Export as ZIP</MenubarItem>
+                  <MenubarItem>Export as GIF</MenubarItem>
+                  <MenubarItem>Export as SPRITESHEET</MenubarItem>
+                </MenubarGroup>
+              </MenubarSubContent>
+            </MenubarSub>
+          </MenubarGroup>
+          <MenubarSeparator />
+          <MenubarGroup>
+            <MenubarItem>
+              Settings... <MenubarShortcut>⌘P</MenubarShortcut>
+            </MenubarItem>
+          </MenubarGroup>
+        </MenubarContent>
+      </MenubarMenu>
+    </>
   );
 };

@@ -48,7 +48,7 @@ export const ModelConfig = () => {
           },
         }),
       }),
-      [model]
+      [model],
     );
 
   useEffect(() => {

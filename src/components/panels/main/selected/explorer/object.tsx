@@ -12,6 +12,7 @@ import type { Schema } from "leva/plugin";
 import { useEffect, useMemo } from "react";
 import { useMainPanelContext } from "../../context";
 import { useCamera, useCamerasStore } from "@/store/next/cameras";
+import { LEVA_THEME } from "@/constants/theming";
 
 const buildInputs = <T extends object>(
   uuid: string,
@@ -77,7 +78,7 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
     }
 
     if (entity.type === "transform") return {};
-    if (entity.type === "model") return {};
+    if (entity.type === "model") return i;
     if (entity.type === "camera") {
       if (camera) {
         buildInputs(uuid, updateCamera, camera, i);
@@ -119,6 +120,7 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
 
   return (
     <LevaPanel
+      theme={LEVA_THEME}
       hidden={false}
       neverHide
       store={store}

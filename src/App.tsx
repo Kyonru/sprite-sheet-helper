@@ -17,6 +17,9 @@ import { useCreateStore } from "leva";
 import { useAddCamera } from "./hooks/next/use-add-camera";
 import { useAddLight } from "./hooks/next/use-add-light";
 import { useEffect, useRef } from "react";
+import * as THREE from "three";
+
+THREE.Cache.enabled = true;
 
 function App() {
   const mainPanelStore = useCreateStore();
