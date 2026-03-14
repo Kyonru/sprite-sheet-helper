@@ -24,8 +24,6 @@ import { useSceneStore } from "./store";
 function EffectNode({ effect }: { effect: EffectComponent }) {
   if (!effect.enabled) return null;
 
-  console.log(effect);
-
   switch (effect.type) {
     case "pixelation":
       return <Pixelation granularity={effect.granularity} />;

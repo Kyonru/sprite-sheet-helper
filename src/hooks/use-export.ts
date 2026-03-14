@@ -142,7 +142,6 @@ export const useExport = () => {
     const zip = new JSZip();
 
     for (let i = 0; i < exportedImages.length; i++) {
-      console.log(exportedImages[i])!;
       const gifUrl = await createGif(
         exportedImages[i].images,
         exportWidth,

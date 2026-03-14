@@ -16,7 +16,7 @@ export const useExport = () => {
 
   const intervals = useImagesStore((state) => state.intervals);
   const iterations = useImagesStore((state) => state.iterations);
-  const frameDelay = useImagesStore((state) => state.frameDelay);
+  const frameDelay = useImagesStore((state) => state.fps);
 
   const exportFormat = useSettingsStore((state) => state.mode);
 

@@ -1,6 +1,6 @@
 import { useSharedContext } from "@/context/sharedContext";
 import type { ExportFormat } from "@/types/file";
-import { folder, useControls } from "leva";
+import { button, folder, useControls } from "leva";
 import { useEffect, useMemo } from "react";
 import { carousel } from "../leva/carousel";
 import { useImagesStore } from "@/store/next/images";
@@ -70,8 +70,8 @@ export const PreviewConfig = () => {
   const exportHeightDefault = useSettingsStore((state) => state.exportHeight);
   const exportWidthDefault = useSettingsStore((state) => state.exportWidth);
   const images = useImagesStore((state) => state.images);
-  const frameDelayDefault = useImagesStore((state) => state.frameDelay);
-  const setFrameDelay = useImagesStore((state) => state.setFrameDelay);
+  const fpsDefault = useImagesStore((state) => state.fps);
+  const setFPS = useImagesStore((state) => state.setFPS);
   const intervalsDefault = useImagesStore((state) => state.intervals);
   const iterationsDefault = useImagesStore((state) => state.iterations);
   const setIntervals = useImagesStore((state) => state.setIntervals);
@@ -88,34 +88,53 @@ export const PreviewConfig = () => {
     [exportWidthDefault, images, exportHeightDefault],
   );
 
-  const [{ frameDelay, mode, intervals, iterations }, set] = useControls(
+  const [{ fps, mode, intervals, iterations }, set] = useControls(
     () => ({
-      mode: {
-        options: ["zip", "spritesheet", "gif"] as ExportFormat[],
-        value: exportModeDefault,
-      },
-      frameDelay: {
-        label: "Delay",
-        value: frameDelayDefault,
-        min: 1,
-        max: 1000,
-        step: 1,
-      },
-      intervals: {
-        label: "Time between frames",
-        value: intervalsDefault,
-        min: 1,
-        max: 1000,
-        step: 1,
-      },
-      iterations: {
-        label: "Frames amount",
-        value: iterationsDefault,
-        min: 1,
-        max: 100,
-        step: 1,
-      },
-      preview: carousel(state),
+      "Sequence Options": folder(
+        {
+          intervals: {
+            label: "Time between frames",
+            value: intervalsDefault,
+            min: 1,
+            max: 1000,
+            step: 1,
+          },
+          iterations: {
+            label: "Frames amount",
+            value: iterationsDefault,
+            min: 1,
+            max: 100,
+            step: 1,
+          },
+          "Add Sequence": button(
+            (get) => alert(`Number value is ${get("number").toFixed(2)}`),
+            {},
+          ),
+        },
+        {
+          color: "var(--chart-2)",
+        },
+      ),
+
+      "Export Options": folder(
+        {
+          mode: {
+            options: ["zip", "spritesheet", "gif"] as ExportFormat[],
+            value: exportModeDefault,
+          },
+          fps: {
+            label: "Frame duration",
+            value: fpsDefault,
+            min: 1,
+            max: 1000,
+            step: 1,
+          },
+          preview: carousel(state),
+        },
+        {
+          color: "var(--chart-4)",
+        },
+      ),
     }),
     {
       store: levaStore,
@@ -124,8 +143,8 @@ export const PreviewConfig = () => {
   );
 
   useEffect(() => {
-    setFrameDelay(frameDelay);
-  }, [frameDelay, setFrameDelay]);
+    setFPS(fps);
+  }, [fps, setFPS]);
 
   useEffect(() => {
     setIntervals(intervals);

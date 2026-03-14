@@ -18,21 +18,55 @@ export const getClipsFromCache = (uuid: string) => clipsCache.get(uuid) ?? [];
 
 type SerializableModel = Omit<ModelComponent, "loadState" | "errorMessage">;
 
+export type LoopType = THREE.AnimationActionLoopStyles;
+
 interface ModelsState {
   models: Record<string, ModelComponent>;
-  clips: Record<string, THREE.AnimationClip[]>;
+  clips: Record<
+    string,
+    {
+      action: THREE.AnimationAction;
+      clip: THREE.AnimationClip;
+    }[]
+  >;
+  mixerRef: Record<string, THREE.AnimationMixer | null>;
+  animations: Record<string, string>;
+  durations: Record<string, Record<string, [number, number]>>;
+  speeds: Record<string, Record<string, number>>;
+  loops: Record<string, Record<string, LoopType>>;
+  currentTime: Record<string, number>;
+  frameStep: Record<string, number>;
+  freeze: Record<string, boolean>;
 }
 
 interface ModelsActions {
   loadFromFile: (uuid: string, file: File) => Promise<void>;
   reloadModel: (uuid: string) => Promise<void>;
   removeModel: (uuid: string) => void;
-  setClips: (uuid: string, clips: THREE.AnimationClip[]) => void;
+  setClips: (
+    uuid: string,
+    clips: {
+      action: THREE.AnimationAction;
+      clip: THREE.AnimationClip;
+    }[],
+  ) => void;
+  setMixerRef: (uuid: string, mixer: THREE.AnimationMixer | null) => void;
+  setAnimation: (uuid: string, animation: string) => void;
+  setDuration: (
+    uuid: string,
+    animation: string,
+    duration: [number, number],
+  ) => void;
+  setSpeed: (uuid: string, animation: string, speed: number) => void;
+  setLoop: (uuid: string, animation: string, loop: LoopType) => void;
   setLoadState: (
     uuid: string,
     loadState: ModelLoadState,
     errorMessage?: string | null,
   ) => void;
+  setCurrentTime: (uuid: string, time: number) => void;
+  setFrameStep: (uuid: string, step: number) => void;
+  setFreeze: (uuid: string, freeze: boolean) => void;
   hydrate: (models: Record<string, SerializableModel>) => void;
 }
 
@@ -41,6 +75,14 @@ export const useModelsStore = create<ModelsState & ModelsActions>()(
     (set, get) => ({
       models: {},
       clips: {},
+      mixerRef: {},
+      animations: {},
+      durations: {},
+      speeds: {},
+      loops: {},
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
 
       setLoadState: (uuid, loadState, errorMessage = "") =>
         set((state) => ({
@@ -116,6 +158,49 @@ export const useModelsStore = create<ModelsState & ModelsActions>()(
 
       setClips: (uuid, clips) =>
         set((state) => ({ clips: { ...state.clips, [uuid]: clips } })),
+
+      setMixerRef: (uuid, mixer) =>
+        set((state) => ({ mixerRef: { ...state.mixerRef, [uuid]: mixer } })),
+
+      setAnimation: (uuid, animation) =>
+        set((state) => ({
+          animations: { ...state.animations, [uuid]: animation },
+        })),
+      setDuration: (uuid, animation, duration) =>
+        set((state) => ({
+          durations: {
+            ...state.durations,
+            [uuid]: { ...state.durations[uuid], [animation]: duration },
+          },
+        })),
+      setSpeed: (uuid, animation, speed) =>
+        set((state) => ({
+          speeds: {
+            ...state.speeds,
+            [uuid]: { ...state.speeds[uuid], [animation]: speed },
+          },
+        })),
+
+      setLoop: (uuid, animation, loop) =>
+        set((state) => ({
+          loops: {
+            ...state.loops,
+            [uuid]: { ...state.loops[uuid], [animation]: loop },
+          },
+        })),
+
+      setCurrentTime: (uuid, time) =>
+        set((state) => ({
+          currentTime: { ...state.currentTime, [uuid]: time },
+        })),
+      setFrameStep: (uuid, step) =>
+        set((state) => ({
+          frameStep: { ...state.frameStep, [uuid]: step },
+        })),
+      setFreeze: (uuid, freeze) =>
+        set((state) => ({
+          freeze: { ...state.freeze, [uuid]: freeze },
+        })),
 
       hydrate: (models) =>
         set({

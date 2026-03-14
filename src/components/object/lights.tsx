@@ -1,4 +1,3 @@
-import { useEntityContext } from "@/context/next/entity-context";
 import { useEntitiesStore, useEntity } from "@/store/next/entities";
 import { useLight } from "@/store/next/lights";
 import type {
@@ -10,6 +9,7 @@ import type {
 import { useHelper } from "@react-three/drei";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { LAYERS } from "../panels/scene/constants";
 
 const PointLightObject = ({
   light,
@@ -20,28 +20,20 @@ const PointLightObject = ({
 }) => {
   const lightRef = useRef<THREE.PointLight>(null!);
   const selected = useEntitiesStore((state) => state.selected);
-  const noopRef = useRef<THREE.Object3D>(null!);
-  const { isPreview } = useEntityContext();
 
   const helper = useHelper(
-    isPreview ? noopRef : lightRef,
+    lightRef,
     THREE.PointLightHelper,
     light.distance,
     light.color,
   );
 
-  if (helper.current) {
-    helper.current.visible = selected === uuid;
-  }
-
   useEffect(() => {
-    if (!helper.current) {
-      return;
-    }
-
-    helper.current?.update();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [light.distance, light.color]);
+    if (!helper.current) return;
+    helper.current.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    helper.current.visible = selected === uuid;
+    helper.current.update();
+  }, [light.distance, light.color, selected, uuid, helper]);
 
   return (
     <pointLight
@@ -64,26 +56,15 @@ const SpotLightObject = ({
 }) => {
   const lightRef = useRef<THREE.SpotLight>(null!);
   const selected = useEntitiesStore((state) => state.selected);
-  const noopRef = useRef<THREE.Object3D>(null!);
-  const { isPreview } = useEntityContext();
 
-  const helper = useHelper(
-    isPreview ? noopRef : lightRef,
-    THREE.SpotLightHelper,
-    light.color,
-  );
-
-  if (helper.current) {
-    helper.current.visible = selected === uuid;
-  }
+  const helper = useHelper(lightRef, THREE.SpotLightHelper, light.color);
 
   useEffect(() => {
-    if (!helper.current) {
-      return;
-    }
+    if (!helper.current) return;
+    helper.current.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    helper.current.visible = selected === uuid;
     helper.current.update();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [light.color]);
+  }, [light.color, selected, uuid, helper]);
 
   return (
     <spotLight
@@ -106,30 +87,22 @@ const DirectionalLightObject = ({
   uuid: string;
   light: DirectionalLightComponent;
 }) => {
-  const selected = useEntitiesStore((state) => state.selected);
   const lightRef = useRef<THREE.DirectionalLight>(null!);
-  const { isPreview } = useEntityContext();
-  const noopRef = useRef<THREE.Object3D>(null!);
+  const selected = useEntitiesStore((state) => state.selected);
 
   const helper = useHelper(
-    isPreview ? noopRef : lightRef,
+    lightRef,
     THREE.DirectionalLightHelper,
     10,
     light.color,
   );
 
-  if (helper.current) {
-    helper.current.visible = selected === uuid;
-  }
-
   useEffect(() => {
-    if (!helper.current) {
-      return;
-    }
-
-    helper.current?.update();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [light.color]);
+    if (!helper.current) return;
+    helper.current.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    helper.current.visible = selected === uuid;
+    helper.current.update();
+  }, [light.color, selected, uuid, helper]);
 
   return (
     <directionalLight

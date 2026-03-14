@@ -99,7 +99,6 @@ export const ObjectExplorer = () => {
 
   React.useEffect(() => {
     dataProvider.refresh();
-    console.log(dataProvider.data);
   }, [dataProvider, entities, children]);
 
   return (

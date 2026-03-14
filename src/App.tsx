@@ -18,6 +18,8 @@ import { useAddCamera } from "./hooks/next/use-add-camera";
 import { useAddLight } from "./hooks/next/use-add-light";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { SharedSceneProvider } from "./context/shared-scene";
+import { ConfirmProvider } from "./components/confirm";
 
 THREE.Cache.enabled = true;
 
@@ -32,7 +34,9 @@ function App() {
     setTimeout(() => {
       if (init.current) return;
       init.current = true;
-      addCamera();
+      addCamera({
+        position: [0, 5, 0],
+      });
       addLight("ambient");
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,12 +55,15 @@ function App() {
                 <MainPanel />
               </ResizablePanel>
               <ResizableHandle withHandle />
-              <AssetCreation />
+              <SharedSceneProvider>
+                <AssetCreation />
+              </SharedSceneProvider>
             </ResizablePanelGroup>
           </Layout>
           <ExportModal />
         </MainPanelContextProvider>
       </SharedContextProvider>
+      <ConfirmProvider />
       <Toaster richColors />
     </ThemeProvider>
   );

@@ -25,6 +25,9 @@ import { PostProcessingEffectsComposer } from "./composer";
 import { useTransformsStore } from "@/store/next/transforms";
 import { useExport } from "@/hooks/next/use-export";
 import { useFrameValues } from "@/hooks/use-frame-values";
+import { useSharedScene } from "@/context/shared-scene";
+import { EntityContextProvider } from "@/context/next/entity-context";
+import { LAYERS } from "./constants";
 
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;
@@ -34,21 +37,15 @@ type SharedCameraState = React.RefObject<{
 
 function SharedScene({
   cameraRef,
-  isPreview,
 }: {
   cameraRef?: React.RefObject<THREE.PerspectiveCamera | null>;
-  isPreview?: boolean;
 }) {
   const entities = useEntitiesStore((state) => state.entities);
 
   return (
     <>
       {Object.values(entities).map((entity) => (
-        <EntityComponent
-          isPreview={isPreview}
-          key={entity.uuid}
-          uuid={entity.uuid}
-        />
+        <EntityComponent key={entity.uuid} uuid={entity.uuid} />
       ))}
       {cameraRef && (
         <PerspectiveCamera ref={cameraRef} position={[5, 5, 5]} fov={45} />
@@ -135,7 +132,7 @@ function EditorScene({
   sharedCameraState: SharedCameraState;
 }) {
   const camera2Ref = useRef<THREE.PerspectiveCamera>(null!);
-  useHelper(camera2Ref, THREE.CameraHelper);
+  const cameraHelper = useHelper(camera2Ref, THREE.CameraHelper);
   const selected = useEntitiesStore((state) => state.selected);
   const camera = useCamerasStore((state) => state.mainCamera);
   const transformMode = useTransformsStore((state) => state.mode);
@@ -143,6 +140,16 @@ function EditorScene({
   const isCameraSelected = selected === camera;
 
   const threeCamera = useThree((state) => state.camera);
+  const { camera: sceneCamera } = useThree();
+
+  useEffect(() => {
+    sceneCamera.layers.enable(LAYERS.LAYER_EDITOR_ONLY);
+  }, [sceneCamera]);
+
+  useEffect(() => {
+    if (!cameraHelper.current) return;
+    cameraHelper.current.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+  }, [cameraHelper]);
 
   return (
     <>
@@ -151,7 +158,6 @@ function EditorScene({
       <OrbitControls makeDefault enabled={orbitEnabled} />
       <SharedScene cameraRef={camera2Ref} />
       {/* <SyncCameraFromRef cameraRef={camera2Ref} stateRef={sharedCameraState} /> */}
-
       <TransformControls
         camera={threeCamera}
         enabled={isCameraSelected}
@@ -160,21 +166,29 @@ function EditorScene({
         showZ={isCameraSelected}
         object={camera2Ref}
         mode={transformMode}
+        // onUpdate={(self) => self.layers.set(LAYERS.LAYER_EDITOR_ONLY)}
         onMouseDown={() => (isDragging.current = true)}
         onMouseUp={() => (isDragging.current = false)}
       />
-
       {/* Bidirectional sync — direction depends on who's dragging */}
       <BidirectionalCameraSync
         cameraRef={camera2Ref}
         stateRef={sharedCameraState}
         isDragging={isDragging}
       />
-
-      <GizmoHelper renderPriority={1} alignment="bottom-right">
+      <GizmoHelper
+        layers={LAYERS.LAYER_EDITOR_ONLY}
+        renderPriority={1}
+        alignment="bottom-right"
+      >
         <GizmoViewport labelColor="white" />
       </GizmoHelper>
-      <Grid infiniteGrid sectionColor="#a09f9f" cellColor="#868686" />
+      <Grid
+        layers={LAYERS.LAYER_EDITOR_ONLY}
+        infiniteGrid
+        sectionColor="#a09f9f"
+        cellColor="#868686"
+      />
       <ContactShadows
         frames={1}
         position={[0, -0.5, 0]}
@@ -182,6 +196,7 @@ function EditorScene({
         opacity={0.4}
         far={1}
         blur={2}
+        layers={LAYERS.LAYER_EDITOR_ONLY}
       />
     </>
   );
@@ -199,6 +214,12 @@ function PreviewScene({
   showGizmo: boolean;
 }) {
   const controlsRef = useRef<CameraControls>(null!);
+  const { camera } = useThree();
+
+  useEffect(() => {
+    camera.layers.disableAll();
+    camera.layers.enable(LAYERS.LAYER_DEFAULT);
+  }, [camera]);
 
   useExport();
 
@@ -212,7 +233,6 @@ function PreviewScene({
       />
       <PostProcessingEffectsComposer />
 
-      <SharedScene isPreview />
       {showGizmo && (
         <GizmoHelper
           position={[-10, 0, 0]}
@@ -239,6 +259,8 @@ export function AssetCreation() {
     target: new THREE.Vector3(0, 0, 0),
   });
 
+  const scene = useSharedScene();
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (exportedImages.length === 0) return;
@@ -253,13 +275,21 @@ export function AssetCreation() {
     <ResizablePanel defaultSize="75%">
       <ResizablePanelGroup orientation="vertical">
         <ResizablePanel defaultSize="60%" style={{ position: "relative" }}>
-          <Canvas>
-            <EditorScene
-              isDragging={isDragging}
-              orbitEnabled={cameraGlobalSettings.orbitControls}
-              sharedCameraState={sharedCameraState}
-            />
-          </Canvas>
+          <EntityContextProvider isPreview={false}>
+            <Canvas
+              scene={scene}
+              onCreated={({ gl, scene }) => {
+                scene.background = null; // don't use scene background
+                gl.setClearColor("#1a1a1a", 1);
+              }}
+            >
+              <EditorScene
+                isDragging={isDragging}
+                orbitEnabled={cameraGlobalSettings.orbitControls}
+                sharedCameraState={sharedCameraState}
+              />
+            </Canvas>
+          </EntityContextProvider>
         </ResizablePanel>
 
         <ResizableHandle withHandle />
@@ -277,22 +307,29 @@ export function AssetCreation() {
             }}
             className="overflow-hidden overflow-y-scroll justify-center items-center w-full flex"
           >
-            <Canvas
-              style={{
-                width: previewWidth,
-                height: previewHeight,
-                aspectRatio: previewWidth / previewHeight,
-              }}
-              gl={{ antialias: false, preserveDrawingBuffer: true }}
-              className="rendering-[pixelated]  border-accent-800 border-2"
-            >
-              <PreviewScene
-                isDragging={isDragging}
-                showGizmo={showGizmo}
-                orbitEnabled={cameraGlobalSettings.orbitControls}
-                sharedCameraState={sharedCameraState}
-              />
-            </Canvas>
+            <EntityContextProvider isPreview={true}>
+              <Canvas
+                scene={scene}
+                style={{
+                  width: previewWidth,
+                  height: previewHeight,
+                  aspectRatio: previewWidth / previewHeight,
+                }}
+                onCreated={({ gl, scene }) => {
+                  scene.background = null;
+                  gl.setClearColor("#000000", 0);
+                }}
+                gl={{ antialias: false, preserveDrawingBuffer: true }}
+                className="rendering-[pixelated]  border-accent-800 border-2"
+              >
+                <PreviewScene
+                  isDragging={isDragging}
+                  showGizmo={showGizmo}
+                  orbitEnabled={cameraGlobalSettings.orbitControls}
+                  sharedCameraState={sharedCameraState}
+                />
+              </Canvas>
+            </EntityContextProvider>
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

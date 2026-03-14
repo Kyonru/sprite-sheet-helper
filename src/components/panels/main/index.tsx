@@ -8,10 +8,7 @@ import { SelectedObjectTabs } from "./selected";
 
 const MainPanel = () => {
   return (
-    <ResizablePanelGroup
-      orientation="vertical"
-      className="min-h-[200px] max-w-sm "
-    >
+    <ResizablePanelGroup orientation="vertical" className="min-h-[200px]">
       <ResizablePanel defaultSize="25%">
         <FileExplorer />
       </ResizablePanel>

@@ -3,18 +3,13 @@ import { useEntitiesStore } from "@/store/next/entities";
 import { useTransform, useTransformsStore } from "@/store/next/transforms";
 import { TransformControls } from "@react-three/drei";
 import { LightComponent } from "@/components/object/lights";
-import { EntityContextProvider } from "@/context/next/entity-context";
+import { useEntityContext } from "@/context/next/entity-context";
 import { ModelComponent } from "./object/model";
 import * as THREE from "three";
 import { useModelObject } from "@/store/next/models";
+import { LAYERS } from "./panels/scene/constants";
 
-export function EntityComponent({
-  uuid,
-  isPreview,
-}: {
-  uuid: string;
-  isPreview?: boolean;
-}) {
+export function EntityComponent({ uuid }: { uuid: string }) {
   const entity = useEntitiesStore((state) => state.entities[uuid]);
   const transform = useTransform(uuid);
   const transformMode = useTransformsStore((state) => state.mode);
@@ -24,6 +19,7 @@ export function EntityComponent({
   const setTransform = useTransformsStore((state) => state.setTransform);
   const groupRef = useRef<THREE.Group>(null);
   const modelObject = useModelObject(uuid);
+  const { isPreview } = useEntityContext();
 
   useEffect(() => {
     if (controlsRef.current && groupRef.current) {
@@ -36,7 +32,16 @@ export function EntityComponent({
     };
   }, [modelObject]);
 
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    controlsRef.current.traverse((child: THREE.Object3D) => {
+      child.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    });
+    controlsRef.current.raycaster?.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+  }, [controlsRef.current]);
+
   if (!entity || !transform) return null;
+  if (entity.type === "camera") return null;
 
   let child = <></>;
   if (entity.type === "light") {
@@ -47,18 +52,20 @@ export function EntityComponent({
     child = <ModelComponent uuid={uuid} />;
   }
 
-  if (entity.type === "camera") {
-    return <></>;
-  }
+  const isSelected = selected === uuid;
 
   return (
-    <EntityContextProvider isPreview={isPreview}>
+    <>
       <TransformControls
-        enabled={selected === uuid && !isPreview}
-        showX={selected === uuid && !isPreview}
-        showY={selected === uuid && !isPreview}
-        showZ={selected === uuid && !isPreview}
+        // layers={LAYERS.LAYER_EDITOR_ONLY}
+        enabled={isSelected && !isPreview}
+        showX={isSelected && !isPreview}
+        showY={isSelected && !isPreview}
+        showZ={isSelected && !isPreview}
         ref={controlsRef}
+        // onAfterRender={() =>
+        //   controlsRef.current.layers.set(LAYERS.LAYER_EDITOR_ONLY)
+        // }
         mode={transformMode}
         onMouseUp={() => {
           if (!groupRef.current) return;
@@ -79,6 +86,6 @@ export function EntityComponent({
         {child}
       </group>
       {/* </TransformControls> */}
-    </EntityContextProvider>
+    </>
   );
 }

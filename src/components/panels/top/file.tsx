@@ -33,7 +33,6 @@ export const FileMenu = () => {
         className="hidden"
         accept={`.${ACCEPTED_MODEL_FILE_TYPES.join(",.")}`}
         onChange={(e) => {
-          console.log("hello");
           const file = e.target.files?.[0];
 
           if (file) loadFromFile(file);

@@ -14,7 +14,6 @@ export const saveFileToOPFS = async (
 ): Promise<string> => {
   const dir = await getDir(folder);
 
-  console.log({ dir });
   const fileName = `${uuid}.${file.name.split(".").pop()}`;
   const handleDir = await dir.getFileHandle(fileName, { create: true });
   const writable = await handleDir.createWritable();

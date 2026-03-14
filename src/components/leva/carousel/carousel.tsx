@@ -15,13 +15,16 @@ import {
   useControls,
 } from "react-zoom-pan-pinch";
 import {
-  LucideCircleX,
+  CircleEllipsisIcon,
   LucideFullscreen,
   LucideInfinity,
   LucidePlay,
   LucideTrash,
   LucideZoomIn,
   LucideZoomOut,
+  PencilIcon,
+  PencilRulerIcon,
+  TrashIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EventType, PubSub } from "@/lib/events";
@@ -30,12 +33,26 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useImagesStore } from "@/store/next/images";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { confirm } from "@/components/confirm";
 
 const { Row } = Components;
 
 type LevaCarouselSettings = { alpha?: number };
 type LevaCarouselType = {
-  images: Array<{ name: string; label: string; images: string[] }>;
+  images: Array<{
+    uuid: string;
+    name?: string;
+    label: string;
+    images: string[];
+  }>;
   width: number;
   height: number;
 };
@@ -230,8 +247,9 @@ export const LevaCarousel = () => {
   const { autoplayIsPlaying, toggleAutoplay } = useAutoplay(api);
   const [loop, setLoop] = useState(false);
 
-  const frameDelay = useImagesStore((state) => state.frameDelay);
+  const frameDelay = useImagesStore((state) => state.fps);
   const removeImagesRow = useImagesStore((state) => state.removeImagesRow);
+  const updateLabel = useImagesStore((state) => state.updateLabel);
 
   const removeImageFromRow = useImagesStore(
     (state) => state.removeImageFromRow,
@@ -312,25 +330,65 @@ export const LevaCarousel = () => {
             >
               <CarrouselRow
                 images={row.images}
-                name={row.name}
+                name={row.name || ""}
                 label={row.label}
                 selected={selectedRow === index}
                 onClick={() => {
                   setSelectedRow(index);
+                  console.log(row);
                 }}
               />
               <div className="flex justify-center items-center">
-                <LucideCircleX
-                  onClick={() => onRemoveRow(index)}
-                  className="ml-2 hover:text-chart-3 active:size-4 size-6 active:animate-in transition-all duration-200"
-                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger>
+                    <CircleEllipsisIcon className="ml-2 hover:text-chart-3 active:size-4 size-6 active:animate-in transition-all duration-200" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="z-9999">
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          confirm.withInput("Rename sequence", {
+                            input: {
+                              label: "Sequence name",
+                              placeholder: "Sequence name…",
+                              defaultValue: row.label,
+                            },
+                            onConfirm: (value) =>
+                              updateLabel(row.uuid, value || row.label), // value: string
+                          })
+                        }
+                      >
+                        <PencilIcon />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <PencilRulerIcon />
+                        Edit
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() =>
+                          confirm.delete(row.label, {
+                            onConfirm: () => onRemoveRow(index),
+                          })
+                        }
+                      >
+                        <TrashIcon />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           ))}
         </RadioGroup>
       </Row>
       <Row>
-        <div draggable={false} className="flex flex-col w-72 gap-2 mb-2">
+        <div draggable={false} className="flex flex-col gap-2 mb-2">
           <Card className="p-0">
             <CardContent className="flex aspect-square p-0">
               <TransformWrapper

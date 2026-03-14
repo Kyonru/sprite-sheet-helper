@@ -10,7 +10,7 @@ export interface ExportRow {
 interface ImagesState {
   intervals: number;
   iterations: number;
-  frameDelay: number;
+  fps: number;
   preview: boolean;
   images: ExportRow[];
 }
@@ -18,12 +18,13 @@ interface ImagesState {
 interface ImagesActions {
   setIntervals: (intervals: number) => void;
   setIterations: (iterations: number) => void;
-  setFrameDelay: (frameDelay: number) => void;
+  setFPS: (fps: number) => void;
   setPreview: (preview: boolean) => void;
   setImages: (images: ExportRow[]) => void;
   addImagesRow: (name: string, label: string, images: string[]) => void;
   removeImagesRow: (index: number) => void;
   removeImageFromRow: (index: number, imageIndex: number) => void;
+  updateLabel: (uuid: string, label: string) => void;
 }
 
 interface ImagesStore extends ImagesState, ImagesActions {}
@@ -34,13 +35,13 @@ export const useImagesStore = create<ImagesStore>()(
       mode: "spritesheet",
       intervals: 100,
       iterations: 10,
-      frameDelay: 100,
+      fps: 100,
       preview: false,
       images: [],
 
       setIntervals: (intervals) => set({ intervals }),
       setIterations: (iterations) => set({ iterations }),
-      setFrameDelay: (frameDelay) => set({ frameDelay }),
+      setFPS: (fps) => set({ fps }),
       setPreview: (preview) => set({ preview }),
       setImages: (images) => set({ images }),
 
@@ -63,6 +64,13 @@ export const useImagesStore = create<ImagesStore>()(
                   images: row.images.filter((_, j) => j !== imageIndex),
                 }
               : row,
+          ),
+        })),
+
+      updateLabel: (uuid, label) =>
+        set((state) => ({
+          images: state.images.map((row) =>
+            row.uuid === uuid ? { ...row, label } : row,
           ),
         })),
     }),

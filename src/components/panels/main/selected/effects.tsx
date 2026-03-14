@@ -35,7 +35,6 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
           options: BLEND_FUNCTIONS,
           value: value,
           onChange: (newValue: unknown) => {
-            console.log(newValue);
             setEffect(uuid, { [key]: newValue } as never);
           },
         };

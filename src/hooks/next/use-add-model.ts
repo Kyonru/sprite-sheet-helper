@@ -13,8 +13,6 @@ export const useAddModel = (select = true) => {
     const label = name ?? file.name ?? "Model";
     const uuid = addEntity("model", label);
 
-    console.log(file, name);
-
     initTransform(uuid);
     loadModel(uuid, file);
 
