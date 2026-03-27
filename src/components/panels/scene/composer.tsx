@@ -20,6 +20,8 @@ import {
 } from "@react-three/postprocessing";
 import { useEffectsStore, type EffectComponent } from "@/store/next/effects";
 import { useSceneStore } from "./store";
+import { PaletteEffect } from "./custom-effects.tsx/palette";
+import { DitherEffect } from "./custom-effects.tsx/dither";
 
 function EffectNode({ effect }: { effect: EffectComponent }) {
   if (!effect.enabled) return null;
@@ -200,6 +202,16 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
         <Sepia
           intensity={effect.intensity}
           blendFunction={effect.blendFunction}
+        />
+      );
+    case "palette":
+      return <PaletteEffect palette={effect.palette} />;
+
+    case "dither":
+      return (
+        <DitherEffect
+          ditherScale={effect.ditherScale}
+          ditherStrength={effect.ditherStrength}
         />
       );
 

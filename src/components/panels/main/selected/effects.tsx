@@ -11,6 +11,7 @@ import {
 } from "leva";
 import type { Schema } from "leva/plugin";
 import { useMemo } from "react";
+import { PALETTE_INDEX } from "../../scene/custom-effects.tsx/palette";
 
 const EffectDetails = ({ uuid }: { uuid?: string }) => {
   const store = useStoreContext();
@@ -33,6 +34,14 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
       if (key === "blendFunction") {
         i[key] = {
           options: BLEND_FUNCTIONS,
+          value: value,
+          onChange: (newValue: unknown) => {
+            setEffect(uuid, { [key]: newValue } as never);
+          },
+        };
+      } else if (key === "palette") {
+        i[key] = {
+          options: PALETTE_INDEX,
           value: value,
           onChange: (newValue: unknown) => {
             setEffect(uuid, { [key]: newValue } as never);

@@ -46,6 +46,8 @@ export const EFFECTS: { key: EffectType; name: string }[] = [
   { key: "hueSaturation", name: "Hue / Saturation" },
   { key: "scanline", name: "Scanline" },
   { key: "sepia", name: "Sepia" },
+  { key: "palette", name: "Palette" },
+  { key: "dither", name: "Dither" },
 ];
 
 export const LIGHTS: {

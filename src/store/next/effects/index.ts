@@ -28,7 +28,9 @@ export type EffectType =
   | "dotScreen"
   | "hueSaturation"
   | "scanline"
-  | "sepia";
+  | "sepia"
+  | "palette"
+  | "dither";
 
 export type EffectComponent = { type: EffectType; enabled: boolean } & (
   | { type: "pixelation"; granularity: number }
@@ -153,6 +155,8 @@ export type EffectComponent = { type: EffectType; enabled: boolean } & (
     }
   | { type: "scanline"; blendFunction: BlendFunction; density: number }
   | { type: "sepia"; intensity: number; blendFunction: BlendFunction }
+  | { type: "palette"; palette: number }
+  | { type: "dither"; ditherStrength: number; ditherScale: number }
 );
 
 type EffectDefaults = {
@@ -286,6 +290,8 @@ export const EFFECT_DEFAULTS: EffectDefaults = {
   },
   scanline: { enabled: false, blendFunction: BlendFunction.ADD, density: 0.5 },
   sepia: { enabled: false, intensity: 0.5, blendFunction: BlendFunction.ADD },
+  palette: { enabled: false, palette: 0 },
+  dither: { enabled: false, ditherStrength: 0.5, ditherScale: 1.0 },
 };
 
 interface EffectsState {
