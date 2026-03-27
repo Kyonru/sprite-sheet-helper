@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react";
 import { carousel } from "../leva/carousel";
 import { useImagesStore } from "@/store/next/images";
 import { useSettingsStore } from "@/store/next/settings";
+import { EventType, PubSub } from "@/lib/events";
 
 const FrameConfig = () => {
   const heightDefault = useSettingsStore((state) => state.height);
@@ -106,10 +107,9 @@ export const PreviewConfig = () => {
             max: 100,
             step: 1,
           },
-          "Add Sequence": button(
-            (get) => alert(`Number value is ${get("number").toFixed(2)}`),
-            {},
-          ),
+          "Add Sequence": button(() => {
+            PubSub.emit(EventType.START_ASSETS_CREATION);
+          }, {}),
         },
         {
           color: "var(--chart-2)",
@@ -157,6 +157,7 @@ export const PreviewConfig = () => {
   useEffect(() => {
     set({
       preview: {
+        // @ts-expect-error 🤷 Preview type is broken
         images: state.images,
         width: exportWidthDefault,
         height: exportHeightDefault,
@@ -167,10 +168,11 @@ export const PreviewConfig = () => {
   useEffect(() => {
     set({
       preview: {
+        // @ts-expect-error 🤷 Preview type is broken
         images: images.map((i) => {
           return {
             ...i,
-            images: i.images.map((i) => `data:image/png;base64,${i}`),
+            images: i.images,
           };
         }),
         width: state.width,

@@ -42,6 +42,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { confirm } from "@/components/confirm";
+import { reorderItems } from "@/components/animation-reorder-modal";
+import { addDataToImageIfNeeded } from "@/utils/images";
 
 const { Row } = Components;
 
@@ -192,7 +194,7 @@ const CarrouselRow = ({
             }}
             key={`${name}-${i}`}
             className={`h-10 w-10 rounded-md absolute object-contain`}
-            src={imageSrc}
+            src={addDataToImageIfNeeded(imageSrc)}
             alt={`Frame ${i}`}
           />
         ))}
@@ -220,7 +222,7 @@ const CarouselAnimatedRowContent = ({
         className={`h-10 w-10 rounded-md ${
           index === selectedSnap ? "border-2 border-chart-3" : ""
         }`}
-        src={src}
+        src={addDataToImageIfNeeded(src)}
         alt={`Frame ${index}`}
       />
       <div className="absolute flex size-10 top-0 right-0 items-center justify-center group">
@@ -254,6 +256,8 @@ export const LevaCarousel = () => {
   const removeImageFromRow = useImagesStore(
     (state) => state.removeImageFromRow,
   );
+
+  const updateImagesRow = useImagesStore((state) => state.updateImagesRow);
 
   const onTogglePlay = useCallback(() => {
     toggleAutoplay();
@@ -361,7 +365,31 @@ export const LevaCarousel = () => {
                         <PencilIcon />
                         Rename
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          reorderItems({
+                            items: row.images.map((v, i) => {
+                              return {
+                                src: v,
+                                id: i,
+                              };
+                            }),
+                            onChange: (items) =>
+                              updateImagesRow(
+                                index,
+                                items.map((i) => i.src),
+                              ),
+                            onRenderItem: (item) => (
+                              <img
+                                key={`${item.id}`}
+                                className={`h-24 w-24 rounded-md object-contain`}
+                                src={addDataToImageIfNeeded(item.src)}
+                                alt={`Frame ${item.id}`}
+                              />
+                            ),
+                          });
+                        }}
+                      >
                         <PencilRulerIcon />
                         Edit
                       </DropdownMenuItem>
@@ -413,11 +441,11 @@ export const LevaCarousel = () => {
                         height: height,
                         imageRendering: "pixelated",
                       }}
-                      src={
+                      src={addDataToImageIfNeeded(
                         images[selectedRow]
                           ? images[selectedRow]?.images[selectedSnap]
-                          : ""
-                      }
+                          : "",
+                      )}
                       alt="Picture"
                     />
                   </div>

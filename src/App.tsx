@@ -20,6 +20,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { SharedSceneProvider } from "./context/shared-scene";
 import { ConfirmProvider } from "./components/confirm";
+import { ReorderModalProvider } from "./components/animation-reorder-modal";
 
 THREE.Cache.enabled = true;
 
@@ -64,6 +65,7 @@ function App() {
         </MainPanelContextProvider>
       </SharedContextProvider>
       <ConfirmProvider />
+      <ReorderModalProvider />
       <Toaster richColors />
     </ThemeProvider>
   );

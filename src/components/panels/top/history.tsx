@@ -22,9 +22,14 @@ export const HistoryActions = () => {
     const stopExporting = () => {
       setExporting(false);
     };
+    const startExporting = () => {
+      setExporting(true);
+    };
 
+    PubSub.on(EventType.START_ASSETS_CREATION, startExporting);
     PubSub.on(EventType.STOP_ASSETS_CREATION, stopExporting);
     return () => {
+      PubSub.off(EventType.START_ASSETS_CREATION, startExporting);
       PubSub.off(EventType.STOP_ASSETS_CREATION, stopExporting);
     };
   }, []);
@@ -45,9 +50,9 @@ export const HistoryActions = () => {
   };
 
   const onAddSequence = () => {
-    setExporting(true);
     PubSub.emit(EventType.START_ASSETS_CREATION);
   };
+
   return (
     <div className="flex items-center flex-row gap-2 pr-4">
       <MenuOption title="Undo">

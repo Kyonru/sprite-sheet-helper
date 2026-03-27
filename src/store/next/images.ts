@@ -24,6 +24,7 @@ interface ImagesActions {
   addImagesRow: (name: string, label: string, images: string[]) => void;
   removeImagesRow: (index: number) => void;
   removeImageFromRow: (index: number, imageIndex: number) => void;
+  updateImagesRow: (index: number, images: string[]) => void;
   updateLabel: (uuid: string, label: string) => void;
 }
 
@@ -64,6 +65,13 @@ export const useImagesStore = create<ImagesStore>()(
                   images: row.images.filter((_, j) => j !== imageIndex),
                 }
               : row,
+          ),
+        })),
+
+      updateImagesRow: (index, images) =>
+        set((state) => ({
+          images: state.images.map((row, i) =>
+            i === index ? { ...row, images } : row,
           ),
         })),
 
