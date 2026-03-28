@@ -28,6 +28,7 @@ import { useFrameValues } from "@/hooks/use-frame-values";
 import { useSharedScene } from "@/context/shared-scene";
 import { EntityContextProvider } from "@/context/next/entity-context";
 import { LAYERS } from "./constants";
+import { useMainPanelContext } from "../main/context";
 
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;
@@ -54,71 +55,66 @@ function SharedScene({
   );
 }
 
-function SyncPreviewCamera({
-  stateRef,
-  isDragging,
+function SyncCameraFromStore({
   controlsRef,
+  sharedCameraState,
 }: {
-  stateRef: SharedCameraState;
-  isDragging: React.RefObject<boolean>;
   controlsRef: React.RefObject<CameraControls>;
+  sharedCameraState: SharedCameraState;
 }) {
-  const wasDragging = useRef(false);
-  const posBeforeDrag = useRef(new THREE.Vector3());
+  const cameraUUID = useCamerasStore((state) => state.mainCamera);
+  const transformNode = useTransformsStore((state) =>
+    cameraUUID ? state.transforms[cameraUUID] : undefined,
+  );
+
+  useEffect(() => {
+    if (!transformNode?.position || !controlsRef.current) return;
+    const [px, py, pz] = transformNode.position;
+    const target = controlsRef.current.getTarget(new THREE.Vector3());
+    controlsRef.current.setLookAt(
+      px,
+      py,
+      pz,
+      target.x,
+      target.y,
+      target.z,
+      false,
+    );
+    controlsRef.current.saveState();
+
+    sharedCameraState.current.position.set(px, py, pz);
+    if (transformNode.rotation) {
+      const euler = new THREE.Euler(
+        ...(transformNode.rotation as [number, number, number]),
+      );
+      sharedCameraState.current.quaternion.setFromEuler(euler);
+    }
+  }, [transformNode?.position, transformNode?.rotation]);
 
   useFrame(({ camera }) => {
-    if (isDragging.current) {
-      if (!wasDragging.current) {
-        posBeforeDrag.current.copy(stateRef.current.position);
-        wasDragging.current = true;
-      }
-
-      camera.position.copy(stateRef.current.position);
-      camera.quaternion.copy(stateRef.current.quaternion);
-      camera.updateMatrixWorld();
-    } else {
-      if (wasDragging.current) {
-        // Shift target by same delta as position moved
-        const delta = stateRef.current.position
-          .clone()
-          .sub(posBeforeDrag.current);
-        stateRef.current.target.add(delta);
-
-        const { x, y, z } = stateRef.current.position;
-        const { x: tx, y: ty, z: tz } = stateRef.current.target;
-        controlsRef.current?.setLookAt(x, y, z, tx, ty, tz, false);
-        wasDragging.current = false;
-        controlsRef.current?.saveState();
-      }
-      stateRef.current.position.copy(camera.position);
-      stateRef.current.quaternion.copy(camera.quaternion);
-    }
+    sharedCameraState.current.position.copy(camera.position);
+    sharedCameraState.current.quaternion.copy(camera.quaternion);
   });
+
   return null;
 }
 
-function BidirectionalCameraSync({
+function SyncEditorCameraFromStore({
   cameraRef,
-  stateRef,
   isDragging,
+  sharedCameraState,
 }: {
   cameraRef: React.RefObject<THREE.PerspectiveCamera | null>;
-  stateRef: SharedCameraState;
   isDragging: React.RefObject<boolean>;
+  sharedCameraState: SharedCameraState;
 }) {
   useFrame(() => {
-    if (!cameraRef.current) return;
-    if (isDragging.current) {
-      // Editor → shared
-      stateRef.current.position.copy(cameraRef.current.position);
-      stateRef.current.quaternion.copy(cameraRef.current.quaternion);
-    } else {
-      // Shared → editor
-      cameraRef.current.position.copy(stateRef.current.position);
-      cameraRef.current.quaternion.copy(stateRef.current.quaternion);
-      cameraRef.current.updateMatrixWorld();
-    }
+    if (!cameraRef.current || isDragging.current) return;
+    cameraRef.current.position.copy(sharedCameraState.current.position);
+    cameraRef.current.quaternion.copy(sharedCameraState.current.quaternion);
+    cameraRef.current.updateMatrixWorld();
   });
+
   return null;
 }
 
@@ -136,6 +132,9 @@ function EditorScene({
   const selected = useEntitiesStore((state) => state.selected);
   const camera = useCamerasStore((state) => state.mainCamera);
   const transformMode = useTransformsStore((state) => state.mode);
+  const setTransform = useTransformsStore((state) => state.setTransform);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null!);
 
   const isCameraSelected = selected === camera;
 
@@ -151,14 +150,22 @@ function EditorScene({
     cameraHelper.current.layers.set(LAYERS.LAYER_EDITOR_ONLY);
   }, [cameraHelper]);
 
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    controlsRef.current.traverse((child: THREE.Object3D) => {
+      child.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    });
+    controlsRef.current.raycaster?.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+  }, [controlsRef.current]);
+
   return (
     <>
       <color attach="background" args={["#1a1a1a"]} />
       <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={45} />
       <OrbitControls makeDefault enabled={orbitEnabled} />
       <SharedScene cameraRef={camera2Ref} />
-      {/* <SyncCameraFromRef cameraRef={camera2Ref} stateRef={sharedCameraState} /> */}
       <TransformControls
+        ref={controlsRef}
         camera={threeCamera}
         enabled={isCameraSelected}
         showX={isCameraSelected}
@@ -166,15 +173,28 @@ function EditorScene({
         showZ={isCameraSelected}
         object={camera2Ref}
         mode={transformMode}
-        // onUpdate={(self) => self.layers.set(LAYERS.LAYER_EDITOR_ONLY)}
         onMouseDown={() => (isDragging.current = true)}
-        onMouseUp={() => (isDragging.current = false)}
+        onMouseUp={() => {
+          isDragging.current = false;
+
+          if (!camera) return;
+          const { x, y, z } = camera2Ref.current.position;
+          const e = new THREE.Euler().setFromQuaternion(
+            camera2Ref.current.quaternion,
+          );
+          const { x: sx, y: sy, z: sz } = camera2Ref.current.scale;
+
+          setTransform(camera, {
+            position: [x, y, z],
+            rotation: [e.x, e.y, e.z],
+            scale: [sx, sy, sz],
+          });
+        }}
       />
-      {/* Bidirectional sync — direction depends on who's dragging */}
-      <BidirectionalCameraSync
+      <SyncEditorCameraFromStore
         cameraRef={camera2Ref}
-        stateRef={sharedCameraState}
         isDragging={isDragging}
+        sharedCameraState={sharedCameraState}
       />
       <GizmoHelper
         layers={LAYERS.LAYER_EDITOR_ONLY}
@@ -206,7 +226,6 @@ function PreviewScene({
   orbitEnabled,
   sharedCameraState,
   showGizmo,
-  isDragging,
 }: {
   orbitEnabled: boolean;
   isDragging: React.RefObject<boolean>;
@@ -215,24 +234,48 @@ function PreviewScene({
 }) {
   const controlsRef = useRef<CameraControls>(null!);
   const { camera } = useThree();
+  const cameraUUID = useCamerasStore((state) => state.mainCamera);
+  const setTransform = useTransformsStore((state) => state.setTransform);
+  const { setControls: setControlsRef } = useMainPanelContext();
 
   useEffect(() => {
     camera.layers.disableAll();
     camera.layers.enable(LAYERS.LAYER_DEFAULT);
   }, [camera]);
 
+  useEffect(() => {
+    if (controlsRef.current) {
+      setControlsRef(controlsRef.current);
+    }
+  }, [controlsRef.current]);
+
   useExport();
 
   return (
     <>
-      <CameraControls ref={controlsRef} makeDefault enabled={orbitEnabled} />
-      <SyncPreviewCamera
-        stateRef={sharedCameraState}
-        isDragging={isDragging}
+      <CameraControls
+        ref={controlsRef}
+        makeDefault
+        enabled={orbitEnabled}
+        onEnd={() => {
+          const cam = controlsRef.current?.camera;
+          if (!cam || !cameraUUID) return;
+          const e = new THREE.Euler().setFromQuaternion(cam.quaternion);
+
+          const { x: sx, y: sy, z: sz } = cam.scale;
+
+          setTransform(cameraUUID, {
+            position: [cam.position.x, cam.position.y, cam.position.z],
+            rotation: [e.x, e.y, e.z],
+            scale: [sx, sy, sz],
+          });
+        }}
+      />
+      <SyncCameraFromStore
         controlsRef={controlsRef}
+        sharedCameraState={sharedCameraState}
       />
       <PostProcessingEffectsComposer />
-
       {showGizmo && (
         <GizmoHelper
           position={[-10, 0, 0]}
@@ -252,6 +295,7 @@ export function AssetCreation() {
   const isDragging = useRef(false);
   const [showGizmo, setShowGizmo] = useState(false);
   const { previewHeight, previewWidth } = useFrameValues();
+  const [zoom, setZoom] = useState(1);
 
   const sharedCameraState = useRef({
     position: new THREE.Vector3(5, 5, 5),
@@ -295,11 +339,26 @@ export function AssetCreation() {
         <ResizableHandle withHandle />
 
         <ResizablePanel defaultSize="40%" style={{ position: "relative" }}>
-          <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
+          <div
+            className="flex flex-row items-center"
+            style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}
+          >
             <button onClick={() => setShowGizmo(!showGizmo)}>
               {showGizmo ? "Hide Gizmo" : "Show Gizmo"}
             </button>
+
+            {/* slider zoom from 0.1 to 2.0 */}
+            <input
+              className="ml-5"
+              type="range"
+              min="0.1"
+              max="2"
+              step="0.1"
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+            />
           </div>
+
           <div
             style={{
               aspectRatio: previewWidth / previewHeight,
@@ -311,8 +370,8 @@ export function AssetCreation() {
               <Canvas
                 scene={scene}
                 style={{
-                  width: previewWidth,
-                  height: previewHeight,
+                  width: previewWidth * zoom,
+                  height: previewHeight * zoom,
                   aspectRatio: previewWidth / previewHeight,
                 }}
                 onCreated={({ gl, scene }) => {

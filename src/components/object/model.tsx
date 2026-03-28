@@ -4,9 +4,10 @@ import { useRefsStore } from "@/store/next/refs";
 import type { ModelComponent as ModelComponentType } from "@/types/ecs";
 import { fitObjectToCamera } from "@/utils/camera";
 import { parseModel } from "@/utils/model";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { useMainPanelContext } from "../panels/main/context";
 
 export function Based({ uuid, ...props }: { uuid: string }) {
   const model = useModel(uuid);
@@ -25,7 +26,7 @@ export function Based({ uuid, ...props }: { uuid: string }) {
   const freeze = useModelsStore((state) => state.freeze[uuid]);
   const setFreeze = useModelsStore((state) => state.setFreeze);
 
-  const { camera } = useThree();
+  const { controls } = useMainPanelContext();
 
   useFrame((_, delta) => {
     if (freeze) return;
@@ -48,38 +49,21 @@ export function Based({ uuid, ...props }: { uuid: string }) {
 
         mixerRef.current = parsed.mixer;
 
-        const scale = fitObjectToCamera(parsed.object, camera);
-        parsed.object.scale.setScalar(scale);
+        const camera = controls?.camera;
+
+        if (camera) {
+          const scale = fitObjectToCamera(parsed.object, camera);
+          parsed.object.scale.setScalar(scale);
+        }
 
         setClips(uuid, parsed.clips);
 
         setMixerRef(uuid, parsed.mixer);
-
-        // if (globalThis.mixer) {
-        //   globalThis.mixer.push(parsed.mixer);
-        // } else {
-        //   globalThis.mixer = [parsed.mixer];
-        // }
-
-        // // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // // @ts-ignore
-
-        // if (globalThis.currentObject) {
-        //   globalThis.currentObject.push(parsed.object);
-        // } else {
-        //   globalThis.currentObject = [parsed.object];
-        // }
-
-        // if (globalThis.animation) {
-        //   globalThis.animation.push(parsed.clips);
-        // } else {
-        //   globalThis.animation = [parsed.clips];
-        // }
       }
     };
 
     openFile();
-  }, [model, setClips, setMixerRef, uuid, camera]);
+  }, [model, setClips, setMixerRef, uuid, controls]);
 
   useEffect(() => {
     const resetAnimations = () => {
