@@ -25,6 +25,9 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
   const camera = useCamera(uuid);
   const updateCamera = useCamerasStore((state) => state.setCamera);
 
+  const isAmbientLight =
+    uuid && entities[uuid]?.type === "light" && light?.type === "ambient";
+
   const inputs = useMemo(() => {
     const i: Schema = {};
     if (!uuid) return i;
@@ -32,7 +35,7 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
     const entity = entities[uuid];
     if (!entity || !uuid) return {};
 
-    if (transform) {
+    if (transform && !isAmbientLight) {
       i["position"] = {
         value: transform.position,
         onChange: (value: [number, number, number]) => {
@@ -86,6 +89,7 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
     updateTransform,
     updateCamera,
     camera,
+    isAmbientLight,
   ]);
 
   // Function form + key forces Leva to remount when entity/type changes
@@ -95,10 +99,10 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
   ]);
 
   useEffect(() => {
-    if (!transform) return;
+    if (!transform || isAmbientLight) return;
 
     set({ position: transform.position, rotation: transform.rotation });
-  }, [transform, set]);
+  }, [transform, set, isAmbientLight]);
 
   return (
     <LevaPanel

@@ -3,9 +3,6 @@ import {
   MenubarGroup,
   MenubarItem,
   MenubarMenu,
-  MenubarSub,
-  MenubarSubContent,
-  MenubarSubTrigger,
   MenubarTrigger,
 } from "@/components/ui/menubar";
 import { LIGHTS } from "@/constants/effects";
@@ -40,26 +37,19 @@ export const LightMenu = () => {
         <SunIcon className="w-4 h-4" />
       </MenubarTrigger>
       <MenubarContent>
-        <MenubarGroup>
-          <MenubarSub>
-            <MenubarSubTrigger>Add light</MenubarSubTrigger>
-            <MenubarSubContent>
-              <MenubarGroup className="overflow-y-scroll">
-                {LIGHTS.map((light) => (
-                  <MenubarItem
-                    onClick={() => {
-                      addLight(light.key, light.name);
-                      selectTab("explorer");
-                    }}
-                    key={light.key}
-                  >
-                    <LightIcon type={light.key} />
-                    {light.name}
-                  </MenubarItem>
-                ))}
-              </MenubarGroup>
-            </MenubarSubContent>
-          </MenubarSub>
+        <MenubarGroup className="overflow-y-scroll">
+          {LIGHTS.map((light) => (
+            <MenubarItem
+              onClick={() => {
+                addLight(light.key, light.name);
+                selectTab("explorer");
+              }}
+              key={light.key}
+            >
+              <LightIcon type={light.key} />
+              {light.name}
+            </MenubarItem>
+          ))}
         </MenubarGroup>
       </MenubarContent>
     </MenubarMenu>

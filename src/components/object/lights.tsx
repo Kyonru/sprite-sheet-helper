@@ -31,6 +31,9 @@ const PointLightObject = ({
   useEffect(() => {
     if (!helper.current) return;
     helper.current.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    helper.current.traverse((child: THREE.Object3D) => {
+      child.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    });
     helper.current.visible = selected === uuid;
     helper.current.update();
   }, [light.distance, light.color, selected, uuid, helper]);
@@ -62,9 +65,12 @@ const SpotLightObject = ({
   useEffect(() => {
     if (!helper.current) return;
     helper.current.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    helper.current.traverse((child: THREE.Object3D) => {
+      child.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    });
     helper.current.visible = selected === uuid;
     helper.current.update();
-  }, [light.color, selected, uuid, helper]);
+  }, [light.color, selected, uuid, helper.current]);
 
   return (
     <spotLight
@@ -100,8 +106,11 @@ const DirectionalLightObject = ({
   useEffect(() => {
     if (!helper.current) return;
     helper.current.layers.set(LAYERS.LAYER_EDITOR_ONLY);
-    helper.current.visible = selected === uuid;
     helper.current.update();
+    helper.current.visible = selected === uuid;
+    helper.current.traverse((child: THREE.Object3D) => {
+      child.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    });
   }, [light.color, selected, uuid, helper]);
 
   return (
