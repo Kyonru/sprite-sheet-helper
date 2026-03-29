@@ -8,6 +8,47 @@ import { ModelComponent } from "./object/model";
 import * as THREE from "three";
 import { useModelObject } from "@/store/next/models";
 import { LAYERS } from "./panels/scene/constants";
+import { useTarget, useTargetsStore } from "@/store/next/targets";
+import { useFrame } from "@react-three/fiber";
+
+function ObjectTarget({ uuid }: { uuid: string }) {
+  const target = useTarget(uuid);
+  const setTarget = useTargetsStore((state) => state.setTarget);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null!);
+  const selected = useEntitiesStore((state) => state.selected);
+
+  const isSelected = selected === uuid;
+  const { isPreview } = useEntityContext();
+
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    controlsRef.current.traverse((child: THREE.Object3D) => {
+      child.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    });
+    controlsRef.current.raycaster?.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+  }, [controlsRef.current]);
+
+  useFrame(() => {
+    if (!controlsRef.current || !target) return;
+
+    const object = controlsRef.current.object;
+    setTarget(uuid, [object.position.x, object.position.y, object.position.z]);
+  });
+
+  if (!target) return null;
+
+  return (
+    <TransformControls
+      enabled={isSelected && !isPreview}
+      showX={isSelected && !isPreview}
+      showY={isSelected && !isPreview}
+      showZ={isSelected && !isPreview}
+      ref={controlsRef}
+      mode={"translate"}
+    />
+  );
+}
 
 export function EntityComponent({ uuid }: { uuid: string }) {
   const entity = useEntitiesStore((state) => state.entities[uuid]);
@@ -41,7 +82,7 @@ export function EntityComponent({ uuid }: { uuid: string }) {
   }, [controlsRef.current]);
 
   if (!entity || !transform) return null;
-  if (entity.type === "camera") return null;
+  if (entity.type === "camera") return <ObjectTarget uuid={uuid} />;
 
   let child = <></>;
   if (entity.type === "light") {
@@ -57,15 +98,11 @@ export function EntityComponent({ uuid }: { uuid: string }) {
   return (
     <>
       <TransformControls
-        // layers={LAYERS.LAYER_EDITOR_ONLY}
         enabled={isSelected && !isPreview}
         showX={isSelected && !isPreview}
         showY={isSelected && !isPreview}
         showZ={isSelected && !isPreview}
         ref={controlsRef}
-        // onAfterRender={() =>
-        //   controlsRef.current.layers.set(LAYERS.LAYER_EDITOR_ONLY)
-        // }
         mode={transformMode}
         onMouseUp={() => {
           if (!groupRef.current) return;
@@ -77,6 +114,7 @@ export function EntityComponent({ uuid }: { uuid: string }) {
           });
         }}
       />
+      <ObjectTarget uuid={uuid} />
       <group
         ref={groupRef}
         position={transform.position}

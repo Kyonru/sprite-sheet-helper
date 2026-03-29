@@ -9,10 +9,15 @@ import { inspector } from "../../../devtools/inspector-middleware";
 
 const CURRENT_VERSION = 1;
 
+export interface ProjectSettings {
+  cameraDistance: number;
+}
+
 interface ProjectState {
   name: string;
   savedAt: number | null;
   isDirty: boolean;
+  settings: ProjectSettings;
 }
 
 interface ProjectActions {
@@ -21,6 +26,7 @@ interface ProjectActions {
   save: () => void; // saves to file download
   load: (file: File) => Promise<void>;
   applySnapshot: (snapshot: ProjectSnapshot) => void;
+  setSettings: (settings: Partial<ProjectSettings>) => void;
   markDirty: () => void;
 }
 
@@ -30,6 +36,9 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       name: "Untitled Project",
       savedAt: null,
       isDirty: false,
+      settings: {
+        cameraDistance: 5,
+      },
 
       setName: (name) => set({ name }),
       markDirty: () => set({ isDirty: true }),
@@ -76,6 +85,14 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         set({ name: snapshot.name, savedAt: snapshot.savedAt, isDirty: false });
         useHistoryStore.getState().clear();
       },
+
+      setSettings: (settings) =>
+        set({
+          settings: {
+            ...get().settings,
+            ...settings,
+          },
+        }),
     }),
     { name: "Project" },
   ),

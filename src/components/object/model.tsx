@@ -52,7 +52,7 @@ export function Based({ uuid, ...props }: { uuid: string }) {
         const camera = controls?.camera;
 
         if (camera) {
-          const scale = fitObjectToCamera(parsed.object, camera);
+          const scale = fitObjectToCamera(parsed.object, camera, 0.8);
           parsed.object.scale.setScalar(scale);
         }
 

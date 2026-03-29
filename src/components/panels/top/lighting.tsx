@@ -36,7 +36,7 @@ export const LightMenu = () => {
       <MenubarTrigger>
         <SunIcon className="w-4 h-4" />
       </MenubarTrigger>
-      <MenubarContent>
+      <MenubarContent className="z-999">
         <MenubarGroup className="overflow-y-scroll">
           {LIGHTS.map((light) => (
             <MenubarItem

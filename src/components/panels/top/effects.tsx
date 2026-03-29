@@ -19,7 +19,7 @@ export const EffectsMenu = () => {
       <MenubarTrigger>
         <SparklesIcon className="w-4 h-4" />
       </MenubarTrigger>
-      <MenubarContent className="z-[999]">
+      <MenubarContent className="z-999">
         <MenubarGroup>
           <MenubarItem disabled>Add new effect</MenubarItem>
         </MenubarGroup>

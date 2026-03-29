@@ -36,7 +36,7 @@ function App() {
       if (init.current) return;
       init.current = true;
       addCamera({
-        position: [0, 5, 0],
+        position: [0, 5, 5],
       });
       addLight("ambient");
     }, 0);

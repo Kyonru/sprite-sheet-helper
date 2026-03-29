@@ -7,4 +7,6 @@ export const EventType = {
   STOP_ASSETS_CREATION: "stop_assets_creation",
   START_EXPORT: "start_export",
   STOP_EXPORT: "stop_export",
+  SET_CAMERA_ANGLE: "set_camera_angle",
+  ROTATE_CAMERA: "rotate_camera",
 };

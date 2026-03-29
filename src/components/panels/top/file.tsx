@@ -42,7 +42,7 @@ export const FileMenu = () => {
         <MenubarTrigger>
           <MenuIcon className="w-4 h-4" />
         </MenubarTrigger>
-        <MenubarContent>
+        <MenubarContent className="z-999">
           <MenubarGroup>
             <MenubarItem onClick={onImportModel}>
               Import Model <MenubarShortcut>⌘I</MenubarShortcut>

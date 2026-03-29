@@ -97,14 +97,12 @@ export interface PerspectiveCameraComponent extends CameraBase {
   fov: number;
   near: number;
   far: number;
-  target: [number, number, number];
 }
 
 export interface OrthographicCameraComponent extends CameraBase {
   zoom: number;
   near: number;
   far: number;
-  target: [number, number, number];
 }
 
 export type CameraComponent =

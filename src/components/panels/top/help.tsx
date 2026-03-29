@@ -14,7 +14,7 @@ export const HelpMenu = () => {
       <MenubarTrigger>
         <HelpCircleIcon className="w-4 h-4" />
       </MenubarTrigger>
-      <MenubarContent>
+      <MenubarContent className="z-999">
         <MenubarGroup>
           <MenubarItem>Open Documentation</MenubarItem>
           <MenubarItem>Reset tutorial</MenubarItem>

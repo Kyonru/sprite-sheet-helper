@@ -10,6 +10,8 @@ import { useHelper } from "@react-three/drei";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { LAYERS } from "../panels/scene/constants";
+import { useFrame } from "@react-three/fiber";
+import { useTarget } from "@/store/next/targets";
 
 const PointLightObject = ({
   light,
@@ -59,8 +61,14 @@ const SpotLightObject = ({
 }) => {
   const lightRef = useRef<THREE.SpotLight>(null!);
   const selected = useEntitiesStore((state) => state.selected);
+  const target = useTarget(uuid);
 
   const helper = useHelper(lightRef, THREE.SpotLightHelper, light.color);
+
+  useFrame(() => {
+    if (!lightRef.current || !target) return;
+    lightRef.current.target.position.set(target[0], target[1], target[2]);
+  });
 
   useEffect(() => {
     if (!helper.current) return;
@@ -95,6 +103,7 @@ const DirectionalLightObject = ({
 }) => {
   const lightRef = useRef<THREE.DirectionalLight>(null!);
   const selected = useEntitiesStore((state) => state.selected);
+  const target = useTarget(uuid);
 
   const helper = useHelper(
     lightRef,
@@ -102,6 +111,11 @@ const DirectionalLightObject = ({
     10,
     light.color,
   );
+
+  useFrame(() => {
+    if (!lightRef.current || !target) return;
+    lightRef.current.target.position.set(target[0], target[1], target[2]);
+  });
 
   useEffect(() => {
     if (!helper.current) return;

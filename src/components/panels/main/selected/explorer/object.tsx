@@ -44,6 +44,7 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
           });
         },
       };
+
       i["rotation"] = {
         value: transform.rotation,
         onChange: (value: [number, number, number]) => {
@@ -101,7 +102,11 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
   useEffect(() => {
     if (!transform || isAmbientLight) return;
 
-    set({ position: transform.position, rotation: transform.rotation });
+    set({
+      position: transform.position,
+      rotation: transform.rotation,
+      scale: transform.scale,
+    });
   }, [transform, set, isAmbientLight]);
 
   return (

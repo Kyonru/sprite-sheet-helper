@@ -29,6 +29,8 @@ import { useSharedScene } from "@/context/shared-scene";
 import { EntityContextProvider } from "@/context/next/entity-context";
 import { LAYERS } from "./constants";
 import { useMainPanelContext } from "../main/context";
+import { EventType, PubSub } from "@/lib/events";
+import { useTarget } from "@/store/next/targets";
 
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;
@@ -66,6 +68,7 @@ function SyncCameraFromStore({
   const transformNode = useTransformsStore((state) =>
     cameraUUID ? state.transforms[cameraUUID] : undefined,
   );
+  const target = useTarget(cameraUUID);
 
   useEffect(() => {
     if (!transformNode?.position || !controlsRef.current) return;
@@ -92,9 +95,43 @@ function SyncCameraFromStore({
   }, [transformNode?.position, transformNode?.rotation]);
 
   useFrame(({ camera }) => {
+    if (target) {
+      controlsRef.current.setTarget(target[0], target[1], target[2]);
+    }
     sharedCameraState.current.position.copy(camera.position);
     sharedCameraState.current.quaternion.copy(camera.quaternion);
   });
+
+  useEffect(() => {
+    const changeCamera = ({
+      position,
+      target = [0, 0, 0],
+    }: {
+      position: [number, number, number];
+      target?: [number, number, number];
+    }) => {
+      controlsRef.current?.setLookAt(...position, ...target, true);
+    };
+
+    const rotateCamera = ({
+      degrees,
+      direction,
+    }: {
+      degrees: number;
+      direction: "left" | "right";
+    }) => {
+      const rad =
+        THREE.MathUtils.degToRad(degrees) * (direction === "left" ? 1 : -1);
+      controlsRef.current?.rotate(rad, 0, true);
+    };
+
+    PubSub.on(EventType.SET_CAMERA_ANGLE, changeCamera);
+    PubSub.on(EventType.ROTATE_CAMERA, rotateCamera);
+    return () => {
+      PubSub.off(EventType.SET_CAMERA_ANGLE, changeCamera);
+      PubSub.off(EventType.ROTATE_CAMERA, rotateCamera);
+    };
+  }, [controlsRef.current]);
 
   return null;
 }
