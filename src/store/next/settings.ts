@@ -12,12 +12,13 @@ const DEFAULT_DISPLAY_SIZE = getBasedOnDisplaySize({
   xxl: 1024,
 });
 
-interface SettingsState {
+export interface SettingsState {
   mode: ExportFormat;
   width: number;
   height: number;
   exportWidth: number;
   exportHeight: number;
+  cameraDistance: number;
 }
 
 interface SettingsActions {
@@ -26,6 +27,8 @@ interface SettingsActions {
   setHeight: (height: number) => void;
   setExportWidth: (exportWidth: number) => void;
   setExportHeight: (exportHeight: number) => void;
+  setCameraDistance: (cameraDistance: number) => void;
+  update: (settings: Partial<SettingsState>) => void;
 }
 
 interface SettingsStore extends SettingsState, SettingsActions {}
@@ -38,11 +41,14 @@ export const useSettingsStore = create<SettingsStore>()(
       height: DEFAULT_DISPLAY_SIZE,
       exportWidth: 64,
       exportHeight: 64,
+      cameraDistance: 5,
+      update: (settings) => set((state) => ({ ...state, ...settings })),
       setMode: (mode) => set({ mode }),
       setWidth: (width) => set({ width }),
       setHeight: (height) => set({ height }),
       setExportWidth: (exportWidth) => set({ exportWidth }),
       setExportHeight: (exportHeight) => set({ exportHeight }),
+      setCameraDistance: (cameraDistance) => set({ cameraDistance }),
     }),
     { name: "Settings" },
   ),

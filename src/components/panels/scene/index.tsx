@@ -24,19 +24,58 @@ import { EntityComponent } from "@/components/entity";
 import { PostProcessingEffectsComposer } from "./composer";
 import { useTransformsStore } from "@/store/next/transforms";
 import { useExport } from "@/hooks/next/use-export";
-import { useFrameValues } from "@/hooks/use-frame-values";
 import { useSharedScene } from "@/context/shared-scene";
-import { EntityContextProvider } from "@/context/next/entity-context";
+import {
+  EntityContextProvider,
+  useEntityContext,
+} from "@/context/next/entity-context";
 import { LAYERS } from "./constants";
 import { useMainPanelContext } from "../main/context";
 import { EventType, PubSub } from "@/lib/events";
 import { useTarget } from "@/store/next/targets";
+import { useSettingsStore } from "@/store/next/settings";
+import { Text } from "@react-three/drei";
 
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;
   quaternion: THREE.Quaternion;
   target: THREE.Vector3;
 }>;
+
+function CameraLabel({
+  cameraRef,
+}: {
+  cameraRef: React.RefObject<THREE.PerspectiveCamera>;
+}) {
+  const [pos, setPos] = useState<[number, number, number]>([0, 0, 0]);
+
+  const cameraUUID = useCamerasStore((state) => state.mainCamera);
+  const selected = useEntitiesStore((state) => state.selected);
+  const { isPreview } = useEntityContext();
+  const isSelected = selected === cameraUUID;
+
+  useFrame(() => {
+    if (!cameraRef.current) return;
+    const { x, y, z } = cameraRef.current.position;
+    setPos([x, y + 0.4, z]);
+  });
+
+  return (
+    <Text
+      position={pos}
+      fontSize={0.5}
+      color="white"
+      anchorX="center"
+      anchorY="bottom"
+      outlineWidth={0.008}
+      outlineColor="black"
+      layers={LAYERS.LAYER_EDITOR_ONLY}
+      visible={isSelected && !isPreview}
+    >
+      Camera
+    </Text>
+  );
+}
 
 function SharedScene({
   cameraRef,
@@ -92,6 +131,7 @@ function SyncCameraFromStore({
       );
       sharedCameraState.current.quaternion.setFromEuler(euler);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transformNode?.position, transformNode?.rotation]);
 
   useFrame(({ camera }) => {
@@ -131,6 +171,7 @@ function SyncCameraFromStore({
       PubSub.off(EventType.SET_CAMERA_ANGLE, changeCamera);
       PubSub.off(EventType.ROTATE_CAMERA, rotateCamera);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controlsRef.current]);
 
   return null;
@@ -193,11 +234,11 @@ function EditorScene({
       child.layers.set(LAYERS.LAYER_EDITOR_ONLY);
     });
     controlsRef.current.raycaster?.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controlsRef.current]);
 
   return (
     <>
-      <color attach="background" args={["#1a1a1a"]} />
       <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={45} />
       <OrbitControls makeDefault enabled={orbitEnabled} />
       <SharedScene cameraRef={camera2Ref} />
@@ -228,6 +269,7 @@ function EditorScene({
           });
         }}
       />
+      <CameraLabel cameraRef={camera2Ref} />
       <SyncEditorCameraFromStore
         cameraRef={camera2Ref}
         isDragging={isDragging}
@@ -284,6 +326,7 @@ function PreviewScene({
     if (controlsRef.current) {
       setControlsRef(controlsRef.current);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controlsRef.current]);
 
   useExport();
@@ -331,7 +374,8 @@ export function AssetCreation() {
   const cameraGlobalSettings = useCamerasStore((state) => state.globalSettings);
   const isDragging = useRef(false);
   const [showGizmo, setShowGizmo] = useState(false);
-  const { previewHeight, previewWidth } = useFrameValues();
+  const { width: canvasWidth, height: canvasHeight } = useSettingsStore();
+
   const [zoom, setZoom] = useState(1);
 
   const sharedCameraState = useRef({
@@ -398,7 +442,7 @@ export function AssetCreation() {
 
           <div
             style={{
-              aspectRatio: previewWidth / previewHeight,
+              aspectRatio: canvasWidth / canvasHeight,
               height: "100%",
             }}
             className="overflow-hidden overflow-y-scroll justify-center items-center w-full flex"
@@ -407,9 +451,9 @@ export function AssetCreation() {
               <Canvas
                 scene={scene}
                 style={{
-                  width: previewWidth * zoom,
-                  height: previewHeight * zoom,
-                  aspectRatio: previewWidth / previewHeight,
+                  width: canvasWidth * zoom,
+                  height: canvasHeight * zoom,
+                  aspectRatio: canvasWidth / canvasHeight,
                 }}
                 onCreated={({ gl, scene }) => {
                   scene.background = null;

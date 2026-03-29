@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useEntitiesStore } from "@/store/next/entities";
 import { useTransform, useTransformsStore } from "@/store/next/transforms";
-import { TransformControls } from "@react-three/drei";
+import { Text, TransformControls } from "@react-three/drei";
 import { LightComponent } from "@/components/object/lights";
 import { useEntityContext } from "@/context/next/entity-context";
 import { ModelComponent } from "./object/model";
@@ -27,6 +27,7 @@ function ObjectTarget({ uuid }: { uuid: string }) {
       child.layers.set(LAYERS.LAYER_EDITOR_ONLY);
     });
     controlsRef.current.raycaster?.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controlsRef.current]);
 
   useFrame(() => {
@@ -39,14 +40,29 @@ function ObjectTarget({ uuid }: { uuid: string }) {
   if (!target) return null;
 
   return (
-    <TransformControls
-      enabled={isSelected && !isPreview}
-      showX={isSelected && !isPreview}
-      showY={isSelected && !isPreview}
-      showZ={isSelected && !isPreview}
-      ref={controlsRef}
-      mode={"translate"}
-    />
+    <>
+      <TransformControls
+        enabled={isSelected && !isPreview}
+        showX={isSelected && !isPreview}
+        showY={isSelected && !isPreview}
+        showZ={isSelected && !isPreview}
+        ref={controlsRef}
+        mode={"translate"}
+      />
+      <Text
+        position={[target[0], target[1] + 0.3, target[2]]}
+        fontSize={0.5}
+        color="white"
+        anchorX="center"
+        anchorY="bottom"
+        outlineWidth={0.008}
+        outlineColor="black"
+        layers={LAYERS.LAYER_EDITOR_ONLY}
+        visible={isSelected && !isPreview}
+      >
+        Target
+      </Text>
+    </>
   );
 }
 
@@ -79,6 +95,7 @@ export function EntityComponent({ uuid }: { uuid: string }) {
       child.layers.set(LAYERS.LAYER_EDITOR_ONLY);
     });
     controlsRef.current.raycaster?.layers.set(LAYERS.LAYER_EDITOR_ONLY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controlsRef.current]);
 
   if (!entity || !transform) return null;
@@ -122,6 +139,19 @@ export function EntityComponent({ uuid }: { uuid: string }) {
         scale={transform.scale}
       >
         {child}
+        <Text
+          position={[0, 2, 0]}
+          fontSize={0.5}
+          color="white"
+          anchorX="center"
+          anchorY="bottom"
+          outlineWidth={0.008}
+          outlineColor="black"
+          layers={LAYERS.LAYER_EDITOR_ONLY}
+          visible={!isPreview && selected === uuid}
+        >
+          {entity.name ?? entity.type}
+        </Text>
       </group>
       {/* </TransformControls> */}
     </>

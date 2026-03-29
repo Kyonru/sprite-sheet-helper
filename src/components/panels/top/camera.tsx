@@ -12,13 +12,13 @@ import {
 } from "@/components/ui/menubar";
 import { EventType, PubSub } from "@/lib/events";
 import { useCamerasStore } from "@/store/next/cameras";
-import { useProjectStore } from "@/store/next/project";
+import { useSettingsStore } from "@/store/next/settings";
 import { useTarget } from "@/store/next/targets";
 import { CameraIcon } from "lucide-react";
 import * as THREE from "three";
 
 export const CameraMenu = () => {
-  const { cameraDistance } = useProjectStore((state) => state.settings);
+  const cameraDistance = useSettingsStore((state) => state.cameraDistance);
   const cameraUUID = useCamerasStore((state) => state.mainCamera);
   const target = useTarget(cameraUUID) ?? [0, 0, 0];
 

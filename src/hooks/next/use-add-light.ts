@@ -20,7 +20,9 @@ export const useAddLight = (select = true) => {
       type,
     });
     initLight(uuid, type);
-    initTransform(uuid);
+    initTransform(uuid, {
+      position: [0, 2.5, 2.5],
+    });
 
     if (type !== "ambient" && type !== "point") {
       initTarget(uuid);

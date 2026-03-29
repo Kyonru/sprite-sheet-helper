@@ -21,6 +21,7 @@ import * as THREE from "three";
 import { SharedSceneProvider } from "./context/shared-scene";
 import { ConfirmProvider } from "./components/confirm";
 import { ReorderModalProvider } from "./components/animation-reorder-modal";
+import { SettingsModalProvider } from "./components/panels/top/settings";
 
 THREE.Cache.enabled = true;
 
@@ -66,6 +67,7 @@ function App() {
       </SharedContextProvider>
       <ConfirmProvider />
       <ReorderModalProvider />
+      <SettingsModalProvider />
       <Toaster richColors />
     </ThemeProvider>
   );

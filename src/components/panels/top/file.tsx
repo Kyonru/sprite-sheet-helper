@@ -16,6 +16,7 @@ import { useAddModel } from "@/hooks/next/use-add-model";
 import { EventType, PubSub } from "@/lib/events";
 import { MenuIcon } from "lucide-react";
 import { useRef } from "react";
+import { openSettings } from "./settings";
 
 export const FileMenu = () => {
   const loadFromFile = useAddModel(true);
@@ -90,7 +91,7 @@ export const FileMenu = () => {
           </MenubarGroup>
           <MenubarSeparator />
           <MenubarGroup>
-            <MenubarItem>
+            <MenubarItem onClick={() => openSettings()}>
               Settings... <MenubarShortcut>⌘P</MenubarShortcut>
             </MenubarItem>
           </MenubarGroup>
