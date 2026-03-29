@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/menubar";
 import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
 import { useAddModel } from "@/hooks/next/use-add-model";
+import { EventType, PubSub } from "@/lib/events";
 import { MenuIcon } from "lucide-react";
 import { useRef } from "react";
 
@@ -66,9 +67,23 @@ export const FileMenu = () => {
               <MenubarSubTrigger>Export</MenubarSubTrigger>
               <MenubarSubContent>
                 <MenubarGroup>
-                  <MenubarItem>Export as ZIP</MenubarItem>
-                  <MenubarItem>Export as GIF</MenubarItem>
-                  <MenubarItem>Export as SPRITESHEET</MenubarItem>
+                  <MenubarItem
+                    onClick={() => PubSub.emit(EventType.START_EXPORT, "zip")}
+                  >
+                    Export as ZIP
+                  </MenubarItem>
+                  <MenubarItem
+                    onClick={() => PubSub.emit(EventType.START_EXPORT, "gif")}
+                  >
+                    Export as GIF
+                  </MenubarItem>
+                  <MenubarItem
+                    onClick={() =>
+                      PubSub.emit(EventType.START_EXPORT, "spritesheet")
+                    }
+                  >
+                    Export as SPRITESHEET
+                  </MenubarItem>
                 </MenubarGroup>
               </MenubarSubContent>
             </MenubarSub>

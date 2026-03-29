@@ -9,6 +9,7 @@ import { useSceneStore } from "@/components/panels/scene/store";
 import { useSettingsStore } from "@/store/next/settings";
 import { useImagesStore } from "@/store/next/images";
 import { toast } from "sonner";
+import type { ExportFormat } from "@/types/file";
 
 export const useExport = () => {
   const images = useRef<{ name: string; dataURL: string }[]>([]);
@@ -99,28 +100,33 @@ export const useExport = () => {
     downloadFile(dataUrl, "spritesheet.png");
   }, [exportedImages, exportWidth, exportHeight]);
 
-  const exportSpriteSheet = useCallback(async () => {
-    try {
-      switch (exportFormat) {
-        case "zip":
-          await downloadImageFiles();
-          break;
-        case "spritesheet":
-          await downloadSpriteSheet();
-          break;
-        case "gif":
-          await downloadGifFiles();
-          break;
+  const exportSpriteSheet = useCallback(
+    async (format?: ExportFormat) => {
+      const exportType = format || exportFormat;
+
+      try {
+        switch (exportType) {
+          case "zip":
+            await downloadImageFiles();
+            break;
+          case "spritesheet":
+            await downloadSpriteSheet();
+            break;
+          case "gif":
+            await downloadGifFiles();
+            break;
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        PubSub.emit(EventType.STOP_EXPORT);
+        toast.success("Export complete", {
+          description: "Check the downloaded files in the Downloads folder.",
+        });
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      PubSub.emit(EventType.STOP_EXPORT);
-      toast.success("Export complete", {
-        description: "Check the downloaded files in the Downloads folder.",
-      });
-    }
-  }, [exportFormat, downloadImageFiles, downloadSpriteSheet, downloadGifFiles]);
+    },
+    [exportFormat, downloadImageFiles, downloadSpriteSheet, downloadGifFiles],
+  );
 
   const takeScreenshot = useCallback(() => {
     if (!gl) return;
