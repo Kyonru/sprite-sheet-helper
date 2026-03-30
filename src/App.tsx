@@ -23,6 +23,7 @@ import { ConfirmProvider } from "./components/confirm";
 import { ReorderModalProvider } from "./components/animation-reorder-modal";
 import { SettingsModalProvider } from "./components/panels/top/settings";
 import { useSettingsStore } from "./store/next/settings";
+import { DocsModalProvider } from "./components/docs";
 
 THREE.Cache.enabled = true;
 
@@ -71,6 +72,7 @@ function App() {
       <ConfirmProvider />
       <ReorderModalProvider />
       <SettingsModalProvider />
+      <DocsModalProvider />
       <Toaster richColors />
     </ThemeProvider>
   );

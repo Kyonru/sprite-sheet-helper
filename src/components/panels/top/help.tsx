@@ -1,3 +1,4 @@
+import { openDocs } from "@/components/docs";
 import {
   MenubarContent,
   MenubarGroup,
@@ -16,14 +17,12 @@ export const HelpMenu = () => {
       </MenubarTrigger>
       <MenubarContent className="z-999">
         <MenubarGroup>
-          <MenubarItem>Open Documentation</MenubarItem>
-          <MenubarItem>Reset tutorial</MenubarItem>
+          <MenubarItem onClick={openDocs}>Open Documentation</MenubarItem>
         </MenubarGroup>
         <MenubarSeparator />
         <MenubarGroup>
           <MenubarItem>Install Desktop App</MenubarItem>
           <MenubarItem>Check for Updates</MenubarItem>
-          <MenubarItem>Changelog</MenubarItem>
           <MenubarItem>About</MenubarItem>
         </MenubarGroup>
       </MenubarContent>
