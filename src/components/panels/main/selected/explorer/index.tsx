@@ -42,7 +42,6 @@ const getTabs = (kind?: string, type?: string) => {
 };
 
 const TypeBasedTabs = ({ type }: { type: string }) => {
-  console.log(" TypeBasedTabs");
   if (type === "animation") {
     return <AnimationContext />;
   }

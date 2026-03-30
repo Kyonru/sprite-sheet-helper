@@ -8,15 +8,14 @@ export const DEFAULT_PERSPECTIVE_CAMERA: CameraComponent = {
   type: "perspective" as CameraType,
   fov: 75,
   near: 0.1,
-  far: 1000,
-  zoom: 50,
+  far: 100,
 };
 
 export const DEFAULT_ORTHOGRAPHIC_CAMERA: CameraComponent = {
   type: "orthographic" as CameraType,
   zoom: 50,
   near: 0.1,
-  far: 1000,
+  far: 100,
 };
 
 export interface GlobalSettings {

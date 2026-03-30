@@ -10,6 +10,7 @@ import { useModelObject } from "@/store/next/models";
 import { LAYERS } from "./panels/scene/constants";
 import { useTarget, useTargetsStore } from "@/store/next/targets";
 import { useFrame } from "@react-three/fiber";
+import { isDifferent } from "@/utils/vector";
 
 function ObjectTarget({ uuid }: { uuid: string }) {
   const target = useTarget(uuid);
@@ -34,7 +35,20 @@ function ObjectTarget({ uuid }: { uuid: string }) {
     if (!controlsRef.current || !target) return;
 
     const object = controlsRef.current.object;
-    setTarget(uuid, [object.position.x, object.position.y, object.position.z]);
+
+    if (
+      isDifferent(target, [
+        object.position.x,
+        object.position.y,
+        object.position.z,
+      ])
+    ) {
+      setTarget(uuid, [
+        object.position.x,
+        object.position.y,
+        object.position.z,
+      ]);
+    }
   });
 
   if (!target) return null;

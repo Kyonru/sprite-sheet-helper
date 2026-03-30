@@ -7,41 +7,44 @@ import {
   useStoreContext,
 } from "leva";
 import type { Schema } from "leva/plugin";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { LEVA_THEME } from "@/constants/theming";
 import { useTargetsStore } from "@/store/next/targets";
 
 const TargetDetails = ({ uuid }: { uuid: string }) => {
   const store = useStoreContext();
   const entity = useEntity(uuid);
-  // const targets = useTargetsStore((state) => state.targets);
-  // const target = useTargetsStore((state) => uuid && state.targets[uuid]);
   const setTarget = useTargetsStore((state) => state.setTarget);
+  const target = useTargetsStore((state) => uuid && state.targets[uuid]);
 
   const inputs = useMemo(() => {
     const i: Schema = {};
     if (!uuid) return i;
 
-    // const target = targets[uuid];
-    const target = useTargetsStore.getState().targets[uuid];
-
     if (!entity || !uuid || !target) return i;
     i["position"] = {
       value: target,
       onChange: (value: [number, number, number]) => {
-        console.log(value);
         setTarget(uuid, value);
       },
     };
 
     return i;
-  }, [entity, uuid, setTarget]);
+  }, [entity, uuid, setTarget, target]);
 
   // Function form + key forces Leva to remount when entity/type changes
-  useControls(() => inputs satisfies Schema, { store }, [
+  const [, set] = useControls(() => inputs satisfies Schema, { store }, [
     // HATE THIS
     JSON.stringify(inputs),
   ]);
+
+  useEffect(() => {
+    if (!target) return;
+
+    set({
+      position: target,
+    });
+  }, [target, set]);
 
   return (
     <LevaPanel

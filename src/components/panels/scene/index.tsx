@@ -35,6 +35,7 @@ import { EventType, PubSub } from "@/lib/events";
 import { useTarget } from "@/store/next/targets";
 import { useSettingsStore } from "@/store/next/settings";
 import { Text } from "@react-three/drei";
+import type { PerspectiveCameraComponent } from "@/types/ecs";
 
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;
@@ -107,6 +108,9 @@ function SyncCameraFromStore({
   const transformNode = useTransformsStore((state) =>
     cameraUUID ? state.transforms[cameraUUID] : undefined,
   );
+  const cameraValues = useCamerasStore((state) =>
+    cameraUUID ? state.cameras[cameraUUID] : undefined,
+  );
   const target = useTarget(cameraUUID);
 
   useEffect(() => {
@@ -133,6 +137,17 @@ function SyncCameraFromStore({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transformNode?.position, transformNode?.rotation]);
+
+  useEffect(() => {
+    if (!cameraValues || !controlsRef.current) return;
+    const camera = controlsRef.current.camera as THREE.PerspectiveCamera;
+    const values = cameraValues as PerspectiveCameraComponent;
+
+    camera.near = values.near;
+    camera.far = values.far;
+    camera.fov = values.fov;
+    camera.updateProjectionMatrix();
+  }, [cameraValues, controlsRef]);
 
   useFrame(({ camera }) => {
     if (target) {
@@ -218,16 +233,44 @@ function EditorScene({
   const isCameraSelected = selected === camera;
 
   const threeCamera = useThree((state) => state.camera);
-  const { camera: sceneCamera } = useThree();
 
   useEffect(() => {
-    sceneCamera.layers.enable(LAYERS.LAYER_EDITOR_ONLY);
-  }, [sceneCamera]);
+    threeCamera.layers.enable(LAYERS.LAYER_EDITOR_ONLY);
+  }, [threeCamera]);
 
   useEffect(() => {
     if (!cameraHelper.current) return;
     cameraHelper.current.layers.set(LAYERS.LAYER_EDITOR_ONLY);
   }, [cameraHelper]);
+
+  useFrame(() => {
+    if (!camera || !isDragging.current) return;
+    const { x, y, z } = camera2Ref.current.position;
+    const e = new THREE.Euler().setFromQuaternion(
+      camera2Ref.current.quaternion,
+    );
+    const { x: sx, y: sy, z: sz } = camera2Ref.current.scale;
+
+    setTransform(camera, {
+      position: [x, y, z],
+      rotation: [e.x, e.y, e.z],
+      scale: [sx, sy, sz],
+    });
+  });
+
+  const cameraValues = useCamerasStore((state) =>
+    camera ? state.cameras[camera] : undefined,
+  );
+
+  useEffect(() => {
+    if (!cameraHelper.current || !camera2Ref.current || !cameraValues) return;
+    const cam = camera2Ref.current as THREE.PerspectiveCamera;
+    cam.near = cameraValues.near;
+    cam.far = cameraValues.far;
+    cam.fov = (cameraValues as PerspectiveCameraComponent).fov;
+    cam.updateProjectionMatrix();
+    cameraHelper.current.update();
+  }, [cameraValues, cameraHelper]);
 
   useEffect(() => {
     if (!controlsRef.current) return;
@@ -240,7 +283,6 @@ function EditorScene({
 
   return (
     <>
-      <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={45} />
       <OrbitControls makeDefault enabled={orbitEnabled} />
       <SharedScene cameraRef={camera2Ref} />
       <TransformControls
