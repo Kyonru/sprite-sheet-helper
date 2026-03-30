@@ -4,8 +4,10 @@ import { useEntitiesStore, useEntity } from "@/store/next/entities";
 import { capitalize } from "@/utils/strings";
 import { useMemo } from "react";
 import { AnimationContext } from "./animation";
+import { useLight } from "@/store/next/lights";
+import { TargetContext } from "./target";
 
-const getTabs = (kind?: string) => {
+const getTabs = (kind?: string, type?: string) => {
   const tabs: {
     value: string;
     label: string;
@@ -29,7 +31,7 @@ const getTabs = (kind?: string) => {
     });
   }
 
-  if (kind === "light") {
+  if (kind === "light" && type !== "ambient" && type !== "point") {
     tabs.push({
       value: "target",
       label: "Target",
@@ -40,8 +42,13 @@ const getTabs = (kind?: string) => {
 };
 
 const TypeBasedTabs = ({ type }: { type: string }) => {
+  console.log(" TypeBasedTabs");
   if (type === "animation") {
     return <AnimationContext />;
+  }
+
+  if (type === "target") {
+    return <TargetContext />;
   }
 
   return null;
@@ -50,8 +57,12 @@ const TypeBasedTabs = ({ type }: { type: string }) => {
 export const ExplorerTabs = () => {
   const selected = useEntitiesStore((state) => state.selected);
   const entity = useEntity(selected);
+  const light = useLight(selected);
 
-  const tabs = useMemo(() => getTabs(entity?.type), [entity]);
+  const tabs = useMemo(
+    () => getTabs(entity?.type, light?.type),
+    [entity, light],
+  );
 
   return (
     <Tabs defaultValue="object" className="w-full h-full gap-2 p-2">

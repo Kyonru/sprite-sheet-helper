@@ -48,6 +48,17 @@ function ObjectTarget({ uuid }: { uuid: string }) {
         showZ={isSelected && !isPreview}
         ref={controlsRef}
         mode={"translate"}
+        position={target}
+        onMouseUp={() => {
+          if (!controlsRef.current) return;
+          const object = controlsRef.current.object;
+
+          setTarget(uuid, [
+            object.position.x,
+            object.position.y,
+            object.position.z,
+          ]);
+        }}
       />
       <Text
         position={[target[0], target[1] + 0.3, target[2]]}
