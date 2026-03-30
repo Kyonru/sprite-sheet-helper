@@ -1,3 +1,4 @@
+import { openAbout } from "@/components/about-modal";
 import { openDocs } from "@/components/docs";
 import {
   MenubarContent,
@@ -23,7 +24,7 @@ export const HelpMenu = () => {
         <MenubarGroup>
           <MenubarItem>Install Desktop App</MenubarItem>
           <MenubarItem>Check for Updates</MenubarItem>
-          <MenubarItem>About</MenubarItem>
+          <MenubarItem onClick={openAbout}>About</MenubarItem>
         </MenubarGroup>
       </MenubarContent>
     </MenubarMenu>

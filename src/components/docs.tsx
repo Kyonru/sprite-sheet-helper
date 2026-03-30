@@ -10,11 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import Fuse from "fuse.js";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
-import "highlight.js/styles/github-dark.css"; // or any theme
-
-/* ─────────────────────────────────────────────
- * Modal state (same pattern as settings)
- * ───────────────────────────────────────────── */
+import "highlight.js/styles/github-dark.css";
 
 type DocsModalState = {
   open: boolean;
@@ -31,10 +27,6 @@ function dispatch(state: DocsModalState) {
 export function openDocs() {
   dispatch({ open: true });
 }
-
-/* ─────────────────────────────────────────────
- * Load markdown via Vite
- * ───────────────────────────────────────────── */
 
 type DocEntry = {
   id: string;
@@ -83,10 +75,6 @@ function parseDocs(): DocEntry[] {
   });
 }
 
-/* ─────────────────────────────────────────────
- * Provider
- * ───────────────────────────────────────────── */
-
 export function DocsModalProvider() {
   const [state, setState] = useState<DocsModalState>({ open: false });
   const [query, setQuery] = useState("");
@@ -98,10 +86,10 @@ export function DocsModalProvider() {
     () =>
       new Fuse(docs, {
         keys: ["title", "content"],
-        threshold: 0.2, // stricter matching
+        threshold: 0.2,
         minMatchCharLength: 2,
-        ignoreLocation: true, // don't care where match is
-        useExtendedSearch: true, // allows advanced queries
+        ignoreLocation: true,
+        useExtendedSearch: true,
       }),
     [docs],
   );
@@ -136,7 +124,6 @@ export function DocsModalProvider() {
             <DialogTitle>Documentation</DialogTitle>
           </DialogHeader>
 
-          {/* Search */}
           <Input
             placeholder="Search docs..."
             value={query}
@@ -144,9 +131,7 @@ export function DocsModalProvider() {
             className="mt-2"
           />
 
-          {/* Layout */}
           <div className="flex flex-1 overflow-hidden mt-4 border rounded-md w-full">
-            {/* Sidebar */}
             <div className="w-1/3 border-r overflow-y-auto">
               {results.map((doc) => (
                 <button
@@ -161,7 +146,6 @@ export function DocsModalProvider() {
               ))}
             </div>
 
-            {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 prose dark:prose-invert max-w-none">
               {selected ? (
                 <ReactMarkdown rehypePlugins={[rehypeHighlight]}>

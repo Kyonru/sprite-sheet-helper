@@ -24,6 +24,7 @@ import { ReorderModalProvider } from "./components/animation-reorder-modal";
 import { SettingsModalProvider } from "./components/panels/top/settings";
 import { useSettingsStore } from "./store/next/settings";
 import { DocsModalProvider } from "./components/docs";
+import { AboutModalProvider } from "./components/about-modal";
 
 THREE.Cache.enabled = true;
 
@@ -73,6 +74,7 @@ function App() {
       <ReorderModalProvider />
       <SettingsModalProvider />
       <DocsModalProvider />
+      <AboutModalProvider />
       <Toaster richColors />
     </ThemeProvider>
   );
