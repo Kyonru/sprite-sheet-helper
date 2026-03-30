@@ -20,6 +20,8 @@ import * as THREE from "three";
 export const CameraMenu = () => {
   const cameraDistance = useSettingsStore((state) => state.cameraDistance);
   const cameraUUID = useCamerasStore((state) => state.mainCamera);
+  const camera = useCamerasStore((state) => state.cameras[cameraUUID || ""]);
+  const updateType = useCamerasStore((state) => state.setCameraType);
   const target = useTarget(cameraUUID) ?? [0, 0, 0];
 
   function spherical(phi: number, theta: number): [number, number, number] {
@@ -128,21 +130,18 @@ export const CameraMenu = () => {
       </MenubarTrigger>
       <MenubarContent className="w-44 z-999">
         <MenubarGroup>
-          <MenubarCheckboxItem checked disabled>
+          <MenubarCheckboxItem
+            checked={camera?.type === "perspective"}
+            onClick={() => cameraUUID && updateType(cameraUUID, "perspective")}
+          >
             Perspective
           </MenubarCheckboxItem>
-          <MenubarCheckboxItem disabled>Orthographic</MenubarCheckboxItem>
-        </MenubarGroup>
-        <MenubarSeparator />
-        <MenubarGroup>
-          <MenubarItem disabled>Perspective Settings</MenubarItem>
-          <MenubarItem disabled>Orbit Settings</MenubarItem>
-        </MenubarGroup>
-        <MenubarSeparator />
-        <MenubarGroup>
-          <MenubarItem inset disabled>
-            Toggle Fullscreen
-          </MenubarItem>
+          <MenubarCheckboxItem
+            checked={camera?.type === "orthographic"}
+            onClick={() => cameraUUID && updateType(cameraUUID, "orthographic")}
+          >
+            Orthographic
+          </MenubarCheckboxItem>
         </MenubarGroup>
         <MenubarSeparator />
         <MenubarSub>

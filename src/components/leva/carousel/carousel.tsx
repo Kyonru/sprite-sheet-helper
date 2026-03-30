@@ -339,7 +339,6 @@ export const LevaCarousel = () => {
                 selected={selectedRow === index}
                 onClick={() => {
                   setSelectedRow(index);
-                  console.log(row);
                 }}
               />
               <div className="flex justify-center items-center">

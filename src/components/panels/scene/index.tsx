@@ -229,6 +229,7 @@ function EditorScene({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null!);
   const { gridSectionColor, gridCellColor } = useSettingsStore();
+  const { setCameraHelper } = useMainPanelContext();
 
   const isCameraSelected = selected === camera;
 
@@ -280,6 +281,13 @@ function EditorScene({
     controlsRef.current.raycaster?.layers.set(LAYERS.LAYER_EDITOR_ONLY);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controlsRef.current]);
+
+  useEffect(() => {
+    if (cameraHelper.current) {
+      setCameraHelper(cameraHelper.current as THREE.CameraHelper);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraHelper.current]);
 
   return (
     <>
@@ -344,6 +352,82 @@ function EditorScene({
   );
 }
 
+const CameraManager = () => {
+  const { set } = useThree();
+
+  const cameraUUID = useCamerasStore((state) => state.mainCamera);
+  const cameraType = useCamerasStore(
+    (state) => state.cameras[cameraUUID || ""]?.type,
+  );
+  const cameraValues = useCamerasStore((state) =>
+    cameraUUID ? state.cameras[cameraUUID] : undefined,
+  );
+  const cameraTransform = useTransformsStore((state) =>
+    cameraUUID ? state.transforms[cameraUUID] : undefined,
+  );
+  const { exportWidth, exportHeight } = useSettingsStore();
+  const { cameraHelper } = useMainPanelContext();
+
+  useEffect(() => {
+    if (!cameraValues || !cameraTransform) return;
+
+    const aspect = exportWidth / exportHeight;
+    const fov = (cameraValues as PerspectiveCameraComponent).fov;
+    const near = cameraValues.near;
+    const far = cameraValues.far;
+    const orthoSize = 10;
+
+    // Create camera instances
+    const perspectiveCamera = new THREE.PerspectiveCamera(
+      fov,
+      aspect,
+      near,
+      far,
+    );
+    perspectiveCamera.position.set(
+      cameraTransform.position[0],
+      cameraTransform.position[1],
+      cameraTransform.position[2],
+    );
+
+    const orthographicCamera = new THREE.OrthographicCamera(
+      (orthoSize * aspect) / -2, // left
+      (orthoSize * aspect) / 2, // right
+      orthoSize / 2, // top
+      orthoSize / -2, // bottom
+      near,
+      far,
+    );
+    orthographicCamera.position.set(
+      cameraTransform.position[0],
+      cameraTransform.position[1],
+      cameraTransform.position[2],
+    );
+    // Copy position and orientation from the perspective camera
+    orthographicCamera.quaternion.copy(perspectiveCamera.quaternion);
+
+    // Determine the next camera based on the prop
+    const nextCamera =
+      cameraType === "perspective" ? perspectiveCamera : orthographicCamera;
+
+    // Update the R3F state and the renderer's active camera
+    set({ camera: nextCamera });
+
+    // Ensure the projection matrix is updated after any changes to camera parameters
+    nextCamera.updateProjectionMatrix();
+
+    // Optional: if using controls (like OrbitControls), you may need to update them here.
+    // e.g., if you had a controls ref: controls.current.object = nextCamera;
+    if (cameraHelper) {
+      cameraHelper.camera = nextCamera;
+      cameraHelper.matrix = nextCamera.matrixWorld;
+      cameraHelper.update();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraType]);
+  return null;
+};
+
 function PreviewScene({
   orbitEnabled,
   sharedCameraState,
@@ -398,6 +482,7 @@ function PreviewScene({
         controlsRef={controlsRef}
         sharedCameraState={sharedCameraState}
       />
+      <CameraManager />
       <PostProcessingEffectsComposer />
       {showGizmo && (
         <GizmoHelper

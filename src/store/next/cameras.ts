@@ -34,6 +34,7 @@ interface CamerasActions {
   setActiveCamera: (uuid: string) => void;
   removeCamera: (uuid: string) => void;
   setGlobalSettings: (settings: Partial<GlobalSettings>) => void;
+  setCameraType: (uuid: string, type: CameraType) => void;
   hydrate: (
     cameras: Record<string, CameraComponent>,
     mainCamera?: string,
@@ -70,6 +71,25 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
         })),
 
       setActiveCamera: (uuid) => set({ mainCamera: uuid }),
+
+      setCameraType: (uuid, type) =>
+        set((state) => {
+          let defaults: CameraComponent = DEFAULT_PERSPECTIVE_CAMERA;
+          if (type === "orthographic") {
+            defaults = DEFAULT_ORTHOGRAPHIC_CAMERA;
+          }
+
+          return {
+            cameras: {
+              ...state.cameras,
+              [uuid]: {
+                ...defaults,
+                ...state.cameras[uuid],
+                type,
+              },
+            },
+          };
+        }),
 
       removeCamera: (uuid) =>
         set((state) => {

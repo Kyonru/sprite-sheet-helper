@@ -63,7 +63,8 @@ export function Based({ uuid, ...props }: { uuid: string }) {
     };
 
     openFile();
-  }, [model, setClips, setMixerRef, uuid, controls]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, setClips, setMixerRef, uuid]);
 
   useEffect(() => {
     const resetAnimations = () => {
