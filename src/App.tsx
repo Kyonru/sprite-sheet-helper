@@ -22,6 +22,7 @@ import { SharedSceneProvider } from "./context/shared-scene";
 import { ConfirmProvider } from "./components/confirm";
 import { ReorderModalProvider } from "./components/animation-reorder-modal";
 import { SettingsModalProvider } from "./components/panels/top/settings";
+import { useSettingsStore } from "./store/next/settings";
 
 THREE.Cache.enabled = true;
 
@@ -44,8 +45,10 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const theme = useSettingsStore((state) => state.theme);
+
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme={theme} storageKey="vite-ui-theme">
       <SharedContextProvider>
         <MainPanelContextProvider defaultStore={mainPanelStore}>
           <Layout>

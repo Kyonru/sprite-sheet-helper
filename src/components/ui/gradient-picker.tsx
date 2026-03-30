@@ -13,13 +13,17 @@ import { useMemo } from "react";
 import { HexColorPicker } from "react-colorful";
 
 export function GradientPicker({
+  id,
   background,
   setBackground,
   className,
+  showGradient = true,
 }: {
+  id?: string;
   background: string;
   setBackground: (background: string) => void;
   className?: string;
+  showGradient?: boolean;
 }) {
   const solids = [
     "#E2E2E2",
@@ -64,7 +68,7 @@ export function GradientPicker({
           className={cn(
             "w-[220px] justify-start text-start font-normal",
             !background && "text-muted-foreground",
-            className
+            className,
           )}
         >
           <div className="w-full flex items-center gap-2">
@@ -82,19 +86,22 @@ export function GradientPicker({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64">
+      <PopoverContent className="w-64 z-9999">
         <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="w-full mb-4">
             <TabsTrigger className="flex-1" value="solid">
               Solid
             </TabsTrigger>
-            <TabsTrigger className="flex-1" value="gradient">
-              Gradient
-            </TabsTrigger>
+            {showGradient && (
+              <TabsTrigger className="flex-1" value="gradient">
+                Gradient
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="solid" className="flex flex-wrap gap-1 mt-0">
             <HexColorPicker
+              id={id}
               color={background}
               onChange={(c) => setBackground(c)}
             />
@@ -107,18 +114,20 @@ export function GradientPicker({
               />
             ))}
           </TabsContent>
-          <TabsContent value="gradient" className="mt-0">
-            <div className="flex flex-wrap gap-1 mb-2">
-              {gradients.map((s) => (
-                <div
-                  key={s}
-                  style={{ background: s }}
-                  className="rounded-md h-6 w-6 cursor-pointer active:scale-105"
-                  onClick={() => setBackground(s)}
-                />
-              ))}
-            </div>
-          </TabsContent>
+          {showGradient && (
+            <TabsContent value="gradient" className="mt-0">
+              <div className="flex flex-wrap gap-1 mb-2">
+                {gradients.map((s) => (
+                  <div
+                    key={s}
+                    style={{ background: s }}
+                    className="rounded-md h-6 w-6 cursor-pointer active:scale-105"
+                    onClick={() => setBackground(s)}
+                  />
+                ))}
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </PopoverContent>
     </Popover>

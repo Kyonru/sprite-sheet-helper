@@ -213,6 +213,7 @@ function EditorScene({
   const setTransform = useTransformsStore((state) => state.setTransform);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null!);
+  const { gridSectionColor, gridCellColor } = useSettingsStore();
 
   const isCameraSelected = selected === camera;
 
@@ -285,8 +286,8 @@ function EditorScene({
       <Grid
         layers={LAYERS.LAYER_EDITOR_ONLY}
         infiniteGrid
-        sectionColor="#a09f9f"
-        cellColor="#868686"
+        sectionColor={gridSectionColor}
+        cellColor={gridCellColor}
       />
       <ContactShadows
         frames={1}
@@ -374,7 +375,12 @@ export function AssetCreation() {
   const cameraGlobalSettings = useCamerasStore((state) => state.globalSettings);
   const isDragging = useRef(false);
   const [showGizmo, setShowGizmo] = useState(false);
-  const { width: canvasWidth, height: canvasHeight } = useSettingsStore();
+  const {
+    width: canvasWidth,
+    height: canvasHeight,
+    editorBackgroundColor,
+  } = useSettingsStore();
+  const glRef = useRef<THREE.WebGLRenderer>(null);
 
   const [zoom, setZoom] = useState(1);
 
@@ -385,6 +391,10 @@ export function AssetCreation() {
   });
 
   const scene = useSharedScene();
+
+  useEffect(() => {
+    glRef.current?.setClearColor(editorBackgroundColor, 1);
+  }, [editorBackgroundColor]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -405,7 +415,8 @@ export function AssetCreation() {
               scene={scene}
               onCreated={({ gl, scene }) => {
                 scene.background = null; // don't use scene background
-                gl.setClearColor("#1a1a1a", 1);
+                gl.setClearColor(editorBackgroundColor, 1);
+                glRef.current = gl;
               }}
             >
               <EditorScene

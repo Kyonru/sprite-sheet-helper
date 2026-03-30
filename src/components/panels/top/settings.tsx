@@ -32,11 +32,15 @@ import {
 import { FieldContent } from "@/components/ui/field";
 import { ChevronDownIcon } from "lucide-react";
 import { useSettingsStore, type SettingsState } from "@/store/next/settings";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { createPortal } from "react-dom";
 import * as z from "zod";
 import type { ExportFormat } from "@/types/file";
+import { GradientPicker } from "@/components/ui/gradient-picker";
+import { Switch } from "@/components/ui/switch";
+import { MoonIcon, SunIcon } from "lucide-react";
+import { useTheme, type Theme } from "@/components/theme-provider";
 
 const ExportFormats = ["spritesheet", "gif", "zip"];
 
@@ -47,6 +51,10 @@ const formSchema = z.object<{ [K in keyof SettingsState]: z.ZodTypeAny }>({
   exportWidth: z.coerce.number().min(1),
   exportHeight: z.coerce.number().min(1),
   cameraDistance: z.coerce.number().min(0),
+  editorBackgroundColor: z.string(),
+  gridSectionColor: z.string(),
+  gridCellColor: z.string(),
+  theme: z.enum(["light", "dark"]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -72,6 +80,12 @@ export function SettingsModalProvider() {
   const settings = useSettingsStore((state) => state);
   const updateSettings = useSettingsStore((state) => state.update);
   const [state, setState] = useState<SettingsModalState>({ open: false });
+  const { setTheme } = useTheme();
+  const originalThemeRef = useRef<"light" | "dark">(settings.theme);
+  const originalBgRef = useRef<string>(settings.editorBackgroundColor);
+
+  const originalGridSectionRef = useRef<string>(settings.gridSectionColor);
+  const originalGridCellRef = useRef<string>(settings.gridCellColor);
 
   useEffect(() => {
     _listener = (next) => setState(next);
@@ -80,7 +94,6 @@ export function SettingsModalProvider() {
     };
   }, []);
 
-  const onClose = () => setState((s) => ({ ...s, open: false }));
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -90,12 +103,20 @@ export function SettingsModalProvider() {
       exportWidth: settings.exportWidth,
       exportHeight: settings.exportHeight,
       cameraDistance: settings.cameraDistance,
+      editorBackgroundColor: settings.editorBackgroundColor,
+      gridSectionColor: settings.gridSectionColor,
+      gridCellColor: settings.gridCellColor,
+      theme: settings.theme,
     },
   });
 
   // Re-sync form with store each time the modal opens
   useEffect(() => {
     if (state.open) {
+      originalThemeRef.current = settings.theme;
+      originalBgRef.current = settings.editorBackgroundColor;
+      originalGridSectionRef.current = settings.gridSectionColor;
+      originalGridCellRef.current = settings.gridCellColor;
       form.reset({
         mode: settings.mode,
         width: settings.width,
@@ -103,21 +124,30 @@ export function SettingsModalProvider() {
         exportWidth: settings.exportWidth,
         exportHeight: settings.exportHeight,
         cameraDistance: settings.cameraDistance,
+        editorBackgroundColor: settings.editorBackgroundColor,
+        gridSectionColor: settings.gridSectionColor,
+        gridCellColor: settings.gridCellColor,
+        theme: settings.theme,
       });
     }
-  }, [
-    form,
-    settings.cameraDistance,
-    settings.exportHeight,
-    settings.exportWidth,
-    settings.height,
-    settings.mode,
-    settings.width,
-    state.open,
-  ]);
+  }, [form, settings, state.open]);
+
+  const onClose = () => {
+    setTheme(originalThemeRef.current);
+    updateSettings({
+      editorBackgroundColor: originalBgRef.current,
+      gridSectionColor: originalGridSectionRef.current,
+      gridCellColor: originalGridCellRef.current,
+    });
+    setState((s) => ({ ...s, open: false }));
+  };
 
   function onSubmit(data: FormValues) {
     updateSettings(data as SettingsState);
+    originalThemeRef.current = data.theme as Exclude<Theme, "system">;
+    originalBgRef.current = data.editorBackgroundColor as string;
+    originalGridSectionRef.current = data.gridSectionColor as string;
+    originalGridCellRef.current = data.gridCellColor as string;
     onClose();
   }
 
@@ -243,7 +273,7 @@ export function SettingsModalProvider() {
                             <SelectTrigger
                               id="settings-mode"
                               aria-invalid={fieldState.invalid}
-                              className="min-w-[120px]"
+                              className="min-w-30"
                             >
                               <SelectValue placeholder="Select format" />
                             </SelectTrigger>
@@ -321,7 +351,7 @@ export function SettingsModalProvider() {
               <hr className="border-border" />
 
               {/* ── Camera ── */}
-              <Collapsible defaultOpen>
+              <Collapsible>
                 <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-medium py-1">
                   Camera
                   <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
@@ -360,6 +390,145 @@ export function SettingsModalProvider() {
                       )}
                     />
                   </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* ── Appearance ── */}
+              <Collapsible>
+                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-medium py-1">
+                  Appearance
+                  <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <FieldGroup className="pt-3">
+                    {/* Theme */}
+                    <Controller
+                      name="theme"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field
+                          data-invalid={fieldState.invalid}
+                          orientation="horizontal"
+                        >
+                          <FieldContent>
+                            <FieldLabel htmlFor="settings-theme">
+                              Theme
+                            </FieldLabel>
+                            <FieldDescription>
+                              Switch between light and dark editor theme.
+                            </FieldDescription>
+                            {fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                          </FieldContent>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <SunIcon className="size-4 text-muted-foreground" />
+                            <Switch
+                              id="settings-theme"
+                              aria-invalid={fieldState.invalid}
+                              checked={field.value === "dark"}
+                              onCheckedChange={(checked) => {
+                                const next = checked ? "dark" : "light";
+                                field.onChange(next);
+                                setTheme(next);
+                              }}
+                            />
+                            <MoonIcon className="size-4 text-muted-foreground" />
+                          </div>
+                        </Field>
+                      )}
+                    />
+                    {/* Background */}
+                    <Controller
+                      name="editorBackgroundColor"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldContent>
+                            <FieldLabel htmlFor="settings-bg-color">
+                              Background
+                            </FieldLabel>
+                            <FieldDescription>
+                              Editor background color or gradient.
+                            </FieldDescription>
+                            {fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                          </FieldContent>
+                          <GradientPicker
+                            showGradient={false}
+                            id="settings-bg-color"
+                            className="w-full truncate"
+                            background={field.value as string}
+                            setBackground={(value) => {
+                              field.onChange(value);
+                              updateSettings({ editorBackgroundColor: value });
+                            }}
+                          />
+                        </Field>
+                      )}
+                    />
+                    {/* Grid Section Color */}
+                    <Controller
+                      name="gridSectionColor"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldContent>
+                            <FieldLabel htmlFor="settings-grid-section-color">
+                              Grid Section
+                            </FieldLabel>
+                            <FieldDescription>
+                              Color of the major grid section lines.
+                            </FieldDescription>
+                            {fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                          </FieldContent>
+                          <GradientPicker
+                            showGradient={false}
+                            id="settings-grid-section-color"
+                            className="w-full truncate"
+                            background={field.value as string}
+                            setBackground={(value) => {
+                              field.onChange(value);
+                              updateSettings({ gridSectionColor: value });
+                            }}
+                          />
+                        </Field>
+                      )}
+                    />
+                    {/* Grid Cell Color */}
+                    <Controller
+                      name="gridCellColor"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldContent>
+                            <FieldLabel htmlFor="settings-grid-cell-color">
+                              Grid Cell
+                            </FieldLabel>
+                            <FieldDescription>
+                              Color of the minor grid cell lines.
+                            </FieldDescription>
+                            {fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                          </FieldContent>
+                          <GradientPicker
+                            showGradient={false}
+                            id="settings-grid-cell-color"
+                            className="w-full truncate"
+                            background={field.value as string}
+                            setBackground={(value) => {
+                              field.onChange(value);
+                              updateSettings({ gridCellColor: value });
+                            }}
+                          />
+                        </Field>
+                      )}
+                    />
+                  </FieldGroup>
                 </CollapsibleContent>
               </Collapsible>
             </FieldGroup>
