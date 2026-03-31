@@ -20,6 +20,7 @@ export const ModelObject = ({ uuid }: { uuid: string }) => {
   useEffect(() => {
     if (model?.loadState !== "loaded" || !groupRef.current) return;
     const object = getModelFromCache(uuid);
+
     if (!object) return;
 
     groupRef.current.clear();

@@ -7,14 +7,13 @@ export const useAddModel = (select = true) => {
   const selectEntity = useEntitiesStore((state) => state.selectEntity);
   const loadModel = useModelsStore((state) => state.loadFromFile);
   const initTransform = useTransformsStore((state) => state.initTransform);
-  // const push = useHistoryStore((state) => state.push);
 
-  return (file: File, name?: string) => {
+  return async (file: File, name?: string) => {
     const label = name ?? file.name ?? "Model";
     const uuid = addEntity("model", label);
 
     initTransform(uuid);
-    loadModel(uuid, file);
+    await loadModel(uuid, file);
 
     if (select) {
       selectEntity(uuid);

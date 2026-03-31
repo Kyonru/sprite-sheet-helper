@@ -57,7 +57,14 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
         set((state) => {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { [uuid]: _, ...rest } = state.entities;
-          return { entities: rest };
+          const children = state.children;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { [uuid]: __, ...restChildren } = children ?? {};
+
+          return {
+            entities: rest,
+            children: { ...(restChildren || {}) },
+          };
         }),
 
       renameEntity: (uuid, name) =>

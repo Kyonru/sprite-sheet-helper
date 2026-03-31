@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as React from "react";
 import {
   UncontrolledTreeEnvironment,
@@ -12,6 +13,9 @@ import { useEntitiesStore } from "@/store/next/entities";
 import { useSetEntityChildren } from "@/hooks/next/use-set-entity-children";
 import { ItemTypeIconMap } from "./constants";
 import { cn } from "@/lib/utils";
+import { Trash2Icon } from "lucide-react";
+import { confirm } from "@/components/confirm";
+import { useRemoveEntity } from "@/hooks/next/use-remove-entity";
 
 export const ObjectExplorer = () => {
   const entities = useEntitiesStore((state) => state.entities);
@@ -20,6 +24,7 @@ export const ObjectExplorer = () => {
   const setChildren = useSetEntityChildren();
   const selectEntity = useEntitiesStore((state) => state.selectEntity);
   const unselectEntity = useEntitiesStore((state) => state.unselectEntity);
+  const removeEntity = useRemoveEntity();
 
   const dataProvider = React.useMemo(() => {
     const data: Record<string, TreeItem<string> & { type: string }> = {
@@ -101,6 +106,14 @@ export const ObjectExplorer = () => {
     dataProvider.refresh();
   }, [dataProvider, entities, children]);
 
+  const onDelete = (title: string, data: TreeItem<string>) => {
+    confirm.delete(title, {
+      onConfirm: () => {
+        removeEntity(data.index as string);
+      },
+    });
+  };
+
   return (
     <UncontrolledTreeEnvironment
       key={selected}
@@ -128,15 +141,24 @@ export const ObjectExplorer = () => {
         const icon = ItemTypeIconMap[(item as any).type];
 
         return (
-          <Label
-            className={cn({
-              "text-sm font-thin text-muted-foreground": true,
-              "text-foreground": context.isSelected,
-            })}
-          >
-            {icon}
-            {title}
-          </Label>
+          <div className="w-full flex flex-row items-center justify-between group relative">
+            <Label
+              className={cn({
+                "text-sm font-thin text-muted-foreground": true,
+                "text-foreground": context.isSelected,
+              })}
+            >
+              {icon}
+              {title}
+            </Label>
+
+            {(item as any).type !== "camera" && (
+              <Trash2Icon
+                onClick={() => onDelete(title, item)}
+                className="h-4 w-4 opacity-0 group-hover:opacity-100 absolute right-2 top-1/2 -translate-y-1/2 text-destructive cursor-pointer"
+              />
+            )}
+          </div>
         );
       }}
     >

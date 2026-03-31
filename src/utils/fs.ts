@@ -15,6 +15,7 @@ export const saveFileToOPFS = async (
   const dir = await getDir(folder);
 
   const fileName = `${uuid}.${file.name.split(".").pop()}`;
+
   const handleDir = await dir.getFileHandle(fileName, { create: true });
   const writable = await handleDir.createWritable();
   await writable.write(file);
