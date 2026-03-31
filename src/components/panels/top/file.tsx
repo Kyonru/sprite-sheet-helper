@@ -16,6 +16,7 @@ import { useAddModel } from "@/hooks/next/use-add-model";
 import { EventType, PubSub } from "@/lib/events";
 import { MenuIcon } from "lucide-react";
 import { useRef } from "react";
+import { toast } from "sonner";
 import { openSettings } from "./settings";
 
 export const FileMenu = () => {
@@ -26,6 +27,21 @@ export const FileMenu = () => {
     fileInputRef.current?.click();
   };
 
+  const onLoadModel = async () => {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+
+    try {
+      await loadFromFile(file);
+    } catch {
+      toast.error("Failed to load model.");
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   return (
     <>
       <Input
@@ -34,11 +50,7 @@ export const FileMenu = () => {
         type="file"
         className="hidden"
         accept={`.${ACCEPTED_MODEL_FILE_TYPES.join(",.")}`}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-
-          if (file) loadFromFile(file);
-        }}
+        onChange={onLoadModel}
       />
       <MenubarMenu>
         <MenubarTrigger>
