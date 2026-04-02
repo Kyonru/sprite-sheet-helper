@@ -48,6 +48,8 @@ export const EFFECTS: { key: EffectType; name: string }[] = [
   { key: "sepia", name: "Sepia" },
   { key: "palette", name: "Palette" },
   { key: "dither", name: "Dither" },
+  { key: "tonemap", name: "Tonemap" },
+  { key: "customShader", name: "Custom Shader" },
 ];
 
 export const LIGHTS: {

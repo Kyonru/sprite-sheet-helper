@@ -14,7 +14,6 @@ import {
   Grid,
   GizmoHelper,
   GizmoViewport,
-  ContactShadows,
   useHelper,
   CameraControls,
   TransformControls,
@@ -36,6 +35,7 @@ import { useTarget } from "@/store/next/targets";
 import { useSettingsStore } from "@/store/next/settings";
 import { Text } from "@react-three/drei";
 import type { PerspectiveCameraComponent } from "@/types/ecs";
+import { setGLContext } from "@/lib/gl-context";
 
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;
@@ -339,15 +339,6 @@ function EditorScene({
         sectionColor={gridSectionColor}
         cellColor={gridCellColor}
       />
-      <ContactShadows
-        frames={1}
-        position={[0, -0.5, 0]}
-        scale={10}
-        opacity={0.4}
-        far={1}
-        blur={2}
-        layers={LAYERS.LAYER_EDITOR_ONLY}
-      />
     </>
   );
 }
@@ -428,6 +419,16 @@ const CameraManager = () => {
   return null;
 };
 
+export function GLContextCapture() {
+  const gl = useThree((s) => s.gl);
+
+  useEffect(() => {
+    setGLContext(gl.getContext());
+  }, [gl]);
+
+  return null;
+}
+
 function PreviewScene({
   orbitEnabled,
   sharedCameraState,
@@ -484,6 +485,7 @@ function PreviewScene({
       />
       <CameraManager />
       <PostProcessingEffectsComposer />
+      <GLContextCapture />
       {showGizmo && (
         <GizmoHelper
           position={[-10, 0, 0]}

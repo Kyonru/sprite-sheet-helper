@@ -3,6 +3,7 @@ import { BLEND_FUNCTIONS } from "@/constants/effects";
 import { useEffectsStore } from "@/store/next/effects";
 
 import {
+  button,
   LevaPanel,
   LevaStoreProvider,
   useControls,
@@ -12,6 +13,8 @@ import {
 import type { Schema } from "leva/plugin";
 import { useMemo } from "react";
 import { PALETTE_INDEX } from "../../scene/custom-effects.tsx/palette";
+import { LEVA_THEME } from "@/constants/theming";
+import { openShaderEditor } from "@/components/custom-shader-modal";
 
 const EffectDetails = ({ uuid }: { uuid?: string }) => {
   const store = useStoreContext();
@@ -24,6 +27,11 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
 
     const effect = effects[uuid];
     if (!effect || !uuid) return {};
+
+    i["UUID"] = {
+      value: `${uuid}`,
+      editable: false,
+    };
 
     for (const key in effect) {
       if (key === "type") continue;
@@ -47,6 +55,10 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
             setEffect(uuid, { [key]: newValue } as never);
           },
         };
+      } else if (key === "fragmentShader") {
+        i[key] = button(() => {
+          openShaderEditor(uuid);
+        });
       } else {
         i[key] = {
           value,
@@ -67,6 +79,7 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
 
   return (
     <LevaPanel
+      theme={LEVA_THEME}
       hidden={false}
       neverHide
       store={store}

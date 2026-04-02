@@ -35,6 +35,11 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
     const entity = entities[uuid];
     if (!entity || !uuid) return {};
 
+    i["UUID"] = {
+      value: `${uuid}`,
+      editable: false,
+    };
+
     if (transform && !isAmbientLight) {
       i["position"] = {
         value: transform.position,

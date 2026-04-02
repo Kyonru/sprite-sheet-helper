@@ -50,5 +50,5 @@ export const useRefsStore = create<RefsStore>()(
   ),
 );
 
-export const useRef = (uuid?: string) =>
+export const useObjectRef = (uuid?: string) =>
   useRefsStore((state) => (uuid ? state.refs[uuid] : undefined));

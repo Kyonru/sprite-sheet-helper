@@ -25,6 +25,7 @@ import { SettingsModalProvider } from "./components/panels/top/settings";
 import { useSettingsStore } from "./store/next/settings";
 import { DocsModalProvider } from "./components/docs";
 import { AboutModalProvider } from "./components/about-modal";
+import { ShaderEditorProvider } from "./components/custom-shader-modal";
 
 THREE.Cache.enabled = true;
 
@@ -75,6 +76,7 @@ function App() {
       <SettingsModalProvider />
       <DocsModalProvider />
       <AboutModalProvider />
+      <ShaderEditorProvider />
       <Toaster richColors />
     </ThemeProvider>
   );

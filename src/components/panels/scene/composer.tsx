@@ -17,13 +17,35 @@ import {
   ColorDepth,
   TiltShift,
   TiltShift2,
+  ASCII,
+  ToneMapping,
 } from "@react-three/postprocessing";
 import { useEffectsStore, type EffectComponent } from "@/store/next/effects";
 import { useSceneStore } from "./store";
 import { PaletteEffect } from "./custom-effects.tsx/palette";
 import { DitherEffect } from "./custom-effects.tsx/dither";
+import { CustomShaderEffect } from "./custom-effects.tsx/custom-shader";
+
+import { useRefsStore } from "@/store/next/refs";
+import { useMemo } from "react";
+import * as THREE from "three";
 
 function EffectNode({ effect }: { effect: EffectComponent }) {
+  const refs = useRefsStore((state) => state.refs);
+
+  const selection = useMemo(() => {
+    const objects: THREE.Object3D[] = [];
+
+    const entries = Object.entries(refs);
+
+    for (const [, ref] of entries) {
+      if (ref.type !== "model") continue;
+      objects.push(ref.current);
+    }
+
+    return objects;
+  }, [refs]);
+
   if (!effect.enabled) return null;
 
   switch (effect.type) {
@@ -95,7 +117,8 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
       return (
         <Outline
           blendFunction={effect.blendFunction}
-          selectionLayer={effect.selectionLayer}
+          // TODO: Add global selectionLayer support
+          selectionLayer={0}
           edgeStrength={effect.edgeStrength}
           pulseSpeed={effect.pulseSpeed}
           visibleEdgeColor={effect.visibleEdgeColor as unknown as number}
@@ -107,12 +130,21 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
           resolutionScale={effect.resolutionScale}
           resolutionX={effect.resolutionX}
           resolutionY={effect.resolutionY}
+          selection={selection}
         />
       );
 
     case "ascii":
-      // ASCII is a custom effect — wire up however your impl expects
-      return null;
+      return (
+        <ASCII
+          font={effect.font}
+          characters={effect.characters}
+          invert={effect.invert}
+          fontSize={effect.fontSize}
+          cellSize={effect.cellSize}
+          color={effect.color}
+        />
+      );
 
     case "brightnessContrast":
       return (
@@ -177,6 +209,7 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
           blendFunction={effect.blendFunction}
           angle={effect.angle}
           scale={effect.scale}
+          selection={selection}
         />
       );
 
@@ -212,6 +245,29 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
         <DitherEffect
           ditherScale={effect.ditherScale}
           ditherStrength={effect.ditherStrength}
+        />
+      );
+
+    case "tonemap":
+      return (
+        <ToneMapping
+          blendFunction={effect.blendFunction}
+          adaptive={effect.adaptive}
+          resolution={effect.resolution} // texture resolution of the luminance map
+          middleGrey={effect.middleGrey} // middle grey factor
+          maxLuminance={effect.maxLuminance} // maximum luminance
+          averageLuminance={effect.averageLuminance} // average luminance
+          adaptationRate={effect.adaptationRate} // luminance adaptation rate
+        />
+      );
+
+    case "customShader":
+      return (
+        <CustomShaderEffect
+          fragmentShader={effect.fragmentShader}
+          onError={(err) => {
+            if (err) console.error("[CustomShaderEffect]", err);
+          }}
         />
       );
 

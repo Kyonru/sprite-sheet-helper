@@ -30,7 +30,9 @@ export type EffectType =
   | "scanline"
   | "sepia"
   | "palette"
-  | "dither";
+  | "dither"
+  | "tonemap"
+  | "customShader";
 
 export type EffectComponent = { type: EffectType; enabled: boolean } & (
   | { type: "pixelation"; granularity: number }
@@ -157,6 +159,17 @@ export type EffectComponent = { type: EffectType; enabled: boolean } & (
   | { type: "sepia"; intensity: number; blendFunction: BlendFunction }
   | { type: "palette"; palette: number }
   | { type: "dither"; ditherStrength: number; ditherScale: number }
+  | {
+      type: "tonemap";
+      blendFunction: BlendFunction;
+      adaptive: boolean;
+      resolution: number;
+      middleGrey: number;
+      maxLuminance: number;
+      averageLuminance: number;
+      adaptationRate: number;
+    }
+  | { type: "customShader"; fragmentShader: string }
 );
 
 type EffectDefaults = {
@@ -292,6 +305,22 @@ export const EFFECT_DEFAULTS: EffectDefaults = {
   sepia: { enabled: false, intensity: 0.5, blendFunction: BlendFunction.ADD },
   palette: { enabled: false, palette: 0 },
   dither: { enabled: false, ditherStrength: 0.5, ditherScale: 1.0 },
+  tonemap: {
+    enabled: false,
+    blendFunction: BlendFunction.NORMAL,
+    adaptive: true,
+    resolution: 256,
+    middleGrey: 0.6,
+    maxLuminance: 16.0,
+    averageLuminance: 1.0,
+    adaptationRate: 1.0,
+  },
+  customShader: {
+    enabled: false,
+    fragmentShader: `void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+  outputColor = inputColor;
+}`,
+  },
 };
 
 interface EffectsState {
