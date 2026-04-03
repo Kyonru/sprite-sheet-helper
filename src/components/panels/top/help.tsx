@@ -8,9 +8,15 @@ import {
   MenubarSeparator,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import { openUrl } from "@/utils/linking";
 import { HelpCircleIcon } from "lucide-react";
+import { useCallback } from "react";
 
 export const HelpMenu = () => {
+  const onOpenDesktopApp = useCallback(() => {
+    openUrl("https://github.com/Kyonru/sprite-sheet-helper/releases/latest");
+  }, []);
+
   return (
     <MenubarMenu>
       <MenubarTrigger>
@@ -22,7 +28,9 @@ export const HelpMenu = () => {
         </MenubarGroup>
         <MenubarSeparator />
         <MenubarGroup>
-          <MenubarItem>Install Desktop App</MenubarItem>
+          <MenubarItem onClick={onOpenDesktopApp}>
+            Install Desktop App
+          </MenubarItem>
           {/* <MenubarItem>Check for Updates</MenubarItem> */}
           <MenubarItem onClick={openAbout}>About</MenubarItem>
         </MenubarGroup>
