@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { inspector } from "../../../devtools/inspector-middleware";
+import type { SnapshotEnabledStore } from "@/types/ecs";
 
 export interface ExportRow {
   uuid: string;
@@ -7,7 +8,7 @@ export interface ExportRow {
   images: string[];
 }
 
-interface ImagesState {
+export interface ImagesState {
   intervals: number;
   iterations: number;
   fps: number;
@@ -15,7 +16,7 @@ interface ImagesState {
   images: ExportRow[];
 }
 
-interface ImagesActions {
+interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
   setIntervals: (intervals: number) => void;
   setIterations: (iterations: number) => void;
   setFPS: (fps: number) => void;
@@ -32,7 +33,7 @@ interface ImagesStore extends ImagesState, ImagesActions {}
 
 export const useImagesStore = create<ImagesStore>()(
   inspector(
-    (set) => ({
+    (set, get) => ({
       mode: "spritesheet",
       intervals: 100,
       iterations: 10,
@@ -81,6 +82,25 @@ export const useImagesStore = create<ImagesStore>()(
             row.uuid === uuid ? { ...row, label } : row,
           ),
         })),
+
+      getSnapshot: () => {
+        return {
+          images: get().images,
+          fps: get().fps,
+          intervals: get().intervals,
+          iterations: get().iterations,
+          preview: get().preview,
+        };
+      },
+
+      hydrate: (snapshot) =>
+        set({
+          intervals: snapshot.intervals,
+          iterations: snapshot.iterations,
+          fps: snapshot.fps,
+          preview: snapshot.preview,
+          images: snapshot.images,
+        }),
     }),
     { name: "Images" },
   ),

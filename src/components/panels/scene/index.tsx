@@ -212,11 +212,9 @@ function SyncEditorCameraFromStore({
 }
 
 function EditorScene({
-  orbitEnabled,
   sharedCameraState,
   isDragging,
 }: {
-  orbitEnabled: boolean;
   isDragging: React.RefObject<boolean>;
   sharedCameraState: SharedCameraState;
 }) {
@@ -291,7 +289,7 @@ function EditorScene({
 
   return (
     <>
-      <OrbitControls makeDefault enabled={orbitEnabled} />
+      <OrbitControls makeDefault />
       <SharedScene cameraRef={camera2Ref} />
       <TransformControls
         ref={controlsRef}
@@ -430,11 +428,9 @@ export function GLContextCapture() {
 }
 
 function PreviewScene({
-  orbitEnabled,
   sharedCameraState,
   showGizmo,
 }: {
-  orbitEnabled: boolean;
   isDragging: React.RefObject<boolean>;
   sharedCameraState: SharedCameraState;
   showGizmo: boolean;
@@ -464,7 +460,6 @@ function PreviewScene({
       <CameraControls
         ref={controlsRef}
         makeDefault
-        enabled={orbitEnabled}
         onEnd={() => {
           const cam = controlsRef.current?.camera;
           if (!cam || !cameraUUID) return;
@@ -501,7 +496,6 @@ function PreviewScene({
 
 export function AssetCreation() {
   const exportedImages = useExportOptionsStore((state) => state.images);
-  const cameraGlobalSettings = useCamerasStore((state) => state.globalSettings);
   const isDragging = useRef(false);
   const [showGizmo, setShowGizmo] = useState(false);
   const {
@@ -550,7 +544,6 @@ export function AssetCreation() {
             >
               <EditorScene
                 isDragging={isDragging}
-                orbitEnabled={cameraGlobalSettings.orbitControls}
                 sharedCameraState={sharedCameraState}
               />
             </Canvas>
@@ -605,7 +598,6 @@ export function AssetCreation() {
                 <PreviewScene
                   isDragging={isDragging}
                   showGizmo={showGizmo}
-                  orbitEnabled={cameraGlobalSettings.orbitControls}
                   sharedCameraState={sharedCameraState}
                 />
               </Canvas>

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { ExportFormat } from "@/types/file";
 import { getBasedOnDisplaySize } from "@/utils/query";
 import { inspector } from "../../../devtools/inspector-middleware";
+import type { SnapshotEnabledStore } from "@/types/ecs";
 
 const DEFAULT_DISPLAY_SIZE = getBasedOnDisplaySize({
   xs: 64,
@@ -25,7 +26,7 @@ export interface SettingsState {
   theme: "light" | "dark";
 }
 
-interface SettingsActions {
+interface SettingsActions extends SnapshotEnabledStore<SettingsState> {
   setMode: (mode: ExportFormat) => void;
   setWidth: (width: number) => void;
   setHeight: (height: number) => void;
@@ -41,7 +42,7 @@ interface SettingsStore extends SettingsState, SettingsActions {}
 
 export const useSettingsStore = create<SettingsStore>()(
   inspector(
-    (set) => ({
+    (set, get) => ({
       mode: "spritesheet",
       editorBackgroundColor: "#1a1a1a",
       width: DEFAULT_DISPLAY_SIZE,
@@ -63,6 +64,35 @@ export const useSettingsStore = create<SettingsStore>()(
       setEditorBackgroundColor: (editorBackgroundColor) =>
         set({ editorBackgroundColor }),
       setTheme: (theme) => set({ theme }),
+
+      getSnapshot: () => {
+        return {
+          mode: get().mode,
+          width: get().width,
+          height: get().height,
+          exportWidth: get().exportWidth,
+          exportHeight: get().exportHeight,
+          cameraDistance: get().cameraDistance,
+          editorBackgroundColor: get().editorBackgroundColor,
+          gridSectionColor: get().gridSectionColor,
+          gridCellColor: get().gridCellColor,
+          theme: get().theme,
+        };
+      },
+
+      hydrate: (snapshot) =>
+        set({
+          mode: snapshot.mode,
+          width: snapshot.width,
+          height: snapshot.height,
+          exportWidth: snapshot.exportWidth,
+          exportHeight: snapshot.exportHeight,
+          cameraDistance: snapshot.cameraDistance,
+          editorBackgroundColor: snapshot.editorBackgroundColor,
+          gridSectionColor: snapshot.gridSectionColor,
+          gridCellColor: snapshot.gridCellColor,
+          theme: snapshot.theme,
+        }),
     }),
     { name: "Settings" },
   ),

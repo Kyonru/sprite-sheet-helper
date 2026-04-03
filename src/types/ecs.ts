@@ -176,3 +176,8 @@ export const LightTypeMap = {
   spot: {} as SpotLightComponent,
   hemisphere: {} as HemisphereLightComponent,
 };
+
+export type SnapshotEnabledStore<T> = {
+  getSnapshot: () => T;
+  hydrate: (snapshot: T) => void;
+};

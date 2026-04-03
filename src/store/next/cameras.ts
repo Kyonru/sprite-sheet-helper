@@ -1,7 +1,7 @@
 // stores/cameras.ts
 import { create } from "zustand";
 import { inspector } from "../../../devtools/inspector-middleware";
-import type { CameraComponent } from "@/types/ecs";
+import type { CameraComponent, SnapshotEnabledStore } from "@/types/ecs";
 import type { CameraType } from "@/types/camera";
 
 export const DEFAULT_PERSPECTIVE_CAMERA: CameraComponent = {
@@ -22,33 +22,24 @@ export interface GlobalSettings {
   orbitControls: boolean;
 }
 
-interface CamerasState {
+export interface CamerasState {
   cameras: Record<string, CameraComponent>;
   mainCamera?: string;
-  globalSettings: GlobalSettings;
 }
 
-interface CamerasActions {
+interface CamerasActions extends SnapshotEnabledStore<CamerasState> {
   initCamera: (uuid: string, overrides?: Partial<CameraComponent>) => void;
   setCamera: (uuid: string, props: Partial<CameraComponent>) => void;
   setActiveCamera: (uuid: string) => void;
   removeCamera: (uuid: string) => void;
-  setGlobalSettings: (settings: Partial<GlobalSettings>) => void;
   setCameraType: (uuid: string, type: CameraType) => void;
-  hydrate: (
-    cameras: Record<string, CameraComponent>,
-    mainCamera?: string,
-  ) => void;
 }
 
 export const useCamerasStore = create<CamerasState & CamerasActions>()(
   inspector(
-    (set) => ({
+    (set, get) => ({
       cameras: {},
       mainCamera: undefined,
-      globalSettings: {
-        orbitControls: true,
-      },
 
       initCamera: (uuid, overrides = {}) =>
         set((state) => ({
@@ -102,17 +93,18 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
           };
         }),
 
-      setGlobalSettings: (settings) =>
-        set((state) => {
-          return {
-            globalSettings: {
-              ...state.globalSettings,
-              ...settings,
-            },
-          };
-        }),
+      getSnapshot: () => {
+        return {
+          cameras: get().cameras,
+          mainCamera: get().mainCamera,
+        };
+      },
 
-      hydrate: (cameras, mainCamera) => set({ cameras, mainCamera }),
+      hydrate: (snapshot) =>
+        set({
+          cameras: snapshot.cameras,
+          mainCamera: snapshot.mainCamera,
+        }),
     }),
     { name: "Cameras" },
   ),

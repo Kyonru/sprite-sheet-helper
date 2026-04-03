@@ -1,15 +1,15 @@
-import type { Entity, ObjectType } from "@/types/ecs";
+import type { Entity, ObjectType, SnapshotEnabledStore } from "@/types/ecs";
 import { generateUUID } from "@/utils/strings";
 import { create } from "zustand";
 import { inspector } from "../../../devtools/inspector-middleware";
 
-interface EntitiesState {
+export interface EntitiesState {
   entities: Record<string, Entity>;
   children: Record<string, Record<string, boolean>>;
   selected?: string;
 }
 
-interface EntitiesActions {
+interface EntitiesActions extends SnapshotEnabledStore<EntitiesState> {
   addEntity: (
     type: ObjectType,
     name: string,
@@ -24,15 +24,11 @@ interface EntitiesActions {
   removeChild: (uuid: string, child: string) => void;
   selectEntity: (uuid?: string) => void;
   unselectEntity: () => void;
-  hydrate: (
-    entities: Record<string, Entity>,
-    children: Record<string, Record<string, boolean>>,
-  ) => void;
 }
 
 export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
   inspector(
-    (set) => ({
+    (set, get) => ({
       entities: {},
       children: {},
 
@@ -123,7 +119,20 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
 
       unselectEntity: () => set({ selected: undefined }),
 
-      hydrate: (entities, children) => set({ entities, children }),
+      hydrate: (snapshot) =>
+        set({
+          entities: snapshot.entities,
+          children: snapshot.children,
+          selected: snapshot.selected,
+        }),
+
+      getSnapshot: () => {
+        return {
+          entities: get().entities,
+          children: get().children,
+          selected: get().selected,
+        };
+      },
     }),
     { name: "Entities" },
   ),

@@ -90,6 +90,7 @@
   "devDependencies": {
     "@eslint/js": "^9.25.0",
     "@tauri-apps/cli": "^2.10.0",
+    "@types/jszip": "^3.4.0",
     "@types/luaparse": "^0.2.13",
     "@types/node": "^22.15.18",
     "@types/react": "19.1.2",

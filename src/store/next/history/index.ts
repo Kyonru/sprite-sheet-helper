@@ -2,13 +2,14 @@ import { create } from "zustand";
 import { inspector } from "../../../../devtools/inspector-middleware";
 import type { HistoryAction } from "@/types/history";
 import { applyAction, reverseAction } from "./utils";
+import type { SnapshotEnabledStore } from "@/types/ecs";
 
-interface HistoryState {
+export interface HistoryState {
   past: HistoryAction[];
   future: HistoryAction[];
 }
 
-interface HistoryActions {
+interface HistoryActions extends SnapshotEnabledStore<HistoryState> {
   push: (action: HistoryAction) => void;
   undo: () => void;
   redo: () => void;
@@ -56,6 +57,19 @@ export const useHistoryStore = create<HistoryState & HistoryActions>()(
       },
 
       clear: () => set({ past: [], future: [] }),
+
+      getSnapshot: () => {
+        return {
+          past: get().past,
+          future: get().future,
+        };
+      },
+
+      hydrate: (snapshot) =>
+        set({
+          past: snapshot.past,
+          future: snapshot.future,
+        }),
     }),
     { name: "History" },
   ),

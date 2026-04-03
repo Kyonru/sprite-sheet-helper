@@ -41,11 +41,13 @@ import { GradientPicker } from "@/components/ui/gradient-picker";
 import { Switch } from "@/components/ui/switch";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme, type Theme } from "@/components/theme-provider";
+import { useProjectStore } from "@/store/next/project";
+import { setAppTitle } from "@/utils/app";
 
-const ExportFormats = ["spritesheet", "gif", "zip"];
+const ExportFormats = ["spritesheet", "gif", "zip"] as const;
 
-const formSchema = z.object<{ [K in keyof SettingsState]: z.ZodTypeAny }>({
-  mode: z.enum(ExportFormats as ExportFormat[]),
+const formSchema = z.object({
+  mode: z.enum(ExportFormats),
   width: z.coerce.number().min(1),
   height: z.coerce.number().min(1),
   exportWidth: z.coerce.number().min(1),
@@ -54,6 +56,7 @@ const formSchema = z.object<{ [K in keyof SettingsState]: z.ZodTypeAny }>({
   editorBackgroundColor: z.string(),
   gridSectionColor: z.string(),
   gridCellColor: z.string(),
+  projectName: z.string(),
   theme: z.enum(["light", "dark"]),
 });
 
@@ -78,6 +81,8 @@ export function openSettings(options?: Omit<SettingsModalState, "open">) {
 
 export function SettingsModalProvider() {
   const settings = useSettingsStore((state) => state);
+  const projectName = useProjectStore((state) => state.name);
+  const updateProjectName = useProjectStore((state) => state.updateName);
   const updateSettings = useSettingsStore((state) => state.update);
   const [state, setState] = useState<SettingsModalState>({ open: false });
   const { setTheme } = useTheme();
@@ -94,7 +99,7 @@ export function SettingsModalProvider() {
     };
   }, []);
 
-  const form = useForm<FormValues>({
+  const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       mode: settings.mode,
@@ -107,6 +112,7 @@ export function SettingsModalProvider() {
       gridSectionColor: settings.gridSectionColor,
       gridCellColor: settings.gridCellColor,
       theme: settings.theme,
+      projectName,
     },
   });
 
@@ -127,10 +133,11 @@ export function SettingsModalProvider() {
         editorBackgroundColor: settings.editorBackgroundColor,
         gridSectionColor: settings.gridSectionColor,
         gridCellColor: settings.gridCellColor,
+        projectName: projectName,
         theme: settings.theme,
       });
     }
-  }, [form, settings, state.open]);
+  }, [form, settings, state.open, projectName]);
 
   const onClose = () => {
     setTheme(originalThemeRef.current);
@@ -144,10 +151,13 @@ export function SettingsModalProvider() {
 
   function onSubmit(data: FormValues) {
     updateSettings(data as SettingsState);
+    updateProjectName(data.projectName as string);
     originalThemeRef.current = data.theme as Exclude<Theme, "system">;
     originalBgRef.current = data.editorBackgroundColor as string;
     originalGridSectionRef.current = data.gridSectionColor as string;
     originalGridCellRef.current = data.gridCellColor as string;
+
+    setAppTitle(data.projectName);
     onClose();
   }
 
@@ -170,8 +180,41 @@ export function SettingsModalProvider() {
             </DialogHeader>
 
             <FieldGroup className="mt-4 overflow-y-auto min-h-0">
+              {/* ── Project ── */}
+              <Collapsible>
+                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-medium py-1">
+                  Project
+                  <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="grid grid-cols-1 gap-4 pt-3">
+                    <Controller
+                      name="projectName"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldContent>
+                            <FieldLabel htmlFor="project-name">Name</FieldLabel>
+                            {fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                          </FieldContent>
+                          <Input
+                            {...field}
+                            value={field.value}
+                            id="project-name"
+                            min={1}
+                            aria-invalid={fieldState.invalid}
+                          />
+                        </Field>
+                      )}
+                    />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
               {/* ── Canvas ── */}
-              <Collapsible defaultOpen>
+              <Collapsible>
                 <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-medium py-1">
                   Preview Canvas
                   <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
@@ -236,10 +279,8 @@ export function SettingsModalProvider() {
                 </CollapsibleContent>
               </Collapsible>
 
-              <hr className="border-border" />
-
               {/* ── Export ── */}
-              <Collapsible defaultOpen>
+              <Collapsible>
                 <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-medium py-1">
                   Export
                   <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
@@ -347,8 +388,6 @@ export function SettingsModalProvider() {
                   </FieldGroup>
                 </CollapsibleContent>
               </Collapsible>
-
-              <hr className="border-border" />
 
               {/* ── Camera ── */}
               <Collapsible>

@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { inspector } from "../../../../devtools/inspector-middleware";
-import type { ModelComponent, ModelLoadState } from "@/types/ecs";
+import type {
+  ModelComponent,
+  ModelLoadState,
+  SnapshotEnabledStore,
+} from "@/types/ecs";
 import * as THREE from "three";
 import { saveFileToOPFS } from "@/utils/fs";
 import { toast } from "sonner";
@@ -16,11 +20,14 @@ export const getModelFromCache = (uuid: string) => modelCache.get(uuid) ?? null;
 export const getMixerFromCache = (uuid: string) => mixerCache.get(uuid) ?? null;
 export const getClipsFromCache = (uuid: string) => clipsCache.get(uuid) ?? [];
 
-type SerializableModel = Omit<ModelComponent, "loadState" | "errorMessage">;
+export type SerializableModel = Omit<
+  ModelComponent,
+  "loadState" | "errorMessage"
+>;
 
 export type LoopType = THREE.AnimationActionLoopStyles;
 
-interface ModelsState {
+export interface ModelsState {
   models: Record<string, ModelComponent>;
   clips: Record<
     string,
@@ -39,7 +46,7 @@ interface ModelsState {
   freeze: Record<string, boolean>;
 }
 
-interface ModelsActions {
+interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
   loadFromFile: (uuid: string, file: File) => Promise<void>;
   reloadModel: (uuid: string) => Promise<void>;
   removeModel: (uuid: string) => void;
@@ -67,7 +74,6 @@ interface ModelsActions {
   setCurrentTime: (uuid: string, time: number) => void;
   setFrameStep: (uuid: string, step: number) => void;
   setFreeze: (uuid: string, freeze: boolean) => void;
-  hydrate: (models: Record<string, SerializableModel>) => void;
 }
 
 export const useModelsStore = create<ModelsState & ModelsActions>()(
@@ -105,6 +111,7 @@ export const useModelsStore = create<ModelsState & ModelsActions>()(
           models: {
             ...state.models,
             [uuid]: {
+              ...state.models[uuid],
               file: file,
               fileName: file.name,
               filePath: opfsFileName,
@@ -202,14 +209,41 @@ export const useModelsStore = create<ModelsState & ModelsActions>()(
           freeze: { ...state.freeze, [uuid]: freeze },
         })),
 
-      hydrate: (models) =>
-        set({
+      getSnapshot: () => {
+        return {
           models: Object.fromEntries(
-            Object.entries(models).map(([uuid, m]) => [
+            Object.entries(get().models).map(([uuid, m]) => [
               uuid,
-              { ...m, loadState: "idle", errorMessage: null },
+              {
+                fileName: m.fileName,
+                filePath: m.filePath,
+                type: m.type,
+                fileSize: m.fileSize,
+                format: m.format,
+              },
             ]),
           ),
+
+          animations: get().animations,
+          durations: get().durations,
+          speeds: get().speeds,
+          loops: get().loops,
+          currentTime: get().currentTime,
+          frameStep: get().frameStep,
+          freeze: get().freeze,
+        };
+      },
+
+      hydrate: (snapshot) =>
+        set({
+          models: snapshot.models,
+          animations: snapshot.animations,
+          durations: snapshot.durations,
+          speeds: snapshot.speeds,
+          loops: snapshot.loops,
+          currentTime: snapshot.currentTime,
+          frameStep: snapshot.frameStep,
+          freeze: snapshot.freeze,
         }),
     }),
 

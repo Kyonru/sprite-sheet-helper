@@ -1,4 +1,4 @@
-import type { Transform } from "@/types/ecs";
+import type { SnapshotEnabledStore, Transform } from "@/types/ecs";
 import type { Transform as TransformMode } from "@/types/transform";
 import { create } from "zustand";
 import { inspector } from "../../../devtools/inspector-middleware";
@@ -9,22 +9,21 @@ const DEFAULT_TRANSFORM: Transform = {
   scale: [1, 1, 1],
 };
 
-interface TransformsState {
+export interface TransformsState {
   transforms: Record<string, Transform>;
   mode: TransformMode;
 }
 
-interface TransformsActions {
+interface TransformsActions extends SnapshotEnabledStore<TransformsState> {
   setTransform: (uuid: string, transform: Partial<Transform>) => void;
   initTransform: (uuid: string, transform?: Partial<Transform>) => void;
   removeTransform: (uuid: string) => void;
   setMode: (mode: TransformMode) => void;
-  hydrate: (transforms: Record<string, Transform>) => void;
 }
 
 export const useTransformsStore = create<TransformsState & TransformsActions>()(
   inspector(
-    (set) => ({
+    (set, get) => ({
       transforms: {},
       mode: "translate",
 
@@ -53,7 +52,18 @@ export const useTransformsStore = create<TransformsState & TransformsActions>()(
 
       setMode: (mode) => set({ mode }),
 
-      hydrate: (transforms) => set({ transforms }),
+      hydrate: (snapshot) =>
+        set({
+          transforms: snapshot.transforms,
+          mode: snapshot.mode,
+        }),
+
+      getSnapshot: () => {
+        return {
+          transforms: get().transforms,
+          mode: get().mode,
+        };
+      },
     }),
     {
       name: "Transforms",

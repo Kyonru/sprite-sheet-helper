@@ -64,8 +64,6 @@ function parseDocs(): DocEntry[] {
   return Object.entries(rawDocs).map(([path, raw]) => {
     const { data, content } = parseFrontmatter(raw as string);
 
-    console.log({ data }, { content });
-
     return {
       id: path,
       title:

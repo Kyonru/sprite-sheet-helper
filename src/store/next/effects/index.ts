@@ -8,6 +8,7 @@ import {
 } from "postprocessing";
 import { create } from "zustand";
 import { inspector } from "../../../../devtools/inspector-middleware";
+import type { SnapshotEnabledStore } from "@/types/ecs";
 
 export type EffectType =
   | "pixelation"
@@ -323,24 +324,23 @@ export const EFFECT_DEFAULTS: EffectDefaults = {
   },
 };
 
-interface EffectsState {
+export interface EffectsState {
   effects: Record<string, EffectComponent>;
   selected?: string;
 }
 
-interface EffectsActions {
+interface EffectsActions extends SnapshotEnabledStore<EffectsState> {
   initEffect: (type: EffectType) => void;
   setEffect: (uuid: string, props: Partial<EffectComponent>) => void;
   setSelected: (uuid?: string) => void;
   removeEffect: (uuid: string) => void;
-  hydrate: (effects: Record<string, EffectComponent>) => void;
 }
 
 interface EffectsStore extends EffectsState, EffectsActions {}
 
 export const useEffectsStore = create<EffectsStore>()(
   inspector(
-    (set) => ({
+    (set, get) => ({
       effects: {},
       selected: undefined,
 
@@ -372,7 +372,18 @@ export const useEffectsStore = create<EffectsStore>()(
           return { effects: rest };
         }),
 
-      hydrate: (effects) => set({ effects }),
+      hydrate: (snapshot) =>
+        set({
+          effects: snapshot.effects,
+          selected: snapshot.selected,
+        }),
+
+      getSnapshot: () => {
+        return {
+          effects: get().effects,
+          selected: get().selected,
+        };
+      },
     }),
     { name: "Effects" },
   ),

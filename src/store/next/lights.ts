@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { LightComponent } from "@/types/ecs";
+import type { LightComponent, SnapshotEnabledStore } from "@/types/ecs";
 import { inspector } from "../../../devtools/inspector-middleware";
 
 export const LIGHT_DEFAULTS: Record<string, LightComponent> = {
@@ -44,20 +44,19 @@ export const LIGHT_DEFAULTS: Record<string, LightComponent> = {
   },
 };
 
-interface LightsState {
+export interface LightsState {
   lights: Record<string, LightComponent>;
 }
 
-interface LightsActions {
+interface LightsActions extends SnapshotEnabledStore<LightsState> {
   initLight: (uuid: string, type: LightComponent["type"]) => void;
   setLight: (uuid: string, props: Partial<LightComponent>) => void;
   removeLight: (uuid: string) => void;
-  hydrate: (lights: Record<string, LightComponent>) => void;
 }
 
 export const useLightsStore = create<LightsState & LightsActions>()(
   inspector(
-    (set) => ({
+    (set, get) => ({
       lights: {},
 
       initLight: (uuid, type) =>
@@ -83,7 +82,16 @@ export const useLightsStore = create<LightsState & LightsActions>()(
           return { lights: rest };
         }),
 
-      hydrate: (lights) => set({ lights }),
+      getSnapshot: () => {
+        return {
+          lights: get().lights,
+        };
+      },
+
+      hydrate: (snapshot) =>
+        set({
+          lights: snapshot.lights,
+        }),
     }),
     { name: "Lights" },
   ),

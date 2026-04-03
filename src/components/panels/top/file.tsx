@@ -18,13 +18,20 @@ import { MenuIcon } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
 import { openSettings } from "./settings";
+import { useProjectStore } from "@/store/next/project";
 
 export const FileMenu = () => {
   const loadFromFile = useAddModel(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const projectInputRef = useRef<HTMLInputElement>(null);
+  const projectStore = useProjectStore();
 
   const onImportModel = () => {
     fileInputRef.current?.click();
+  };
+
+  const onImportProject = () => {
+    projectInputRef.current?.click();
   };
 
   const onLoadModel = async () => {
@@ -42,6 +49,21 @@ export const FileMenu = () => {
     }
   };
 
+  const onLoadProject = async () => {
+    const file = projectInputRef.current?.files?.[0];
+    if (!file) return;
+
+    try {
+      await projectStore.load(file);
+    } catch {
+      toast.error("Failed to load project.");
+    } finally {
+      if (projectInputRef.current) {
+        projectInputRef.current.value = "";
+      }
+    }
+  };
+
   return (
     <>
       <Input
@@ -51,6 +73,14 @@ export const FileMenu = () => {
         className="hidden"
         accept={`.${ACCEPTED_MODEL_FILE_TYPES.join(",.")}`}
         onChange={onLoadModel}
+      />
+      <Input
+        ref={projectInputRef}
+        id="project"
+        type="file"
+        className="hidden"
+        accept=".sshProj"
+        onChange={onLoadProject}
       />
       <MenubarMenu>
         <MenubarTrigger>
@@ -64,14 +94,14 @@ export const FileMenu = () => {
           </MenubarGroup>
           <MenubarSeparator />
           <MenubarGroup>
-            <MenubarItem>
-              Open project <MenubarShortcut>⌘N</MenubarShortcut>
+            <MenubarItem onClick={onImportProject}>
+              Open project... <MenubarShortcut>⌘N</MenubarShortcut>
             </MenubarItem>
-            <MenubarItem>
+            <MenubarItem onClick={projectStore.save}>
               Quick save <MenubarShortcut>⌘S</MenubarShortcut>
             </MenubarItem>
-            <MenubarItem>
-              Save project.. <MenubarShortcut>⌘N</MenubarShortcut>
+            <MenubarItem onClick={projectStore.saveAs}>
+              Save project... <MenubarShortcut>⌘N</MenubarShortcut>
             </MenubarItem>
           </MenubarGroup>
           <MenubarSeparator />

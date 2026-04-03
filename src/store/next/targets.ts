@@ -1,22 +1,22 @@
 import { create } from "zustand";
 import { inspector } from "../../../devtools/inspector-middleware";
+import type { SnapshotEnabledStore } from "@/types/ecs";
 
 const DEFAULT_POSITION: [number, number, number] = [0, 0, 0];
 
-interface TargetsState {
+export interface TargetsState {
   targets: Record<string, [number, number, number]>;
 }
 
-interface TargetsActions {
+interface TargetsActions extends SnapshotEnabledStore<TargetsState> {
   setTarget: (uuid: string, target: [number, number, number]) => void;
   initTarget: (uuid: string, target?: [number, number, number]) => void;
   removeTarget: (uuid: string) => void;
-  hydrate: (targets: Record<string, [number, number, number]>) => void;
 }
 
 export const useTargetsStore = create<TargetsState & TargetsActions>()(
   inspector(
-    (set) => ({
+    (set, get) => ({
       targets: {},
 
       initTarget: (uuid, target = DEFAULT_POSITION) =>
@@ -42,7 +42,16 @@ export const useTargetsStore = create<TargetsState & TargetsActions>()(
           return { targets: rest };
         }),
 
-      hydrate: (targets) => set({ targets }),
+      hydrate: (snapshot) =>
+        set({
+          targets: snapshot.targets,
+        }),
+
+      getSnapshot: () => {
+        return {
+          targets: get().targets,
+        };
+      },
     }),
     {
       name: "Targets",
