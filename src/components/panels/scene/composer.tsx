@@ -18,6 +18,7 @@ import {
   TiltShift,
   TiltShift2,
   ASCII,
+  Grid,
   ToneMapping,
 } from "@react-three/postprocessing";
 import { useEffectsStore, type EffectComponent } from "@/store/next/effects";
@@ -29,6 +30,7 @@ import { CustomShaderEffect } from "./custom-effects.tsx/custom-shader";
 import { useRefsStore } from "@/store/next/refs";
 import { useMemo } from "react";
 import * as THREE from "three";
+import { Vector2 } from "three";
 
 function EffectNode({ effect }: { effect: EffectComponent }) {
   const refs = useRefsStore((state) => state.refs);
@@ -55,10 +57,9 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
     case "glitch":
       return (
         <Glitch
-          blendFunction={effect.blendFunction}
-          // delay={effect.delay}
-          // duration={effect.duration}
-          // strength={effect.strength}
+          delay={new Vector2(...effect.delay)}
+          duration={new Vector2(...effect.duration)}
+          strength={new Vector2(...effect.strength)}
           dtSize={effect.dtSize}
           columns={effect.columns}
           mode={effect.mode}
@@ -74,8 +75,6 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
           luminanceSmoothing={effect.luminanceSmoothing}
           intensity={effect.intensity}
           mipmapBlur={effect.mipmapBlur}
-          resolutionX={effect.resolutionX}
-          resolutionY={effect.resolutionY}
           levels={effect.levels}
           radius={effect.radius}
         />
@@ -270,6 +269,9 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
           }}
         />
       );
+
+    case "grid":
+      return <Grid {...effect} />;
 
     default:
       return null;

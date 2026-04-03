@@ -38,10 +38,10 @@ export const PostProcessingEffects = () => {
   const outline = useEffectsStore((state) => state.outline);
   const ascii = useEffectsStore((state) => state.ascii);
   const brightnessContrast = useEffectsStore(
-    (state) => state.brightnessContrast
+    (state) => state.brightnessContrast,
   );
   const chromaticAberration = useEffectsStore(
-    (state) => state.chromaticAberration
+    (state) => state.chromaticAberration,
   );
   const colorAverage = useEffectsStore((state) => state.colorAverage);
   const colorDepth = useEffectsStore((state) => state.colorDepth);

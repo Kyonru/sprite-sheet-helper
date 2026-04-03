@@ -1,6 +1,13 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BLEND_FUNCTIONS } from "@/constants/effects";
-import { useEffectsStore } from "@/store/next/effects";
+import {
+  BLEND_FUNCTIONS,
+  EDGE_DETECTION_MODES,
+  GLITCH_MODES,
+  PREDICATION_MODES,
+  SMAA_PRESETS,
+  TONE_MAPPING_MODES,
+} from "@/constants/effects";
+import { useEffectsStore, type EffectType } from "@/store/next/effects";
 
 import {
   button,
@@ -15,6 +22,21 @@ import { useMemo } from "react";
 import { PALETTE_INDEX } from "../../scene/custom-effects.tsx/palette";
 import { LEVA_THEME } from "@/constants/theming";
 import { openShaderEditor } from "@/components/custom-shader-modal";
+
+const MODE_OPTIONS_MAP: Partial<
+  Record<EffectType, Record<string, number | string>>
+> = {
+  tonemap: TONE_MAPPING_MODES,
+  glitch: GLITCH_MODES,
+};
+
+const OPTIONS_MAP: Record<string, Record<string, number | string>> = {
+  blendFunction: BLEND_FUNCTIONS,
+  preset: SMAA_PRESETS,
+  edgeDetectionMode: EDGE_DETECTION_MODES,
+  predicationMode: PREDICATION_MODES,
+  palette: PALETTE_INDEX,
+};
 
 const EffectDetails = ({ uuid }: { uuid?: string }) => {
   const store = useStoreContext();
@@ -39,17 +61,36 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
       // @ts-ignore
       const value = effect[key];
 
-      if (key === "blendFunction") {
+      if (
+        key === "blendFunction" ||
+        key === "palette" ||
+        key === "edgeDetectionMode" ||
+        key === "predicationMode" ||
+        key === "preset"
+      ) {
+        const options = OPTIONS_MAP[key];
         i[key] = {
-          options: BLEND_FUNCTIONS,
+          options: options,
           value: value,
           onChange: (newValue: unknown) => {
             setEffect(uuid, { [key]: newValue } as never);
           },
         };
-      } else if (key === "palette") {
+      } else if (key === "scale" && effect.type === "grid") {
         i[key] = {
-          options: PALETTE_INDEX,
+          min: 0,
+          max: 1,
+          step: 0.1,
+          value: value,
+          onChange: (newValue: unknown) => {
+            setEffect(uuid, { [key]: newValue } as never);
+          },
+        };
+      } else if (key === "mode") {
+        const options = MODE_OPTIONS_MAP[effect.type];
+
+        i[key] = {
+          options,
           value: value,
           onChange: (newValue: unknown) => {
             setEffect(uuid, { [key]: newValue } as never);
@@ -59,6 +100,16 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
         i[key] = button(() => {
           openShaderEditor(uuid);
         });
+      } else if (key === "brightness" || key === "contrast") {
+        i[key] = {
+          value: value,
+          min: -1,
+          max: 1,
+          step: 0.01,
+          onChange: (newValue: unknown) => {
+            setEffect(uuid, { [key]: newValue } as never);
+          },
+        };
       } else {
         i[key] = {
           value,

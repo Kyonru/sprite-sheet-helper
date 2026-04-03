@@ -1,32 +1,43 @@
 import type { EffectType } from "@/store/next/effects";
 import type { LightType } from "@/types/lighting";
-import { BlendFunction, GlitchMode, VignetteTechnique } from "postprocessing";
+import {
+  BlendFunction,
+  EdgeDetectionMode,
+  GlitchMode,
+  PredicationMode,
+  SMAAPreset,
+  ToneMappingMode,
+  VignetteTechnique,
+} from "postprocessing";
 
-export const BLEND_FUNCTIONS = Object.keys(BlendFunction)
-  .map((key: string) => {
-    return {
-      [key]: BlendFunction[key as keyof typeof BlendFunction],
-    };
-  })
-  .reduce((a, b) => Object.assign(a, b), {});
+export const EnumToArray = <T>(
+  obj: T extends Record<string, unknown> ? T : never,
+) => {
+  return Object.keys(obj)
+    .map((key: string) => {
+      return {
+        [key]: obj[key as keyof typeof obj],
+      };
+    })
+    .reduce((a, b) => Object.assign(a, b), {});
+};
 
-export const GLITCH_MODES = Object.keys(GlitchMode)
-  .map((key: string) => {
-    return {
-      [key]: GlitchMode[key as keyof typeof GlitchMode],
-    };
-  })
-  .reduce((a, b) => Object.assign(a, b), {});
+export const BLEND_FUNCTIONS = EnumToArray(BlendFunction);
 
-export const VIGNETTE_TECHNIQUES = Object.keys(VignetteTechnique)
-  .map((key: string) => {
-    return {
-      [key]: VignetteTechnique[key as keyof typeof VignetteTechnique],
-    };
-  })
-  .reduce((a, b) => Object.assign(a, b), {});
+export const VIGNETTE_TECHNIQUES = EnumToArray(VignetteTechnique);
+
+export const GLITCH_MODES = EnumToArray(GlitchMode);
+
+export const SMAA_PRESETS = EnumToArray(SMAAPreset);
+
+export const TONE_MAPPING_MODES = EnumToArray(ToneMappingMode);
+
+export const EDGE_DETECTION_MODES = EnumToArray(EdgeDetectionMode);
+
+export const PREDICATION_MODES = EnumToArray(PredicationMode);
 
 export const EFFECTS: { key: EffectType; name: string }[] = [
+  { key: "grid", name: "Grid" },
   { key: "pixelation", name: "Pixelation" },
   { key: "glitch", name: "Glitch" },
   { key: "bloom", name: "Bloom" },
@@ -50,6 +61,13 @@ export const EFFECTS: { key: EffectType; name: string }[] = [
   { key: "dither", name: "Dither" },
   { key: "tonemap", name: "Tonemap" },
   { key: "customShader", name: "Custom Shader" },
+  { key: "grid", name: "Grid" },
+  { key: "shockwave", name: "Shockwave" },
+  { key: "ssao", name: "SSAO" },
+  { key: "smaa", name: "SMAA" },
+  { key: "fxaa", name: "FXAA" },
+  { key: "gammaCorrection", name: "Gamma Correction" },
+  { key: "bokeh", name: "Bokeh" },
 ];
 
 export const LIGHTS: {

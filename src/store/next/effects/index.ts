@@ -5,6 +5,10 @@ import {
   KernelSize,
   Resolution,
   VignetteTechnique,
+  ToneMappingMode,
+  SMAAPreset,
+  EdgeDetectionMode,
+  PredicationMode,
 } from "postprocessing";
 import { create } from "zustand";
 import { inspector } from "../../../../devtools/inspector-middleware";
@@ -33,16 +37,22 @@ export type EffectType =
   | "palette"
   | "dither"
   | "tonemap"
-  | "customShader";
+  | "customShader"
+  | "grid"
+  | "shockwave"
+  | "gammaCorrection"
+  | "bokeh"
+  | "ssao"
+  | "smaa"
+  | "fxaa";
 
 export type EffectComponent = { type: EffectType; enabled: boolean } & (
   | { type: "pixelation"; granularity: number }
   | {
       type: "glitch";
-      blendFunction: BlendFunction;
-      delay: number;
-      duration: number;
-      strength: number;
+      delay: [number, number];
+      duration: [number, number];
+      strength: [number, number];
       chromaticAberrationOffset: [number, number];
       dtSize: number;
       columns: number;
@@ -56,8 +66,6 @@ export type EffectComponent = { type: EffectType; enabled: boolean } & (
       luminanceSmoothing: number;
       intensity: number;
       mipmapBlur: boolean;
-      resolutionX: number;
-      resolutionY: number;
       levels: number;
       radius: number;
     }
@@ -83,7 +91,6 @@ export type EffectComponent = { type: EffectType; enabled: boolean } & (
   | {
       type: "outline";
       blendFunction: BlendFunction;
-      selectionLayer: number;
       edgeStrength: number;
       pulseSpeed: number;
       visibleEdgeColor: string;
@@ -156,7 +163,12 @@ export type EffectComponent = { type: EffectType; enabled: boolean } & (
       saturation: number;
       blendFunction: BlendFunction;
     }
-  | { type: "scanline"; blendFunction: BlendFunction; density: number }
+  | {
+      type: "scanline";
+      blendFunction: BlendFunction;
+      density: number;
+      scrollSpeed: number;
+    }
   | { type: "sepia"; intensity: number; blendFunction: BlendFunction }
   | { type: "palette"; palette: number }
   | { type: "dither"; ditherStrength: number; ditherScale: number }
@@ -164,6 +176,9 @@ export type EffectComponent = { type: EffectType; enabled: boolean } & (
       type: "tonemap";
       blendFunction: BlendFunction;
       adaptive: boolean;
+      mode: ToneMappingMode;
+      whitePoint: number;
+      minLuminance: number;
       resolution: number;
       middleGrey: number;
       maxLuminance: number;
@@ -171,6 +186,66 @@ export type EffectComponent = { type: EffectType; enabled: boolean } & (
       adaptationRate: number;
     }
   | { type: "customShader"; fragmentShader: string }
+  | {
+      type: "grid";
+      scale: number;
+      lineWidth: number;
+      blendFunction: BlendFunction;
+    }
+  | {
+      type: "shockwave";
+      blendFunction: BlendFunction;
+      speed: number;
+      position: [number, number, number];
+      maxRadius: number;
+      amplitude: number;
+      wavelength: number;
+    }
+  | {
+      type: "ssao";
+      blendFunction: BlendFunction;
+      depthAwareUpsampling: boolean;
+      samples: number;
+      rings: number;
+      worldDistanceThreshold: number;
+      worldDistanceFalloff: number;
+      worldProximityThreshold: number;
+      worldProximityFalloff: number;
+      minRadiusScale: number;
+      luminanceInfluence: number;
+      radius: number;
+      intensity: number;
+      bias: number;
+      fade: number;
+      color: string;
+      resolutionScale: number;
+      resolutionX: number;
+      resolutionY: number;
+    }
+  | {
+      type: "smaa";
+      blendFunction: BlendFunction;
+      preset: SMAAPreset;
+      edgeDetectionMode: EdgeDetectionMode;
+      predicationMode: PredicationMode;
+    }
+  | {
+      type: "fxaa";
+      blendFunction: BlendFunction;
+    }
+  | {
+      type: "gammaCorrection";
+      blendFunction: BlendFunction;
+      gamma: number;
+    }
+  | {
+      type: "bokeh";
+      blendFunction: BlendFunction;
+      focus: number;
+      dof: number;
+      aperture: number;
+      maxBlur: number;
+    }
 );
 
 type EffectDefaults = {
@@ -178,13 +253,18 @@ type EffectDefaults = {
 };
 
 export const EFFECT_DEFAULTS: EffectDefaults = {
-  pixelation: { enabled: false, granularity: 2 },
+  grid: {
+    enabled: true,
+    scale: 1,
+    lineWidth: 0.01,
+    blendFunction: BlendFunction.OVERLAY,
+  },
+  pixelation: { enabled: true, granularity: 2 },
   glitch: {
-    enabled: false,
-    blendFunction: BlendFunction.ADD,
-    delay: 1.5,
-    duration: 0.6,
-    strength: 0.3,
+    enabled: true,
+    delay: [0, 0],
+    duration: [0.1, 0.1],
+    strength: [0.3, 0.3],
     chromaticAberrationOffset: [0, 0],
     dtSize: 64,
     columns: 0.05,
@@ -192,45 +272,42 @@ export const EFFECT_DEFAULTS: EffectDefaults = {
     ratio: 0.85,
   },
   bloom: {
-    enabled: false,
-    blendFunction: BlendFunction.ADD,
-    luminanceThreshold: 0.025,
-    luminanceSmoothing: 0.9,
+    enabled: true,
+    blendFunction: BlendFunction.SCREEN,
+    luminanceThreshold: 1.0,
+    luminanceSmoothing: 0.03,
     intensity: 1.0,
-    mipmapBlur: false,
-    resolutionX: Resolution.AUTO_SIZE,
-    resolutionY: Resolution.AUTO_SIZE,
-    levels: 1,
-    radius: 0.5,
+    mipmapBlur: true,
+    levels: 8,
+    radius: 0.85,
   },
   depthOfField: {
-    enabled: false,
-    blendFunction: BlendFunction.ADD,
-    focusDistance: 0,
-    focusRange: 0.1,
+    enabled: true,
+    blendFunction: BlendFunction.NORMAL,
+    focusDistance: 3.0,
+    focusRange: 2.0,
     worldFocusDistance: 0,
     worldFocusRange: 0,
     bokehScale: 1,
-    resolutionScale: 1,
+    resolutionScale: 0.5,
     resolutionX: Resolution.AUTO_SIZE,
     resolutionY: Resolution.AUTO_SIZE,
   },
   noise: {
-    enabled: false,
+    enabled: true,
     premultiply: false,
-    blendFunction: BlendFunction.ADD,
+    blendFunction: BlendFunction.SCREEN,
   },
   vignette: {
-    enabled: false,
+    enabled: true,
     technique: VignetteTechnique.DEFAULT,
-    offset: 0.1,
-    darkness: 1.1,
+    offset: 0.5,
+    darkness: 0.5,
   },
   outline: {
-    enabled: false,
-    blendFunction: BlendFunction.ADD,
-    selectionLayer: 0,
-    edgeStrength: 2.5,
+    enabled: true,
+    blendFunction: BlendFunction.SCREEN,
+    edgeStrength: 1,
     pulseSpeed: 0,
     visibleEdgeColor: "#ffffff",
     hiddenEdgeColor: "#22090a",
@@ -238,38 +315,38 @@ export const EFFECT_DEFAULTS: EffectDefaults = {
     blur: false,
     xRay: true,
     multisampling: 0,
-    resolutionScale: 1,
+    resolutionScale: 0.5,
     resolutionX: Resolution.AUTO_SIZE,
     resolutionY: Resolution.AUTO_SIZE,
   },
   ascii: {
-    enabled: false,
+    enabled: true,
     font: "arial",
     characters: ` .:,'-^=*+?!|0#X%WM@`,
     fontSize: 54,
     cellSize: 16,
     color: "#ffffff",
     invert: false,
-    blendFunction: BlendFunction.ADD,
+    blendFunction: BlendFunction.NORMAL,
   },
   brightnessContrast: {
-    enabled: false,
-    brightness: 0.5,
-    contrast: 0.5,
-    blendFunction: BlendFunction.ADD,
+    enabled: true,
+    brightness: 0,
+    contrast: 0,
+    blendFunction: BlendFunction.SRC,
   },
   chromaticAberration: {
-    enabled: false,
+    enabled: true,
     radialModulation: false,
-    modulationOffset: 0.5,
+    modulationOffset: 0.15,
     offset: [0.01, 0.01],
-    blendFunction: BlendFunction.ADD,
+    blendFunction: BlendFunction.NORMAL,
   },
-  colorAverage: { enabled: false, blendFunction: BlendFunction.ADD },
-  colorDepth: { enabled: false, bits: 1, blendFunction: BlendFunction.ADD },
-  depth: { enabled: false, inverted: false, blendFunction: BlendFunction.ADD },
+  colorAverage: { enabled: true, blendFunction: BlendFunction.NORMAL },
+  colorDepth: { enabled: true, bits: 16, blendFunction: BlendFunction.NORMAL },
+  depth: { enabled: true, inverted: false, blendFunction: BlendFunction.SRC },
   tiltShift: {
-    enabled: false,
+    enabled: true,
     blendFunction: BlendFunction.ADD,
     offset: 0,
     rotation: 0,
@@ -281,7 +358,7 @@ export const EFFECT_DEFAULTS: EffectDefaults = {
     resolutionY: Resolution.AUTO_SIZE,
   },
   tiltShift2: {
-    enabled: false,
+    enabled: true,
     blendFunction: BlendFunction.ADD,
     blur: 0.15,
     taper: 0.5,
@@ -291,36 +368,98 @@ export const EFFECT_DEFAULTS: EffectDefaults = {
     direction: [1, 1],
   },
   dotScreen: {
-    enabled: false,
-    blendFunction: BlendFunction.ADD,
-    angle: 0.5,
+    enabled: true,
+    blendFunction: BlendFunction.NORMAL,
+    angle: 1.57,
     scale: 1,
   },
   hueSaturation: {
-    enabled: false,
+    enabled: true,
     hue: 0,
     saturation: 0,
-    blendFunction: BlendFunction.ADD,
+    blendFunction: BlendFunction.SRC,
   },
-  scanline: { enabled: false, blendFunction: BlendFunction.ADD, density: 0.5 },
-  sepia: { enabled: false, intensity: 0.5, blendFunction: BlendFunction.ADD },
-  palette: { enabled: false, palette: 0 },
-  dither: { enabled: false, ditherStrength: 0.5, ditherScale: 1.0 },
+  scanline: {
+    enabled: true,
+    blendFunction: BlendFunction.ADD,
+    density: 0.5,
+    scrollSpeed: 0,
+  },
+  sepia: { enabled: true, intensity: 1, blendFunction: BlendFunction.ADD },
+  palette: { enabled: true, palette: 0 },
+  dither: { enabled: true, ditherStrength: 0.5, ditherScale: 1.0 },
   tonemap: {
-    enabled: false,
-    blendFunction: BlendFunction.NORMAL,
-    adaptive: true,
+    enabled: true,
+    blendFunction: BlendFunction.SRC,
+    mode: ToneMappingMode.AGX,
+    adaptive: false,
     resolution: 256,
+    maxLuminance: 4.0,
+    whitePoint: 4.0,
     middleGrey: 0.6,
-    maxLuminance: 16.0,
+    minLuminance: 0.01,
     averageLuminance: 1.0,
     adaptationRate: 1.0,
   },
   customShader: {
-    enabled: false,
+    enabled: true,
     fragmentShader: `void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
   outputColor = inputColor;
 }`,
+  },
+  shockwave: {
+    enabled: true,
+    blendFunction: BlendFunction.NORMAL,
+    speed: 2.0,
+    position: [0, 0, 0],
+    maxRadius: 1,
+    wavelength: 0.2,
+    amplitude: 0.05,
+  },
+  ssao: {
+    enabled: true,
+    blendFunction: BlendFunction.NORMAL,
+    depthAwareUpsampling: true,
+    samples: 9,
+    rings: 7,
+    worldDistanceThreshold: 0.01,
+    worldDistanceFalloff: 0.0,
+    worldProximityThreshold: 0.01,
+    worldProximityFalloff: 0.0,
+    minRadiusScale: 0.1,
+    luminanceInfluence: 0.7,
+    radius: 0.1825,
+    intensity: 1.0,
+    bias: 0.025,
+    fade: 0.01,
+    color: "#ffffff",
+    resolutionScale: 1.0,
+    resolutionX: Resolution.AUTO_SIZE,
+    resolutionY: Resolution.AUTO_SIZE,
+  },
+  smaa: {
+    enabled: true,
+    blendFunction: BlendFunction.SRC,
+    preset: SMAAPreset.MEDIUM,
+    edgeDetectionMode: EdgeDetectionMode.COLOR,
+    predicationMode: PredicationMode.DISABLED,
+  },
+  gammaCorrection: {
+    enabled: true,
+    blendFunction: BlendFunction.SRC,
+    gamma: 2.0,
+  },
+  fxaa: {
+    enabled: true,
+    blendFunction: BlendFunction.SRC,
+  },
+  bokeh: {
+    enabled: true,
+    blendFunction: BlendFunction.ADD,
+    focus: 0.5,
+    dof: 0.02,
+    aperture: 0.015,
+    maxBlur: 1.0,
   },
 };
 

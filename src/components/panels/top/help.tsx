@@ -23,7 +23,7 @@ export const HelpMenu = () => {
         <MenubarSeparator />
         <MenubarGroup>
           <MenubarItem>Install Desktop App</MenubarItem>
-          <MenubarItem>Check for Updates</MenubarItem>
+          {/* <MenubarItem>Check for Updates</MenubarItem> */}
           <MenubarItem onClick={openAbout}>About</MenubarItem>
         </MenubarGroup>
       </MenubarContent>
