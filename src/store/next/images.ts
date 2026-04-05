@@ -6,6 +6,9 @@ export interface ExportRow {
   uuid: string;
   label: string;
   images: string[];
+  frameWidth: number;
+  frameHeight: number;
+  fps: number;
 }
 
 export interface ImagesState {
@@ -22,11 +25,20 @@ interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
   setFPS: (fps: number) => void;
   setPreview: (preview: boolean) => void;
   setImages: (images: ExportRow[]) => void;
-  addImagesRow: (name: string, label: string, images: string[]) => void;
+  addImagesRow: (
+    name: string,
+    label: string,
+    images: string[],
+    frameWidth: number,
+    frameHeight: number,
+    fps: number,
+  ) => void;
   removeImagesRow: (index: number) => void;
   removeImageFromRow: (index: number, imageIndex: number) => void;
   updateImagesRow: (index: number, images: string[]) => void;
   updateLabel: (uuid: string, label: string) => void;
+  updateWidth: (uuid: string, width: number) => void;
+  updateHeight: (uuid: string, height: number) => void;
 }
 
 interface ImagesStore extends ImagesState, ImagesActions {}
@@ -47,9 +59,12 @@ export const useImagesStore = create<ImagesStore>()(
       setPreview: (preview) => set({ preview }),
       setImages: (images) => set({ images }),
 
-      addImagesRow: (uuid, label, images) =>
+      addImagesRow: (uuid, label, images, frameWidth, frameHeight, fps) =>
         set((state) => ({
-          images: [...state.images, { uuid, label, images }],
+          images: [
+            ...state.images,
+            { uuid, label, images, frameWidth, frameHeight, fps },
+          ],
         })),
 
       removeImagesRow: (index) =>
@@ -80,6 +95,20 @@ export const useImagesStore = create<ImagesStore>()(
         set((state) => ({
           images: state.images.map((row) =>
             row.uuid === uuid ? { ...row, label } : row,
+          ),
+        })),
+
+      updateWidth: (uuid, width) =>
+        set((state) => ({
+          images: state.images.map((row) =>
+            row.uuid === uuid ? { ...row, frameWidth: width } : row,
+          ),
+        })),
+
+      updateHeight: (uuid, height) =>
+        set((state) => ({
+          images: state.images.map((row) =>
+            row.uuid === uuid ? { ...row, frameHeight: height } : row,
           ),
         })),
 

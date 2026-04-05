@@ -1,45 +1,89 @@
+import type { ExportRow } from "@/store/next/images";
 import GIF from "gif.js.optimized";
 import { toast } from "sonner";
 
-export async function createSpriteSheet(
-  images: string[][],
-  xWidth: number,
-  xHeight: number,
-): Promise<string> {
-  const rows = images.length;
-  const cols = Math.max(...images.map((row) => row.length));
+export interface SpritesheetOptions {
+  spacing: number; // px between frames
+  margin: number; // px around sheet border
+  format: "image/png" | "image/webp";
+  quality: number;
+}
 
-  // Flatten and load all images
-  const flatImages = images.flat();
-  const loadedImages = await Promise.all(
-    flatImages.map((src) => {
-      return new Promise<HTMLImageElement>((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.src = "data:image/png;base64," + src;
-      });
-    }),
+const DEFAULT_OPTIONS: SpritesheetOptions = {
+  spacing: 0,
+  margin: 0,
+  format: "image/png",
+  quality: 1.0,
+};
+
+export async function createSpriteSheet(
+  rows: ExportRow[],
+  options: Partial<SpritesheetOptions> = {},
+): Promise<string> {
+  if (rows.length === 0) throw new Error("No rows to export");
+
+  const { spacing, margin, format, quality } = {
+    ...DEFAULT_OPTIONS,
+    ...options,
+  };
+
+  const allLoaded = await Promise.all(
+    rows.map((row) =>
+      Promise.all(
+        row.images.map(
+          (src) =>
+            new Promise<HTMLImageElement>((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.onerror = () => reject(new Error("Failed to load frame"));
+              img.src = "data:image/png;base64," + src;
+            }),
+        ),
+      ),
+    ),
   );
 
+  const totalWidth =
+    margin * 2 +
+    Math.max(
+      ...rows.map(
+        (row) =>
+          row.images.length * row.frameWidth +
+          (row.images.length - 1) * spacing,
+      ),
+    );
+
+  const totalHeight =
+    margin * 2 +
+    rows.reduce((acc, row) => acc + row.frameHeight, 0) +
+    (rows.length - 1) * spacing;
+
   const canvas = document.createElement("canvas");
-  canvas.width = cols * xWidth;
-  canvas.height = rows * xHeight;
+  canvas.width = totalWidth;
+  canvas.height = totalHeight;
   const ctx = canvas.getContext("2d")!;
-  // TODO: configurable smoothing
-  ctx.imageSmoothingQuality = "high";
   ctx.imageSmoothingEnabled = false;
 
-  let i = 0;
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < images[row].length; col++) {
-      const x = col * xWidth;
-      const y = row * xHeight;
-      const img = loadedImages[i++];
-      ctx.drawImage(img, x, y, xWidth, xHeight);
+  let yOffset = margin;
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex];
+    const loaded = allLoaded[rowIndex];
+
+    for (let col = 0; col < loaded.length; col++) {
+      const x = margin + col * (row.frameWidth + spacing);
+      ctx.drawImage(loaded[col], x, yOffset, row.frameWidth, row.frameHeight);
+    }
+
+    yOffset += row.frameHeight + spacing;
+  }
+
+  for (const rowImages of allLoaded) {
+    for (const img of rowImages) {
+      img.src = "";
     }
   }
 
-  return canvas.toDataURL("image/png");
+  return canvas.toDataURL(format, quality);
 }
 
 export async function createGif(
@@ -102,6 +146,83 @@ export async function createGif(
     });
   });
 }
+
+export interface SpritesheetJSON {
+  meta: {
+    version: string;
+    exportedAt: string;
+    imageWidth: number;
+    imageHeight: number;
+    frameCount: number;
+    animationCount: number;
+    spacing: number;
+    margin: number;
+  };
+  animations: {
+    name: string;
+    frames: number;
+    fps: number;
+    frameWidth: number;
+    frameHeight: number;
+    quads: { x: number; y: number; w: number; h: number }[];
+  }[];
+}
+
+export const createSpritesheetJSON = (
+  rows: ExportRow[],
+  options: Partial<SpritesheetOptions> = {},
+): SpritesheetJSON => {
+  const { spacing, margin } = { ...DEFAULT_OPTIONS, ...options };
+
+  const totalWidth =
+    margin * 2 +
+    Math.max(
+      ...rows.map(
+        (row) =>
+          row.images.length * row.frameWidth +
+          (row.images.length - 1) * spacing,
+      ),
+    );
+
+  const totalHeight =
+    margin * 2 +
+    rows.reduce((acc, row) => acc + row.frameHeight, 0) +
+    (rows.length - 1) * spacing;
+
+  let yOffset = margin;
+
+  return {
+    meta: {
+      version: "1.0",
+      exportedAt: new Date().toISOString(),
+      imageWidth: totalWidth,
+      imageHeight: totalHeight,
+      frameCount: rows.reduce((acc, row) => acc + row.images.length, 0),
+      animationCount: rows.length,
+      spacing,
+      margin,
+    },
+    animations: rows.map((row) => {
+      const animation = {
+        name: row.label,
+        frames: row.images.length,
+        fps: row.fps ?? 12,
+        frameWidth: row.frameWidth,
+        frameHeight: row.frameHeight,
+        quads: row.images.map((_, frameIndex) => ({
+          x: margin + frameIndex * (row.frameWidth + spacing),
+          y: yOffset,
+          w: row.frameWidth,
+          h: row.frameHeight,
+        })),
+      };
+
+      yOffset += row.frameHeight + spacing;
+
+      return animation;
+    }),
+  };
+};
 
 export const downloadFile = (href: string, name: string) => {
   const a = document.createElement("a");

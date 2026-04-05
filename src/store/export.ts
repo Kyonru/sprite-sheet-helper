@@ -33,7 +33,7 @@ interface ExportOptionsState {
       name: string;
       label: string;
       images: string[];
-    }[]
+    }[],
   ) => void;
   addImagesRow: (name: string, label: string, images: string[]) => void;
   removeImagesRow: (index: number) => void;
@@ -59,7 +59,7 @@ export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
       name: string;
       label: string;
       images: string[];
-    }[]
+    }[],
   ) => set(() => ({ images: images })),
   addImagesRow: (name: string, label: string, images: string[]) =>
     set((state) => ({
@@ -77,7 +77,7 @@ export const useExportOptionsStore = create<ExportOptionsState>((set) => ({
               ...row,
               images: row.images.filter((_, j) => j !== imageIndex),
             }
-          : row
+          : row,
       ),
     })),
   preview: false,

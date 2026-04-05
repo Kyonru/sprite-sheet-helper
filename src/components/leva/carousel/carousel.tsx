@@ -44,6 +44,8 @@ import {
 import { confirm } from "@/components/confirm";
 import { reorderItems } from "@/components/animation-reorder-modal";
 import { addDataToImageIfNeeded } from "@/utils/images";
+import { Field, FieldGroup } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 const { Row } = Components;
 
@@ -54,6 +56,8 @@ type LevaCarouselType = {
     name?: string;
     label: string;
     images: string[];
+    frameWidth: number;
+    frameHeight: number;
   }>;
   width: number;
   height: number;
@@ -242,7 +246,7 @@ export const LevaCarousel = () => {
   const [exporting, setExporting] = useState(false);
 
   const {
-    value: { images = [], width, height },
+    value: { images = [] },
   } = props;
 
   const { selectedSnap, snapCount } = useSelectedSnapDisplay(api);
@@ -252,6 +256,8 @@ export const LevaCarousel = () => {
   const frameDelay = useImagesStore((state) => state.fps);
   const removeImagesRow = useImagesStore((state) => state.removeImagesRow);
   const updateLabel = useImagesStore((state) => state.updateLabel);
+  const updateWidth = useImagesStore((state) => state.updateWidth);
+  const updateHeight = useImagesStore((state) => state.updateHeight);
 
   const removeImageFromRow = useImagesStore(
     (state) => state.removeImageFromRow,
@@ -386,6 +392,52 @@ export const LevaCarousel = () => {
                                 alt={`Frame ${item.id}`}
                               />
                             ),
+                            header: (
+                              <form>
+                                <FieldGroup>
+                                  <Field>
+                                    <Label htmlFor="name-1">Name</Label>
+                                    <Input
+                                      id="name-1"
+                                      name="name"
+                                      defaultValue={row.label}
+                                      onChange={(e) =>
+                                        updateLabel(row.uuid, e.target.value)
+                                      }
+                                    />
+                                  </Field>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <Field>
+                                      <Label htmlFor="width-1">Width</Label>
+                                      <Input
+                                        id="width-1"
+                                        name="width"
+                                        defaultValue={row.frameWidth}
+                                        type="number"
+                                        onChange={(e) =>
+                                          updateWidth(row.uuid, +e.target.value)
+                                        }
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <Label htmlFor="height-1">Height</Label>
+                                      <Input
+                                        id="height-1"
+                                        name="height"
+                                        defaultValue={row.frameHeight}
+                                        type="number"
+                                        onChange={(e) =>
+                                          updateHeight(
+                                            row.uuid,
+                                            +e.target.value,
+                                          )
+                                        }
+                                      />
+                                    </Field>
+                                  </div>
+                                </FieldGroup>
+                              </form>
+                            ),
                           });
                         }}
                       >
@@ -436,8 +488,8 @@ export const LevaCarousel = () => {
                     <img
                       className="align-middle"
                       style={{
-                        width: width,
-                        height: height,
+                        width: images[selectedRow]?.frameWidth,
+                        height: images[selectedRow]?.frameHeight,
                         imageRendering: "pixelated",
                       }}
                       src={addDataToImageIfNeeded(

@@ -4,7 +4,12 @@ import { useThree } from "@react-three/fiber";
 import JSZip from "jszip";
 import { scheduleInterval } from "../../utils/time";
 import { EventType, PubSub } from "../../lib/events";
-import { createGif, createSpriteSheet, downloadFile } from "../../utils/assets";
+import {
+  createGif,
+  createSpriteSheet,
+  createSpritesheetJSON,
+  downloadFile,
+} from "../../utils/assets";
 import { useSceneStore } from "@/components/panels/scene/store";
 import { useSettingsStore } from "@/store/next/settings";
 import { useImagesStore } from "@/store/next/images";
@@ -80,8 +85,8 @@ export const useExport = () => {
     for (const row of exportedImages) {
       const gifUrl = await createGif(
         row.images,
-        exportWidth,
-        exportHeight,
+        row.frameWidth,
+        row.frameHeight,
         frameDelay,
       );
       const content = await (await fetch(gifUrl)).arrayBuffer();
@@ -89,16 +94,22 @@ export const useExport = () => {
     }
     const zipData = await zip.generateAsync({ type: "base64" });
     downloadFile("data:application/zip;base64," + zipData, "gif.zip");
-  }, [exportedImages, exportWidth, exportHeight, frameDelay]);
+  }, [exportedImages, frameDelay]);
 
   const downloadSpriteSheet = useCallback(async () => {
-    const dataUrl = await createSpriteSheet(
-      exportedImages.map((img) => img.images),
-      exportWidth,
-      exportHeight,
-    );
-    downloadFile(dataUrl, "spritesheet.png");
-  }, [exportedImages, exportWidth, exportHeight]);
+    const dataUrl = await createSpriteSheet(exportedImages);
+    const json = createSpritesheetJSON(exportedImages);
+
+    const zip = new JSZip();
+
+    const base64PNG = dataUrl.split("base64,")[1];
+    zip.file("spritesheet.png", base64PNG, { base64: true });
+
+    zip.file("spritesheet.json", JSON.stringify(json, null, 2));
+
+    const zipData = await zip.generateAsync({ type: "base64" });
+    downloadFile("data:application/zip;base64," + zipData, "spritesheet.zip");
+  }, [exportedImages]);
 
   const exportSpriteSheet = useCallback(
     async (format?: ExportFormat) => {
@@ -146,10 +157,21 @@ export const useExport = () => {
           Date.now().toString(),
           `animation_${count + 1}`,
           images.current.map((img) => img.dataURL),
+          exportWidth,
+          exportHeight,
+          Math.round(1000 / intervals),
         );
       },
     );
-  }, [gl, intervals, iterations, addImages, captureScreenshotData]);
+  }, [
+    gl,
+    intervals,
+    iterations,
+    addImages,
+    captureScreenshotData,
+    exportWidth,
+    exportHeight,
+  ]);
 
   useEffect(() => {
     PubSub.on(EventType.START_ASSETS_CREATION, takeScreenshot);

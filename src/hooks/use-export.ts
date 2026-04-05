@@ -5,7 +5,7 @@ import JSZip from "jszip";
 import { scheduleInterval } from "../utils/time";
 import { EventType, PubSub } from "../lib/events";
 import { useExportOptionsStore } from "../store/export";
-import { createGif, createSpriteSheet, downloadFile } from "../utils/assets";
+import { createGif, downloadFile } from "../utils/assets";
 import { useFrameValues } from "../hooks/use-frame-values";
 import { useEditorStore } from "@/store/editor";
 import { useEffectsStore } from "@/store/effects";
@@ -158,14 +158,14 @@ export const useExport = () => {
     downloadFile("data:application/zip;base64," + zipData, "gif.zip");
   }, [exportedImages, exportWidth, exportHeight, frameDelay]);
 
-  const downloadSpriteSheet = useCallback(async () => {
-    const dataUrl = await createSpriteSheet(
-      exportedImages.map((img) => img.images),
-      exportWidth,
-      exportHeight,
-    );
-    await downloadFile(dataUrl, "spritesheet.png");
-  }, [exportedImages, exportWidth, exportHeight]);
+  // const downloadSpriteSheet = useCallback(async () => {
+  //   const dataUrl = await createSpriteSheet(
+  //     exportedImages.map((img) => img.images),
+  //     exportWidth,
+  //     exportHeight,
+  //   );
+  //   await downloadFile(dataUrl, "spritesheet.png");
+  // }, [exportedImages, exportWidth, exportHeight]);
 
   const exportSpriteSheet = useCallback(async () => {
     try {
@@ -174,10 +174,10 @@ export const useExport = () => {
           await downloadImageFiles();
           break;
         }
-        case "spritesheet": {
-          await downloadSpriteSheet();
-          break;
-        }
+        // case "spritesheet": {
+        //   await downloadSpriteSheet();
+        //   break;
+        // }
         case "gif": {
           await downloadGifFiles();
           break;
@@ -188,7 +188,7 @@ export const useExport = () => {
     } finally {
       PubSub.emit(EventType.STOP_EXPORT);
     }
-  }, [exportFormat, downloadSpriteSheet, downloadGifFiles, downloadImageFiles]);
+  }, [exportFormat, downloadGifFiles, downloadImageFiles]);
 
   const takeScreenshot = useCallback(() => {
     if (!gl) return;

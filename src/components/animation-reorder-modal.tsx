@@ -9,6 +9,7 @@ type ReorderState<T extends DraggableItem> = {
   onRenderItem: (item: T) => React.ReactNode;
   onChange: (items: T[]) => void;
   orientation?: "vertical" | "horizontal";
+  header?: React.ReactNode;
 };
 
 type Listener = <T>(state: ReorderState<T & DraggableItem>) => void;
@@ -21,13 +22,14 @@ function dispatch<T>(state: ReorderState<T & DraggableItem>) {
 export function reorderItems<T extends DraggableItem>(
   options: Omit<ReorderState<T>, "open">,
 ) {
-  const { items, onChange, onRenderItem, orientation } = options;
+  const { items, onChange, onRenderItem, orientation, header } = options;
   dispatch({
     onRenderItem,
     onChange,
     open: true,
     items,
     orientation,
+    header,
   });
 }
 
@@ -64,7 +66,10 @@ export function ReorderModalProvider() {
   return createPortal(
     <div className="fixed inset-0 z-999 backdrop-blur-xs overflow-scroll">
       <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent className="z-999 h-[50vh]">
+        <DialogContent className="z-999 h-[90vh]">
+          {state.header && (
+            <div className="mb-4 text-lg font-bold">{state.header}</div>
+          )}
           <DraggableList
             orientation={state.orientation}
             items={state.items}
