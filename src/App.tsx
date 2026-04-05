@@ -26,8 +26,11 @@ import { useSettingsStore } from "./store/next/settings";
 import { DocsModalProvider } from "./components/docs";
 import { AboutModalProvider } from "./components/about-modal";
 import { ShaderEditorProvider } from "./components/custom-shader-modal";
+import { initShortcutRegistry } from "./lib/shortcut-registry";
+import { useKeyboardShortcuts } from "./hooks/next/use-keyboard-shortcuts";
 
 THREE.Cache.enabled = true;
+initShortcutRegistry();
 
 function App() {
   const mainPanelStore = useCreateStore();
@@ -47,6 +50,8 @@ function App() {
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useKeyboardShortcuts();
 
   const theme = useSettingsStore((state) => state.theme);
 

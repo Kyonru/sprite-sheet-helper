@@ -173,11 +173,24 @@ function SyncCameraFromStore({
       direction,
     }: {
       degrees: number;
-      direction: "left" | "right";
+      direction: "left" | "right" | "up" | "down";
     }) => {
-      const rad =
+      const horizontal = direction === "left" || direction === "right";
+      const vertical = direction === "up" || direction === "down";
+
+      const horizontalRad =
         THREE.MathUtils.degToRad(degrees) * (direction === "left" ? 1 : -1);
-      controlsRef.current?.rotate(rad, 0, true);
+
+      const verticalRad =
+        THREE.MathUtils.degToRad(degrees) * (direction === "up" ? 1 : -1);
+
+      if (horizontal) {
+        controlsRef.current?.rotate(horizontalRad, 0, true);
+      }
+
+      if (vertical) {
+        controlsRef.current?.rotate(0, verticalRad, true);
+      }
     };
 
     PubSub.on(EventType.SET_CAMERA_ANGLE, changeCamera);

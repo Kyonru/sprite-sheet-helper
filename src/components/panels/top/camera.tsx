@@ -10,12 +10,13 @@ import {
   MenubarSubTrigger,
   MenubarTrigger,
 } from "@/components/ui/menubar";
-import { EventType, PubSub } from "@/lib/events";
+import { EventType, PubSub, ShortCutEventType } from "@/lib/events";
 import { useCamerasStore } from "@/store/next/cameras";
 import { useSettingsStore } from "@/store/next/settings";
 import { useTarget } from "@/store/next/targets";
 import { CameraIcon } from "lucide-react";
 import * as THREE from "three";
+import { MenubarItemAction } from "./components/MenubarItemAction";
 
 export const CameraMenu = () => {
   const cameraDistance = useSettingsStore((state) => state.cameraDistance);
@@ -214,17 +215,17 @@ export const CameraMenu = () => {
               <MenubarSubTrigger>Rotate Left</MenubarSubTrigger>
               <MenubarSubContent>
                 {ROTATE_STEPS.map((deg) => (
-                  <MenubarItem
-                    key={deg}
-                    onSelect={() =>
-                      PubSub.emit(EventType.ROTATE_CAMERA, {
-                        degrees: deg,
-                        direction: "left",
+                  <MenubarItemAction
+                    title={`${deg}°`}
+                    action={() =>
+                      PubSub.emit(EventType.SHORT_CUT, {
+                        type: ShortCutEventType.ROTATE_LEFT,
                       })
                     }
-                  >
-                    {deg}°
-                  </MenubarItem>
+                    shortcut={
+                      deg === 15 ? ShortCutEventType.ROTATE_LEFT : undefined
+                    }
+                  />
                 ))}
               </MenubarSubContent>
             </MenubarSub>
@@ -232,17 +233,53 @@ export const CameraMenu = () => {
               <MenubarSubTrigger>Rotate Right</MenubarSubTrigger>
               <MenubarSubContent>
                 {ROTATE_STEPS.map((deg) => (
-                  <MenubarItem
-                    key={deg}
-                    onSelect={() =>
-                      PubSub.emit(EventType.ROTATE_CAMERA, {
-                        degrees: deg,
-                        direction: "right",
+                  <MenubarItemAction
+                    title={`${deg}°`}
+                    action={() =>
+                      PubSub.emit(EventType.SHORT_CUT, {
+                        type: ShortCutEventType.ROTATE_RIGHT,
                       })
                     }
-                  >
-                    {deg}°
-                  </MenubarItem>
+                    shortcut={
+                      deg === 15 ? ShortCutEventType.ROTATE_RIGHT : undefined
+                    }
+                  />
+                ))}
+              </MenubarSubContent>
+            </MenubarSub>
+            <MenubarSub>
+              <MenubarSubTrigger>Rotate Up</MenubarSubTrigger>
+              <MenubarSubContent>
+                {ROTATE_STEPS.map((deg) => (
+                  <MenubarItemAction
+                    title={`${deg}°`}
+                    action={() =>
+                      PubSub.emit(EventType.SHORT_CUT, {
+                        type: ShortCutEventType.ROTATE_UP,
+                      })
+                    }
+                    shortcut={
+                      deg === 15 ? ShortCutEventType.ROTATE_UP : undefined
+                    }
+                  />
+                ))}
+              </MenubarSubContent>
+            </MenubarSub>
+            <MenubarSub>
+              <MenubarSubTrigger>Rotate Down</MenubarSubTrigger>
+              <MenubarSubContent>
+                {ROTATE_STEPS.map((deg) => (
+                  <MenubarItemAction
+                    title={`${deg}°`}
+                    action={() =>
+                      PubSub.emit(EventType.SHORT_CUT, {
+                        type: ShortCutEventType.ROTATE_DOWN,
+                      })
+                    }
+                    shortcut={
+                      deg === 15 ? ShortCutEventType.ROTATE_DOWN : undefined
+                    }
+                  />
                 ))}
               </MenubarSubContent>
             </MenubarSub>

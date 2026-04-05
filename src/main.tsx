@@ -4,25 +4,32 @@ import { TanStackDevtools } from "@tanstack/react-devtools";
 import "react-complex-tree/lib/style-modern.css";
 import "./index.css";
 import App from "./App.tsx";
-import StoreInspectorPanel from "../devtools/store.tsx";
+import StoreInspectorPanel from "../devtools/store";
+import PubSubDevtoolPanel from "../devtools/pubsub-panel";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
 
-    <TanStackDevtools
-      config={{
-        urlFlag: "devtools",
-        requireUrlFlag: true,
-      }}
-      plugins={[
-        {
-          id: "react-devtools",
+    {import.meta.env.DEV && (
+      <TanStackDevtools
+        config={{
+          urlFlag: "devtools",
+          requireUrlFlag: true,
+        }}
+        plugins={[
+          {
+            id: "react-devtools",
 
-          name: "Zustand Inspector",
-          render: <StoreInspectorPanel />,
-        },
-      ]}
-    />
+            name: "Zustand Inspector",
+            render: <StoreInspectorPanel />,
+          },
+          {
+            name: "PubSub",
+            render: <PubSubDevtoolPanel />,
+          },
+        ]}
+      />
+    )}
   </StrictMode>,
 );

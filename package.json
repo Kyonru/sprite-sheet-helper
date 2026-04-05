@@ -17,6 +17,7 @@
     "@codemirror/basic-setup": "^0.20.0",
     "@codemirror/commands": "^6.10.2",
     "@codemirror/fold": "^0.19.4",
+    "@codemirror/lang-json": "^6.0.2",
     "@codemirror/language": "^6.12.2",
     "@codemirror/legacy-modes": "^6.5.2",
     "@codemirror/lint": "^6.9.4",

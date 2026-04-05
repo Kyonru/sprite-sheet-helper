@@ -97,36 +97,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         });
       },
 
-      // save: async () => {
-      //   const snapshot = get().snapshot();
-      //   const zip = new JSZip();
-      //   const modelsFolder = zip.folder("models")!;
-
-      //   // Read each model binary from OPFS and embed it in the zip
-      //   for (const [uuid, model] of Object.entries(snapshot.models.models)) {
-      //     try {
-      //       const fileData = await getFileFromOPFS(uuid, "models");
-      //       if (fileData) {
-      //         modelsFolder.file(`${uuid}.${model.format}`, fileData);
-      //       }
-      //     } catch {
-      //       toast.warning(`Could not bundle model file: ${model.fileName}`);
-      //     }
-      //   }
-
-      //   zip.file("project.json", JSON.stringify(snapshot, null, 2));
-
-      //   const blob = await zip.generateAsync({ type: "blob" });
-      //   const url = URL.createObjectURL(blob);
-      //   const a = document.createElement("a");
-      //   a.href = url;
-      //   a.download = `${snapshot.name.replace(/\s+/g, "_")}.sshProj`;
-      //   a.click();
-      //   URL.revokeObjectURL(url);
-
-      //   set({ savedAt: snapshot.savedAt, isDirty: false });
-      // },
-
       save: async () => {
         const snapshot = get().snapshot();
         const blob = await get().buildZipBlob(snapshot);

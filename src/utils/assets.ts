@@ -1,4 +1,5 @@
 import GIF from "gif.js.optimized";
+import { toast } from "sonner";
 
 export async function createSpriteSheet(
   images: string[][],
@@ -108,4 +109,30 @@ export const downloadFile = (href: string, name: string) => {
   a.href = href;
   a.download = name;
   a.click();
+};
+
+export const importFile = (accepts: string[], onFile: (file: File) => void) => {
+  const allowedExtensions = accepts
+    .map((type) => `.${type}`)
+    .map((s) => s.trim().toLowerCase());
+
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = allowedExtensions.join(",");
+  input.onchange = (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    const ext = `.${file.name.split(".").pop()?.toLowerCase()}`;
+
+    if (!allowedExtensions.includes(ext)) {
+      toast.error(
+        `File type not supported. Accepted: ${allowedExtensions.join(", ")}`,
+      );
+      return;
+    }
+
+    onFile(file);
+  };
+  setTimeout(() => input.click(), 0);
 };

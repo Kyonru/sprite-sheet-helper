@@ -5,3 +5,10 @@ export function isWeb() {
 
   return true;
 }
+
+export function isMac() {
+  return (
+    typeof navigator !== "undefined" &&
+    /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+  );
+}
