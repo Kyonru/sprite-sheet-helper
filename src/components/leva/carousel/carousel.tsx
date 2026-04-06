@@ -1,4 +1,4 @@
-import { useInputContext, type LevaInputProps, Components } from "leva/plugin";
+import { Components } from "leva/plugin";
 import {
   CarouselContent,
   CarouselItem,
@@ -63,12 +63,6 @@ type LevaCarouselType = {
   height: number;
 };
 export type LevaCarouselInput = LevaCarouselType & LevaCarouselSettings;
-
-type LevaCarouselProps = LevaInputProps<
-  LevaCarouselType,
-  LevaCarouselSettings,
-  string
->;
 
 const useSelectedSnapDisplay = (emblaApi: CarouselApi) => {
   const [selectedSnap, setSelectedSnap] = useState(0);
@@ -190,18 +184,21 @@ const CarrouselRow = ({
         {label}
       </Label>
       <div className="relative h-10 flex flex-1 gap-2 overflow-hidden">
-        {images?.slice(0, 10).map((imageSrc, i) => (
-          <img
-            style={{
-              opacity: 2 * (1 / (i + 1)),
-              transform: `translateX(${i * 45}%)`,
-            }}
-            key={`${name}-${i}`}
-            className={`h-10 w-10 rounded-md absolute object-contain`}
-            src={addDataToImageIfNeeded(imageSrc)}
-            alt={`Frame ${i}`}
-          />
-        ))}
+        {images?.slice(0, 10).map(
+          (imageSrc, i) =>
+            imageSrc && (
+              <img
+                style={{
+                  opacity: 2 * (1 / (i + 1)),
+                  transform: `translateX(${i * 45}%)`,
+                }}
+                key={`${name}-${i}`}
+                className={`h-10 w-10 rounded-md absolute object-contain`}
+                src={addDataToImageIfNeeded(imageSrc)}
+                alt={`Frame ${i}`}
+              />
+            ),
+        )}
       </div>
     </div>
   );
@@ -241,23 +238,21 @@ const CarouselAnimatedRowContent = ({
 
 // Could be reused for others, but for now it's just for exporting
 export const LevaCarousel = () => {
-  const props = useInputContext<LevaCarouselProps>();
   const [api, setApi] = useState<CarouselApi>();
   const [exporting, setExporting] = useState(false);
-
-  const {
-    value: { images = [] },
-  } = props;
 
   const { selectedSnap, snapCount } = useSelectedSnapDisplay(api);
   const { autoplayIsPlaying, toggleAutoplay } = useAutoplay(api);
   const [loop, setLoop] = useState(false);
 
   const frameDelay = useImagesStore((state) => state.fps);
+  const selectedRow = useImagesStore((state) => state.selectedRow);
   const removeImagesRow = useImagesStore((state) => state.removeImagesRow);
   const updateLabel = useImagesStore((state) => state.updateLabel);
   const updateWidth = useImagesStore((state) => state.updateWidth);
   const updateHeight = useImagesStore((state) => state.updateHeight);
+  const setSelectedRow = useImagesStore((state) => state.setSelectedRow);
+  const images = useImagesStore((state) => state.images);
 
   const removeImageFromRow = useImagesStore(
     (state) => state.removeImageFromRow,
@@ -269,14 +264,12 @@ export const LevaCarousel = () => {
     toggleAutoplay();
   }, [toggleAutoplay]);
 
-  const [selectedRow, setSelectedRow] = useState(0);
   const onRemoveRow = useCallback(
     (index: number) => {
-      removeImagesRow(index);
-
       setSelectedRow(0);
+      removeImagesRow(index);
     },
-    [removeImagesRow],
+    [removeImagesRow, setSelectedRow],
   );
 
   const onRemoveImageFromRow = useCallback(
@@ -340,7 +333,7 @@ export const LevaCarousel = () => {
             >
               <CarrouselRow
                 images={row.images}
-                name={row.name || ""}
+                name={row.label || ""}
                 label={row.label}
                 selected={selectedRow === index}
                 onClick={() => {
@@ -493,9 +486,7 @@ export const LevaCarousel = () => {
                         imageRendering: "pixelated",
                       }}
                       src={addDataToImageIfNeeded(
-                        images[selectedRow]
-                          ? images[selectedRow]?.images[selectedSnap]
-                          : "",
+                        images?.[selectedRow]?.images?.[selectedSnap] || "",
                       )}
                       alt="Picture"
                     />

@@ -17,6 +17,7 @@ export interface ImagesState {
   fps: number;
   preview: boolean;
   images: ExportRow[];
+  selectedRow: number;
 }
 
 interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
@@ -39,6 +40,14 @@ interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
   updateLabel: (uuid: string, label: string) => void;
   updateWidth: (uuid: string, width: number) => void;
   updateHeight: (uuid: string, height: number) => void;
+  setSelectedRow: (index: number) => void;
+  addImageToRow: (
+    index: number,
+    image: string,
+    frameWidth: number,
+    frameHeight: number,
+    fps: number,
+  ) => void;
 }
 
 interface ImagesStore extends ImagesState, ImagesActions {}
@@ -47,6 +56,7 @@ export const useImagesStore = create<ImagesStore>()(
   inspector(
     (set, get) => ({
       mode: "spritesheet",
+      selectedRow: 0,
       intervals: 100,
       iterations: 10,
       fps: 100,
@@ -112,6 +122,35 @@ export const useImagesStore = create<ImagesStore>()(
           ),
         })),
 
+      setSelectedRow: (index) => set({ selectedRow: index }),
+
+      addImageToRow: (index, image, frameWidth, frameHeight, fps) =>
+        set((state) => {
+          let row = state.images[index];
+
+          const images = state.images;
+
+          if (!row) {
+            row = {
+              uuid: Date.now().toString(),
+              label: "Animation",
+              images: [image],
+              frameWidth,
+              frameHeight,
+              fps,
+            };
+
+            images.push(row);
+          } else {
+            row.images.push(image);
+          }
+
+          return {
+            images: [...images],
+            selectedRow: index,
+          };
+        }),
+
       getSnapshot: () => {
         return {
           images: get().images,
@@ -119,6 +158,7 @@ export const useImagesStore = create<ImagesStore>()(
           intervals: get().intervals,
           iterations: get().iterations,
           preview: get().preview,
+          selectedRow: get().selectedRow,
         };
       },
 

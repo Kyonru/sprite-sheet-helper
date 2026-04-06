@@ -80,6 +80,7 @@ export const PreviewConfig = () => {
   const exportModeDefault = useSettingsStore((state) => state.mode);
   const setExportMode = useSettingsStore((state) => state.setMode);
 
+  // TODO: potentially can be removed
   const state = useMemo(
     () => ({
       images: images,
@@ -110,6 +111,10 @@ export const PreviewConfig = () => {
           "Add Sequence": button(() => {
             PubSub.emit(EventType.START_ASSETS_CREATION);
           }, {}),
+
+          "Take Single Screenshot": button(() => {
+            PubSub.emit(EventType.TAKE_SINGLE_SCREENSHOT);
+          }, {}),
         },
         {
           color: "var(--chart-2)",
@@ -129,7 +134,7 @@ export const PreviewConfig = () => {
             max: 1000,
             step: 1,
           },
-          preview: carousel(state),
+          preview: carousel(),
         },
         {
           color: "var(--chart-4)",
@@ -139,7 +144,7 @@ export const PreviewConfig = () => {
     {
       store: levaStore,
     },
-    [exportHeightDefault, exportWidthDefault],
+    [exportHeightDefault, state, exportWidthDefault],
   );
 
   useEffect(() => {

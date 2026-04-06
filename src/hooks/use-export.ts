@@ -190,7 +190,7 @@ export const useExport = () => {
     }
   }, [exportFormat, downloadGifFiles, downloadImageFiles]);
 
-  const takeScreenshot = useCallback(() => {
+  const takeScreenshotSequence = useCallback(() => {
     if (!gl) return;
 
     if (intervalRef.current) {
@@ -232,13 +232,13 @@ export const useExport = () => {
   ]);
 
   useEffect(() => {
-    PubSub.on(EventType.START_ASSETS_CREATION, takeScreenshot);
+    PubSub.on(EventType.START_ASSETS_CREATION, takeScreenshotSequence);
 
     // Clean up the subscription when the component unmounts
     return () => {
-      PubSub.off(EventType.START_ASSETS_CREATION, takeScreenshot);
+      PubSub.off(EventType.START_ASSETS_CREATION, takeScreenshotSequence);
     };
-  }, [takeScreenshot]);
+  }, [takeScreenshotSequence]);
 
   useEffect(() => {
     PubSub.on(EventType.START_EXPORT, exportSpriteSheet);

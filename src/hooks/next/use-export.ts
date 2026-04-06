@@ -28,6 +28,8 @@ export const useExport = () => {
 
   const { exportHeight, exportWidth } = useSettingsStore();
   const addImages = useImagesStore((state) => state.addImagesRow);
+  const addImageToRow = useImagesStore((state) => state.addImageToRow);
+  const selectedRow = useImagesStore((state) => state.selectedRow);
   const exportedImages = useImagesStore((state) => state.images);
 
   const composer = useSceneStore((state) => state.composer);
@@ -139,7 +141,7 @@ export const useExport = () => {
     [exportFormat, downloadImageFiles, downloadSpriteSheet, downloadGifFiles],
   );
 
-  const takeScreenshot = useCallback(() => {
+  const takeScreenshotSequence = useCallback(() => {
     if (!gl) return;
     if (intervalRef.current) clearInterval(intervalRef.current);
 
@@ -173,12 +175,49 @@ export const useExport = () => {
     exportHeight,
   ]);
 
+  const addScreenshot = useCallback(() => {
+    if (!gl) return;
+
+    images.current = [];
+
+    captureScreenshotData();
+
+    const row = useImagesStore.getState().images[selectedRow || 0];
+    const width = row?.frameWidth || exportWidth;
+    const height = row?.frameHeight || exportHeight;
+
+    addImageToRow(
+      selectedRow || 0,
+      images.current[0].dataURL,
+      width,
+      height,
+      Math.round(1000 / intervals),
+    );
+    images.current = [];
+  }, [
+    gl,
+    intervals,
+    selectedRow,
+    exportWidth,
+    exportHeight,
+    addImageToRow,
+    captureScreenshotData,
+  ]);
+
   useEffect(() => {
-    PubSub.on(EventType.START_ASSETS_CREATION, takeScreenshot);
+    PubSub.on(EventType.TAKE_SINGLE_SCREENSHOT, addScreenshot);
+
     return () => {
-      PubSub.off(EventType.START_ASSETS_CREATION, takeScreenshot);
+      PubSub.off(EventType.TAKE_SINGLE_SCREENSHOT, addScreenshot);
     };
-  }, [takeScreenshot]);
+  }, [addScreenshot]);
+
+  useEffect(() => {
+    PubSub.on(EventType.START_ASSETS_CREATION, takeScreenshotSequence);
+    return () => {
+      PubSub.off(EventType.START_ASSETS_CREATION, takeScreenshotSequence);
+    };
+  }, [takeScreenshotSequence]);
 
   useEffect(() => {
     PubSub.on(EventType.START_EXPORT, exportSpriteSheet);

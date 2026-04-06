@@ -2,6 +2,7 @@ import EventEmitter from "eventemitter3";
 import { pubSubEventClient } from "../../devtools/pubsub-event-client";
 
 export const EventType = {
+  TAKE_SINGLE_SCREENSHOT: "take_single_screenshot",
   START_ASSETS_CREATION: "start_assets_creation",
   STOP_ASSETS_CREATION: "stop_assets_creation",
   SHORT_CUT: "shortcut",
