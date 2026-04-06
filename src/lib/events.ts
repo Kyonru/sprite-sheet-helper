@@ -16,6 +16,7 @@ export const ShortCutEventType = {
   EXPORT_ZIP: "shortcut_export_zip",
   EXPORT_GIF: "shortcut_export_gif",
   EXPORT_SPRITE_SHEET: "shortcut_export_sprite_sheet",
+  EXPORT_LUA: "shortcut_export_lua",
   QUICK_SAVE: "shortcut_quick_save",
   SAVE_AS: "shortcut_save_as",
   IMPORT_MODEL: "shortcut_import_model",

@@ -15,6 +15,7 @@ import { useSettingsStore } from "@/store/next/settings";
 import { useImagesStore } from "@/store/next/images";
 import { toast } from "sonner";
 import type { ExportFormat } from "@/types/file";
+import { createAnim8Lua, createVanillaLua } from "@/utils/exports/lua";
 
 export const useExport = () => {
   const images = useRef<{ name: string; dataURL: string }[]>([]);
@@ -113,6 +114,25 @@ export const useExport = () => {
     downloadFile("data:application/zip;base64," + zipData, "spritesheet.zip");
   }, [exportedImages]);
 
+  const downloadLua = useCallback(async () => {
+    const zip = new JSZip();
+    const dataUrl = await createSpriteSheet(exportedImages);
+    const json = createSpritesheetJSON(exportedImages);
+    const vanillaLua = createVanillaLua(json, "spritesheet.png");
+    const anim8Lua = createAnim8Lua(json, "spritesheet.png");
+
+    const base64PNG = dataUrl.split("base64,")[1];
+
+    zip.file("spritesheet.png", base64PNG, { base64: true });
+    zip.file("spritesheet.json", JSON.stringify(json, null, 2));
+
+    zip.file("spritesheet.lua", vanillaLua);
+    zip.file("spritesheet_anim8.lua", anim8Lua);
+
+    const zipData = await zip.generateAsync({ type: "base64" });
+    downloadFile("data:application/zip;base64," + zipData, "spritesheet.zip");
+  }, [exportedImages]);
+
   const exportSpriteSheet = useCallback(
     async (format?: ExportFormat) => {
       const exportType = format || exportFormat;
@@ -128,6 +148,9 @@ export const useExport = () => {
           case "gif":
             await downloadGifFiles();
             break;
+          case "lua":
+            await downloadLua();
+            break;
         }
       } catch (err) {
         console.error(err);
@@ -138,7 +161,13 @@ export const useExport = () => {
         });
       }
     },
-    [exportFormat, downloadImageFiles, downloadSpriteSheet, downloadGifFiles],
+    [
+      exportFormat,
+      downloadImageFiles,
+      downloadSpriteSheet,
+      downloadGifFiles,
+      downloadLua,
+    ],
   );
 
   const takeScreenshotSequence = useCallback(() => {

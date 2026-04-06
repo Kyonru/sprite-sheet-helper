@@ -40,6 +40,10 @@ export const APP_SHORTCUTS: Record<
     shortcut: [CommandSymbols.Cmd, CommandSymbols.Shift, "3"],
     type: ShortCutEventType.EXPORT_SPRITE_SHEET,
   },
+  [ShortCutEventType.EXPORT_LUA]: {
+    shortcut: [CommandSymbols.Cmd, CommandSymbols.Shift, "4"],
+    type: ShortCutEventType.EXPORT_LUA,
+  },
   [ShortCutEventType.UNDO]: {
     shortcut: [CommandSymbols.Cmd, "Z"],
     type: ShortCutEventType.UNDO,

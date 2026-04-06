@@ -75,6 +75,11 @@ export const FileMenu = () => {
                   }
                   shortcut={ShortCutEventType.EXPORT_SPRITE_SHEET}
                 />
+                <MenubarItemAction
+                  title="As Lua (Plain & Love2D)"
+                  action={() => PubSub.emit(EventType.START_EXPORT, "lua")}
+                  shortcut={ShortCutEventType.EXPORT_LUA}
+                />
               </MenubarGroup>
             </MenubarSubContent>
           </MenubarSub>
