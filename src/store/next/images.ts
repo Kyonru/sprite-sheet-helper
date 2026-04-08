@@ -126,12 +126,10 @@ export const useImagesStore = create<ImagesStore>()(
 
       addImageToRow: (index, image, frameWidth, frameHeight, fps) =>
         set((state) => {
-          let row = state.images[index];
+          const existingRow = state.images[index];
 
-          const images = state.images;
-
-          if (!row) {
-            row = {
+          if (!existingRow) {
+            const newRow: ExportRow = {
               uuid: Date.now().toString(),
               label: "Animation",
               images: [image],
@@ -140,13 +138,26 @@ export const useImagesStore = create<ImagesStore>()(
               fps,
             };
 
-            images.push(row);
-          } else {
-            row.images.push(image);
+            return {
+              images: [...state.images, newRow],
+              selectedRow: state.images.length,
+            };
+          }
+
+          // Enforce row-level frame size — new frame must match row dimensions
+          if (
+            existingRow.frameWidth !== frameWidth ||
+            existingRow.frameHeight !== frameHeight
+          ) {
+            console.warn(
+              `Frame size mismatch: row expects ${existingRow.frameWidth}x${existingRow.frameHeight}, got ${frameWidth}x${frameHeight}. Keeping row dimensions.`,
+            );
           }
 
           return {
-            images: [...images],
+            images: state.images.map((row, i) =>
+              i === index ? { ...row, images: [...row.images, image] } : row,
+            ),
             selectedRow: index,
           };
         }),
@@ -169,6 +180,7 @@ export const useImagesStore = create<ImagesStore>()(
           fps: snapshot.fps,
           preview: snapshot.preview,
           images: snapshot.images,
+          selectedRow: snapshot.selectedRow ?? 0,
         }),
     }),
     { name: "Images" },

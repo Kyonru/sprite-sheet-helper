@@ -34,7 +34,7 @@ import { EventType, PubSub } from "@/lib/events";
 import { useTarget } from "@/store/next/targets";
 import { useSettingsStore } from "@/store/next/settings";
 import { Text } from "@react-three/drei";
-import type { PerspectiveCameraComponent } from "@/types/ecs";
+import type { PerspectiveCameraComponent, Transform } from "@/types/ecs";
 import { setGLContext } from "@/lib/gl-context";
 
 type SharedCameraState = React.RefObject<{
@@ -313,7 +313,9 @@ function EditorScene({
         showZ={isCameraSelected}
         object={camera2Ref}
         mode={transformMode}
-        onMouseDown={() => (isDragging.current = true)}
+        onMouseDown={() => {
+          isDragging.current = true;
+        }}
         onMouseUp={() => {
           isDragging.current = false;
 
@@ -324,11 +326,13 @@ function EditorScene({
           );
           const { x: sx, y: sy, z: sz } = camera2Ref.current.scale;
 
-          setTransform(camera, {
+          const cameraTransform: Transform = {
             position: [x, y, z],
             rotation: [e.x, e.y, e.z],
             scale: [sx, sy, sz],
-          });
+          };
+
+          setTransform(camera, cameraTransform);
         }}
       />
       <CameraLabel cameraRef={camera2Ref} />
@@ -480,11 +484,16 @@ function PreviewScene({
 
           const { x: sx, y: sy, z: sz } = cam.scale;
 
-          setTransform(cameraUUID, {
+          const cameraTransform: Transform = {
             position: [cam.position.x, cam.position.y, cam.position.z],
             rotation: [e.x, e.y, e.z],
             scale: [sx, sy, sz],
-          });
+          };
+
+          setTransform(cameraUUID, cameraTransform);
+        }}
+        onStart={() => {
+          if (!cameraUUID) return;
         }}
       />
       <SyncCameraFromStore

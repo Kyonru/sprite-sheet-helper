@@ -13,240 +13,10 @@ import {
 import { create } from "zustand";
 import { inspector } from "../../../../devtools/inspector-middleware";
 import type { SnapshotEnabledStore } from "@/types/ecs";
-
-export type EffectType =
-  | "pixelation"
-  | "glitch"
-  | "bloom"
-  | "depthOfField"
-  | "noise"
-  | "vignette"
-  | "outline"
-  | "ascii"
-  | "brightnessContrast"
-  | "chromaticAberration"
-  | "colorAverage"
-  | "colorDepth"
-  | "depth"
-  | "tiltShift"
-  | "tiltShift2"
-  | "dotScreen"
-  | "hueSaturation"
-  | "scanline"
-  | "sepia"
-  | "palette"
-  | "dither"
-  | "tonemap"
-  | "customShader"
-  | "grid"
-  | "shockwave"
-  | "gammaCorrection"
-  | "bokeh"
-  | "ssao"
-  | "smaa"
-  | "fxaa";
-
-export type EffectComponent = { type: EffectType; enabled: boolean } & (
-  | { type: "pixelation"; granularity: number }
-  | {
-      type: "glitch";
-      delay: [number, number];
-      duration: [number, number];
-      strength: [number, number];
-      chromaticAberrationOffset: [number, number];
-      dtSize: number;
-      columns: number;
-      mode: GlitchMode;
-      ratio: number;
-    }
-  | {
-      type: "bloom";
-      blendFunction: BlendFunction;
-      luminanceThreshold: number;
-      luminanceSmoothing: number;
-      intensity: number;
-      mipmapBlur: boolean;
-      levels: number;
-      radius: number;
-    }
-  | {
-      type: "depthOfField";
-      blendFunction: BlendFunction;
-      focusDistance: number;
-      focusRange: number;
-      worldFocusDistance: number;
-      worldFocusRange: number;
-      bokehScale: number;
-      resolutionScale: number;
-      resolutionX: number;
-      resolutionY: number;
-    }
-  | { type: "noise"; premultiply: boolean; blendFunction: BlendFunction }
-  | {
-      type: "vignette";
-      offset: number;
-      darkness: number;
-      technique: VignetteTechnique;
-    }
-  | {
-      type: "outline";
-      blendFunction: BlendFunction;
-      edgeStrength: number;
-      pulseSpeed: number;
-      visibleEdgeColor: string;
-      hiddenEdgeColor: string;
-      kernelSize: KernelSize;
-      blur: boolean;
-      xRay: boolean;
-      multisampling: number;
-      resolutionScale: number;
-      resolutionX: number;
-      resolutionY: number;
-    }
-  | {
-      type: "ascii";
-      characters: string;
-      invert: boolean;
-      font: string;
-      fontSize: number;
-      cellSize: number;
-      color: string;
-      blendFunction: BlendFunction;
-    }
-  | {
-      type: "brightnessContrast";
-      brightness: number;
-      contrast: number;
-      blendFunction: BlendFunction;
-    }
-  | {
-      type: "chromaticAberration";
-      radialModulation: boolean;
-      modulationOffset: number;
-      offset: [number, number];
-      blendFunction: BlendFunction;
-    }
-  | { type: "colorAverage"; blendFunction: BlendFunction }
-  | { type: "colorDepth"; bits: number; blendFunction: BlendFunction }
-  | { type: "depth"; inverted: boolean; blendFunction: BlendFunction }
-  | {
-      type: "tiltShift";
-      blendFunction: BlendFunction;
-      offset: number;
-      rotation: number;
-      focusArea: number;
-      feather: number;
-      kernelSize: KernelSize;
-      resolutionScale: number;
-      resolutionX: number;
-      resolutionY: number;
-    }
-  | {
-      type: "tiltShift2";
-      blendFunction: BlendFunction;
-      blur: number;
-      taper: number;
-      start: [number, number];
-      end: [number, number];
-      samples: number;
-      direction: [number, number];
-    }
-  | {
-      type: "dotScreen";
-      blendFunction: BlendFunction;
-      angle: number;
-      scale: number;
-    }
-  | {
-      type: "hueSaturation";
-      hue: number;
-      saturation: number;
-      blendFunction: BlendFunction;
-    }
-  | {
-      type: "scanline";
-      blendFunction: BlendFunction;
-      density: number;
-      scrollSpeed: number;
-    }
-  | { type: "sepia"; intensity: number; blendFunction: BlendFunction }
-  | { type: "palette"; palette: number }
-  | { type: "dither"; ditherStrength: number; ditherScale: number }
-  | {
-      type: "tonemap";
-      blendFunction: BlendFunction;
-      adaptive: boolean;
-      mode: ToneMappingMode;
-      whitePoint: number;
-      minLuminance: number;
-      resolution: number;
-      middleGrey: number;
-      maxLuminance: number;
-      averageLuminance: number;
-      adaptationRate: number;
-    }
-  | { type: "customShader"; fragmentShader: string }
-  | {
-      type: "grid";
-      scale: number;
-      lineWidth: number;
-      blendFunction: BlendFunction;
-    }
-  | {
-      type: "shockwave";
-      blendFunction: BlendFunction;
-      speed: number;
-      position: [number, number, number];
-      maxRadius: number;
-      amplitude: number;
-      wavelength: number;
-    }
-  | {
-      type: "ssao";
-      blendFunction: BlendFunction;
-      depthAwareUpsampling: boolean;
-      samples: number;
-      rings: number;
-      worldDistanceThreshold: number;
-      worldDistanceFalloff: number;
-      worldProximityThreshold: number;
-      worldProximityFalloff: number;
-      minRadiusScale: number;
-      luminanceInfluence: number;
-      radius: number;
-      intensity: number;
-      bias: number;
-      fade: number;
-      color: string;
-      resolutionScale: number;
-      resolutionX: number;
-      resolutionY: number;
-    }
-  | {
-      type: "smaa";
-      blendFunction: BlendFunction;
-      preset: SMAAPreset;
-      edgeDetectionMode: EdgeDetectionMode;
-      predicationMode: PredicationMode;
-    }
-  | {
-      type: "fxaa";
-      blendFunction: BlendFunction;
-    }
-  | {
-      type: "gammaCorrection";
-      blendFunction: BlendFunction;
-      gamma: number;
-    }
-  | {
-      type: "bokeh";
-      blendFunction: BlendFunction;
-      focus: number;
-      dof: number;
-      aperture: number;
-      maxBlur: number;
-    }
-);
+import { createMergeKey } from "../history/utils";
+import { withHistory } from "../../common/middlewares/history";
+import type { EffectComponent, EffectType } from "@/types/effects";
+import { isEqual } from "@/utils/object";
 
 type EffectDefaults = {
   [K in EffectType]: Omit<Extract<EffectComponent, { type: K }>, "type">;
@@ -479,51 +249,136 @@ interface EffectsStore extends EffectsState, EffectsActions {}
 
 export const useEffectsStore = create<EffectsStore>()(
   inspector(
-    (set, get) => ({
-      effects: {},
-      selected: undefined,
+    withHistory(
+      (set, get) => ({
+        effects: {},
+        selected: undefined,
 
-      initEffect: (type) => {
-        const uuid = generateUUID();
-        return set((state) => ({
-          effects: {
-            ...state.effects,
-            [uuid]: { type, ...EFFECT_DEFAULTS[type] } as EffectComponent,
+        initEffect: (type) => {
+          const uuid = generateUUID();
+          return set((state) => ({
+            effects: {
+              ...state.effects,
+              [uuid]: { type, ...EFFECT_DEFAULTS[type] } as EffectComponent,
+            },
+            selected: uuid,
+          }));
+        },
+
+        setSelected: (uuid) => set(() => ({ selected: uuid })),
+
+        setEffect: (uuid, props) =>
+          set((state) => ({
+            effects: {
+              ...state.effects,
+              [uuid]: { ...state.effects[uuid], ...props } as EffectComponent,
+            },
+          })),
+
+        removeEffect: (uuid) =>
+          set((state) => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: _, ...rest } = state.effects;
+            return { effects: rest };
+          }),
+
+        hydrate: (snapshot) =>
+          set({
+            effects: snapshot.effects,
+            selected: snapshot.selected,
+          }),
+
+        getSnapshot: () => {
+          return {
+            effects: get().effects,
+            selected: get().selected,
+          };
+        },
+      }),
+      {
+        name: "Effects",
+        watchers: [
+          {
+            select: (state) => state.effects,
+            toAction: (prev, next, api) => {
+              const prevKeys = new Set(Object.keys(prev.effects));
+              const nextKeys = new Set(Object.keys(next.effects));
+
+              // Init
+              for (const uuid of nextKeys) {
+                if (!prevKeys.has(uuid)) {
+                  return {
+                    type: "effect/init",
+                    uuid,
+                    to: next.effects[uuid],
+                    from: null,
+                    apply: ({ dir, value }) => {
+                      if (dir === "forward") {
+                        api.getState().setEffect(uuid, value);
+                      } else {
+                        api.getState().removeEffect(uuid);
+                      }
+                    },
+                  };
+                }
+              }
+
+              // Remove
+              for (const uuid of prevKeys) {
+                if (!nextKeys.has(uuid)) {
+                  return {
+                    type: "effect/remove",
+                    uuid,
+                    from: prev.effects[uuid],
+                    to: null,
+                    apply: ({ dir, value }) => {
+                      if (dir === "forward") {
+                        api.getState().removeEffect(uuid);
+                      } else {
+                        api.getState().initEffect(value.type);
+                      }
+                    },
+                  };
+                }
+              }
+
+              // Change
+              for (const uuid of nextKeys) {
+                if (prev.effects[uuid] !== next.effects[uuid]) {
+                  const existedBefore = prevKeys.has(uuid);
+
+                  if (isEqual(prev.effects[uuid], next.effects[uuid]))
+                    return null;
+
+                  if (!existedBefore) continue;
+                  return {
+                    type: "effect/edit",
+                    uuid,
+                    from: prev.effects[uuid],
+                    to: next.effects[uuid],
+                    apply: ({ value }) => {
+                      api.getState().setEffect(uuid, value);
+                    },
+                  };
+                }
+              }
+
+              return null;
+            },
+            mergeKey: (prev, next) => {
+              for (const uuid of Object.keys(next.effects)) {
+                if (!prev.effects[uuid]) continue;
+
+                if (prev.effects[uuid] !== next.effects[uuid]) {
+                  return createMergeKey("effect", uuid, "edit");
+                }
+              }
+              return undefined;
+            },
           },
-          selected: uuid,
-        }));
+        ],
       },
-
-      setSelected: (uuid) => set(() => ({ selected: uuid })),
-
-      setEffect: (uuid, props) =>
-        set((state) => ({
-          effects: {
-            ...state.effects,
-            [uuid]: { ...state.effects[uuid], ...props } as EffectComponent,
-          },
-        })),
-
-      removeEffect: (uuid) =>
-        set((state) => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { [uuid]: _, ...rest } = state.effects;
-          return { effects: rest };
-        }),
-
-      hydrate: (snapshot) =>
-        set({
-          effects: snapshot.effects,
-          selected: snapshot.selected,
-        }),
-
-      getSnapshot: () => {
-        return {
-          effects: get().effects,
-          selected: get().selected,
-        };
-      },
-    }),
+    ),
     { name: "Effects" },
   ),
 );

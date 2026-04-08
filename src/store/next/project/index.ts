@@ -34,7 +34,6 @@ interface ProjectActions {
   buildZipBlob: (snapshot: ProjectSnapshot) => Promise<Blob>;
   load: (file: File) => Promise<void>;
   applySnapshot: (snapshot: ProjectSnapshot, zip: JSZip) => Promise<void>;
-  updateName: (name: string) => void;
   markDirty: () => void;
 }
 
@@ -61,7 +60,6 @@ type StoreSnapshots = {
 
 type ProjectSnapshot = {
   version: number;
-  name: string;
   savedAt: number;
 } & StoreSnapshots;
 
@@ -69,7 +67,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
   inspector(
     (set, get) => ({
       version: CURRENT_VERSION,
-      name: "Untitled Project",
       savedAt: null,
       isDirty: false,
 
@@ -101,7 +98,10 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         const snapshot = get().snapshot();
         const blob = await get().buildZipBlob(snapshot);
 
-        downloadFile(blob, `${snapshot.name.replace(/\s+/g, "_")}.sshProj`);
+        downloadFile(
+          blob,
+          `${snapshot.settings.name.replace(/\s+/g, "_")}.sshProj`,
+        );
 
         set({ savedAt: snapshot.savedAt, isDirty: false });
       },
@@ -114,7 +114,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           try {
             // @ts-expect-error - showSaveFilePicker is not yet in TypeScript's lib.dom.d.ts
             const handle = await window.showSaveFilePicker({
-              suggestedName: `${snapshot.name.replace(/\s+/g, "_")}.sshProj`,
+              suggestedName: `${snapshot.settings.name.replace(/\s+/g, "_")}.sshProj`,
               types: [
                 {
                   description: "Sprite Sheet Helper Project",
@@ -133,7 +133,10 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           }
         } else {
           // Fallback for browsers without File System Access API
-          downloadFile(blob, `${snapshot.name.replace(/\s+/g, "_")}.sshProj`);
+          downloadFile(
+            blob,
+            `${snapshot.settings.name.replace(/\s+/g, "_")}.sshProj`,
+          );
         }
 
         set({ savedAt: snapshot.savedAt, isDirty: false });
@@ -158,8 +161,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         zip.file("project.json", JSON.stringify(snapshot, null, 2));
         return zip.generateAsync({ type: "blob" });
       },
-
-      updateName: (name) => set({ name }),
 
       load: async (file) => {
         try {
@@ -197,9 +198,13 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         // Hydrate all stores
         get().restore(snapshot);
 
-        set({ name: snapshot.name, savedAt: snapshot.savedAt, isDirty: false });
+        set({
+          name: snapshot.settings.name,
+          savedAt: snapshot.savedAt,
+          isDirty: false,
+        });
 
-        setAppTitle(snapshot.name);
+        setAppTitle(snapshot.settings.name);
       },
     }),
     { name: "Project" },

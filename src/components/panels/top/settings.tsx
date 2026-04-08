@@ -44,9 +44,10 @@ import { useTheme, type Theme } from "@/components/theme-provider";
 import { useProjectStore } from "@/store/next/project";
 import { setAppTitle } from "@/utils/app";
 
-const ExportFormats = ["spritesheet", "gif", "zip"] as const;
+const ExportFormats = ["spritesheet", "gif", "zip", "lua"] as const;
 
 const formSchema = z.object({
+  name: z.string(),
   mode: z.enum(ExportFormats),
   width: z.coerce.number().min(1),
   height: z.coerce.number().min(1),
@@ -56,7 +57,6 @@ const formSchema = z.object({
   editorBackgroundColor: z.string(),
   gridSectionColor: z.string(),
   gridCellColor: z.string(),
-  projectName: z.string(),
   theme: z.enum(["light", "dark"]),
 });
 
@@ -82,7 +82,6 @@ export function openSettings(options?: Omit<SettingsModalState, "open">) {
 export function SettingsModalProvider() {
   const settings = useSettingsStore((state) => state);
   const projectName = useProjectStore((state) => state.name);
-  const updateProjectName = useProjectStore((state) => state.updateName);
   const updateSettings = useSettingsStore((state) => state.update);
   const [state, setState] = useState<SettingsModalState>({ open: false });
   const { setTheme } = useTheme();
@@ -102,6 +101,7 @@ export function SettingsModalProvider() {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: settings.name,
       mode: settings.mode,
       width: settings.width,
       height: settings.height,
@@ -112,7 +112,6 @@ export function SettingsModalProvider() {
       gridSectionColor: settings.gridSectionColor,
       gridCellColor: settings.gridCellColor,
       theme: settings.theme,
-      projectName,
     },
   });
 
@@ -124,6 +123,7 @@ export function SettingsModalProvider() {
       originalGridSectionRef.current = settings.gridSectionColor;
       originalGridCellRef.current = settings.gridCellColor;
       form.reset({
+        name: settings.name,
         mode: settings.mode,
         width: settings.width,
         height: settings.height,
@@ -133,7 +133,6 @@ export function SettingsModalProvider() {
         editorBackgroundColor: settings.editorBackgroundColor,
         gridSectionColor: settings.gridSectionColor,
         gridCellColor: settings.gridCellColor,
-        projectName: projectName,
         theme: settings.theme,
       });
     }
@@ -151,13 +150,12 @@ export function SettingsModalProvider() {
 
   function onSubmit(data: FormValues) {
     updateSettings(data as SettingsState);
-    updateProjectName(data.projectName as string);
     originalThemeRef.current = data.theme as Exclude<Theme, "system">;
     originalBgRef.current = data.editorBackgroundColor as string;
     originalGridSectionRef.current = data.gridSectionColor as string;
     originalGridCellRef.current = data.gridCellColor as string;
 
-    setAppTitle(data.projectName);
+    setAppTitle(data.name);
     onClose();
   }
 
@@ -189,7 +187,7 @@ export function SettingsModalProvider() {
                 <CollapsibleContent>
                   <div className="grid grid-cols-1 gap-4 pt-3">
                     <Controller
-                      name="projectName"
+                      name="name"
                       control={form.control}
                       render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
