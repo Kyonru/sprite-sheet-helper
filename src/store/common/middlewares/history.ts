@@ -58,6 +58,8 @@ const historyMiddlewareImpl: HistoryMiddlewareImpl =
           ...action,
           mergeKey,
         });
+
+        useHistoryStore.getState().setDirty(true);
       }
     };
 

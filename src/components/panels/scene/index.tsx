@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useExportOptionsStore } from "@/store/export";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -36,6 +35,7 @@ import { useSettingsStore } from "@/store/next/settings";
 import { Text } from "@react-three/drei";
 import type { PerspectiveCameraComponent, Transform } from "@/types/ecs";
 import { setGLContext } from "@/lib/gl-context";
+import { useHistoryStore } from "@/store/next/history";
 
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;
@@ -517,7 +517,7 @@ function PreviewScene({
 }
 
 export function AssetCreation() {
-  const exportedImages = useExportOptionsStore((state) => state.images);
+  const isDirty = useHistoryStore((state) => state.isDirty);
   const isDragging = useRef(false);
   const [showGizmo, setShowGizmo] = useState(false);
   const {
@@ -543,13 +543,13 @@ export function AssetCreation() {
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (exportedImages.length === 0) return;
+      if (!isDirty) return;
       e.preventDefault();
       e.returnValue = true;
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [exportedImages]);
+  }, [isDirty]);
 
   return (
     <ResizablePanel defaultSize="75%">

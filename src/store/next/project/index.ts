@@ -22,7 +22,6 @@ export interface ProjectState {
   version: number;
   name: string;
   savedAt: number | null;
-  isDirty: boolean;
 }
 
 interface ProjectActions {
@@ -34,7 +33,6 @@ interface ProjectActions {
   buildZipBlob: (snapshot: ProjectSnapshot) => Promise<Blob>;
   load: (file: File) => Promise<void>;
   applySnapshot: (snapshot: ProjectSnapshot, zip: JSZip) => Promise<void>;
-  markDirty: () => void;
 }
 
 const stores = {
@@ -68,10 +66,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
     (set, get) => ({
       version: CURRENT_VERSION,
       savedAt: null,
-      isDirty: false,
 
       setName: (name) => set({ name }),
-      markDirty: () => set({ isDirty: true }),
 
       snapshot: () => ({
         version: CURRENT_VERSION,
@@ -103,7 +99,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           `${snapshot.settings.name.replace(/\s+/g, "_")}.sshProj`,
         );
 
-        set({ savedAt: snapshot.savedAt, isDirty: false });
+        set({ savedAt: snapshot.savedAt });
+        useHistoryStore.getState().setDirty(false);
       },
 
       saveAs: async () => {
@@ -139,7 +136,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           );
         }
 
-        set({ savedAt: snapshot.savedAt, isDirty: false });
+        set({ savedAt: snapshot.savedAt });
+        useHistoryStore.getState().setDirty(false);
       },
 
       // Extracted so both save and saveAs share the same zip-building logic
@@ -201,8 +199,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         set({
           name: snapshot.settings.name,
           savedAt: snapshot.savedAt,
-          isDirty: false,
         });
+        useHistoryStore.getState().setDirty(false);
 
         setAppTitle(snapshot.settings.name);
       },

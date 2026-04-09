@@ -12,6 +12,7 @@ export interface HistoryState {
   past: HistoryEntry[];
   future: HistoryEntry[];
   transaction: HistoryTransaction | null;
+  isDirty: boolean;
 }
 
 interface HistoryActions extends SnapshotEnabledStore<HistoryState> {
@@ -23,6 +24,7 @@ interface HistoryActions extends SnapshotEnabledStore<HistoryState> {
   undo: () => void;
   redo: () => void;
   clear: () => void;
+  setDirty: (dirty: boolean) => void;
 }
 
 const MAX_HISTORY = 100;
@@ -100,6 +102,7 @@ export const useHistoryStore = create<HistoryState & HistoryActions>()(
     (set, get) => ({
       past: [],
       future: [],
+      isDirty: false,
 
       push: (entry) =>
         set((state) => {
@@ -217,6 +220,8 @@ export const useHistoryStore = create<HistoryState & HistoryActions>()(
           future: get().future,
         };
       },
+
+      setDirty: (dirty: boolean) => set({ isDirty: dirty }),
 
       hydrate: (snapshot) =>
         set({
