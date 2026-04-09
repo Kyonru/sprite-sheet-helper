@@ -28,12 +28,16 @@ interface EntitiesActions extends SnapshotEnabledStore<EntitiesState> {
   unselectEntity: () => void;
 }
 
+const initialState: EntitiesState = {
+  entities: {},
+  children: {},
+};
+
 export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
   inspector(
     withHistory(
       (set, get) => ({
-        entities: {},
-        children: {},
+        ...initialState,
 
         addEntity: (type, name, metadata: Record<string, unknown> = {}) => {
           const uuid = generateUUID();
@@ -123,6 +127,8 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
         selectEntity: (uuid?: string) => set({ selected: uuid }),
 
         unselectEntity: () => set({ selected: undefined }),
+
+        reset: () => set(initialState),
 
         hydrate: (snapshot) =>
           set({

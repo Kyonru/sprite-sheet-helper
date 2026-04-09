@@ -37,6 +37,11 @@ export const FileMenu = () => {
         <MenubarSeparator />
         <MenubarGroup>
           <MenubarItemAction
+            title="New project..."
+            action={projectStore.new}
+            shortcut={ShortCutEventType.NEW_PROJECT}
+          />
+          <MenubarItemAction
             title="Open project..."
             action={() => importFile([PROJECT_FILE_TYPE], projectStore.load)}
             shortcut={ShortCutEventType.OPEN_PROJECT}

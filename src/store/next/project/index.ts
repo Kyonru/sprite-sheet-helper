@@ -17,17 +17,17 @@ import { useImagesStore } from "../images";
 import { useSettingsStore } from "../settings";
 import { useEffectsStore } from "../effects";
 import { setAppTitle } from "@/utils/app";
+import { EventType, PubSub } from "@/lib/events";
 
 export interface ProjectState {
   version: number;
-  name: string;
   savedAt: number | null;
 }
 
 interface ProjectActions {
-  setName: (name: string) => void;
   snapshot: () => ProjectSnapshot;
   restore: (snapshot: ProjectSnapshot) => void;
+  new: () => void;
   save: () => Promise<void>;
   saveAs: () => Promise<void>;
   buildZipBlob: (snapshot: ProjectSnapshot) => Promise<Blob>;
@@ -67,11 +67,9 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       version: CURRENT_VERSION,
       savedAt: null,
 
-      setName: (name) => set({ name }),
-
       snapshot: () => ({
         version: CURRENT_VERSION,
-        name: get().name,
+        name: useSettingsStore.getState().name,
         savedAt: Date.now(),
         ...(Object.fromEntries(
           Object.entries(stores).map(([key, store]) => [
@@ -88,6 +86,28 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stores[key].getState().hydrate(data as any);
         });
+      },
+
+      new: () => {
+        const isDirty = useHistoryStore.getState().isDirty;
+
+        if (isDirty) {
+          const confirmed = window.confirm(
+            "You have unsaved changes. Start a new project anyway?",
+          );
+          if (!confirmed) return;
+        }
+
+        (Object.keys(stores) as StoreKey[]).forEach((key) => {
+          stores[key].getState().reset();
+        });
+
+        set({ savedAt: null });
+
+        useSettingsStore.getState().setName("Untitled Project");
+        useHistoryStore.getState().reset();
+        setAppTitle("Untitled Project");
+        PubSub.emit(EventType.NEW_PROJECT);
       },
 
       save: async () => {
@@ -197,7 +217,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         get().restore(snapshot);
 
         set({
-          name: snapshot.settings.name,
           savedAt: snapshot.savedAt,
         });
         useHistoryStore.getState().setDirty(false);

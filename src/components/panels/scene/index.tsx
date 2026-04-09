@@ -36,6 +36,7 @@ import { Text } from "@react-three/drei";
 import type { PerspectiveCameraComponent, Transform } from "@/types/ecs";
 import { setGLContext } from "@/lib/gl-context";
 import { useHistoryStore } from "@/store/next/history";
+import { setAppTitle } from "@/utils/app";
 
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;
@@ -518,6 +519,7 @@ function PreviewScene({
 
 export function AssetCreation() {
   const isDirty = useHistoryStore((state) => state.isDirty);
+  const name = useSettingsStore((state) => state.name);
   const isDragging = useRef(false);
   const [showGizmo, setShowGizmo] = useState(false);
   const {
@@ -550,6 +552,10 @@ export function AssetCreation() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
+
+  useEffect(() => {
+    setAppTitle(`${name}${isDirty ? "*" : ""}`);
+  }, [isDirty, name]);
 
   return (
     <ResizablePanel defaultSize="75%">

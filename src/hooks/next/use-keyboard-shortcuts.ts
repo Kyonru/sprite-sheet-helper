@@ -59,6 +59,9 @@ export const useKeyboardShortcuts = () => {
         case ShortCutEventType.IMPORT_MODEL:
           importFile(ACCEPTED_MODEL_FILE_TYPES, loadFromFile);
           break;
+        case ShortCutEventType.NEW_PROJECT:
+          projectStore.new();
+          break;
         case ShortCutEventType.OPEN_PROJECT:
           importFile([PROJECT_FILE_TYPE], projectStore.load);
           break;

@@ -50,18 +50,21 @@ interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
   ) => void;
 }
 
+const initialState: ImagesState = {
+  selectedRow: 0,
+  intervals: 100,
+  iterations: 10,
+  fps: 100,
+  preview: false,
+  images: [],
+};
+
 interface ImagesStore extends ImagesState, ImagesActions {}
 
 export const useImagesStore = create<ImagesStore>()(
   inspector(
     (set, get) => ({
-      mode: "spritesheet",
-      selectedRow: 0,
-      intervals: 100,
-      iterations: 10,
-      fps: 100,
-      preview: false,
-      images: [],
+      ...initialState,
 
       setIntervals: (intervals) => set({ intervals }),
       setIterations: (iterations) => set({ iterations }),
@@ -182,6 +185,8 @@ export const useImagesStore = create<ImagesStore>()(
           images: snapshot.images,
           selectedRow: snapshot.selectedRow ?? 0,
         }),
+
+      reset: () => set(initialState),
     }),
     { name: "Images" },
   ),

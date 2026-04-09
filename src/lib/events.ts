@@ -10,9 +10,11 @@ export const EventType = {
   STOP_EXPORT: "stop_export",
   SET_CAMERA_ANGLE: "set_camera_angle",
   ROTATE_CAMERA: "rotate_camera",
+  NEW_PROJECT: "new_project",
 } as const;
 
 export const ShortCutEventType = {
+  NEW_PROJECT: "shortcut_new_project",
   EXPORT_ZIP: "shortcut_export_zip",
   EXPORT_GIF: "shortcut_export_gif",
   EXPORT_SPRITE_SHEET: "shortcut_export_sprite_sheet",

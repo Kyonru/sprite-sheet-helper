@@ -17,6 +17,11 @@ export interface TransformsState {
   mode: TransformMode;
 }
 
+const initialState: TransformsState = {
+  transforms: {},
+  mode: "translate",
+};
+
 interface TransformsActions extends SnapshotEnabledStore<TransformsState> {
   setTransform: (uuid: string, transform: Partial<Transform>) => void;
   initTransform: (uuid: string, transform?: Partial<Transform>) => void;
@@ -28,8 +33,7 @@ export const useTransformsStore = create<TransformsState & TransformsActions>()(
   inspector(
     withHistory(
       (set, get) => ({
-        transforms: {},
-        mode: "translate",
+        ...initialState,
 
         initTransform: (uuid, transform = {}) =>
           set((state) => ({
@@ -55,6 +59,8 @@ export const useTransformsStore = create<TransformsState & TransformsActions>()(
           }),
 
         setMode: (mode) => set({ mode }),
+
+        reset: () => set(initialState),
 
         hydrate: (snapshot) =>
           set({

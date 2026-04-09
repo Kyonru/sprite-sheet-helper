@@ -11,6 +11,10 @@ export interface TargetsState {
   targets: Record<string, [number, number, number]>;
 }
 
+const initialState: TargetsState = {
+  targets: {},
+};
+
 interface TargetsActions extends SnapshotEnabledStore<TargetsState> {
   setTarget: (uuid: string, target: [number, number, number]) => void;
   initTarget: (uuid: string, target?: [number, number, number]) => void;
@@ -20,7 +24,7 @@ export const useTargetsStore = create<TargetsState & TargetsActions>()(
   inspector(
     withHistory(
       (set, get) => ({
-        targets: {},
+        ...initialState,
 
         initTarget: (uuid, target = DEFAULT_POSITION) =>
           set((state) => ({
@@ -38,6 +42,8 @@ export const useTargetsStore = create<TargetsState & TargetsActions>()(
             const { [uuid]: _, ...rest } = state.targets;
             return { targets: rest };
           }),
+
+        reset: () => set(initialState),
 
         hydrate: (snapshot) => set({ targets: snapshot.targets }),
 

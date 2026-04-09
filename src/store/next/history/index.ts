@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { subscribeWithSelector } from "zustand/middleware";
 import { inspector } from "../../../../devtools/inspector-middleware";
 import type {
   HistoryAction,
@@ -26,6 +27,13 @@ interface HistoryActions extends SnapshotEnabledStore<HistoryState> {
   clear: () => void;
   setDirty: (dirty: boolean) => void;
 }
+
+const initialState: HistoryState = {
+  transaction: null,
+  past: [],
+  future: [],
+  isDirty: false,
+};
 
 const MAX_HISTORY = 100;
 const MERGE_WINDOW = 1000;
@@ -99,10 +107,8 @@ const commitEntry = (
 
 export const useHistoryStore = create<HistoryState & HistoryActions>()(
   inspector(
-    (set, get) => ({
-      past: [],
-      future: [],
-      isDirty: false,
+    subscribeWithSelector((set, get) => ({
+      ...initialState,
 
       push: (entry) =>
         set((state) => {
@@ -214,8 +220,12 @@ export const useHistoryStore = create<HistoryState & HistoryActions>()(
         set({ transaction: null });
       },
 
+      reset: () => set(initialState),
+
       getSnapshot: () => {
         return {
+          isDirty: get().isDirty,
+          transaction: get().transaction,
           past: get().past,
           future: get().future,
         };
@@ -228,7 +238,28 @@ export const useHistoryStore = create<HistoryState & HistoryActions>()(
           past: snapshot.past,
           future: snapshot.future,
         }),
-    }),
+    })),
     { name: "History" },
   ),
+);
+
+useHistoryStore.subscribe(
+  (state) => state.future,
+  () => {
+    useHistoryStore.getState().setDirty(true);
+  },
+);
+
+useHistoryStore.subscribe(
+  (state) => state.past,
+  () => {
+    useHistoryStore.getState().setDirty(true);
+  },
+);
+
+useHistoryStore.subscribe(
+  (state) => state.transaction,
+  () => {
+    useHistoryStore.getState().setDirty(true);
+  },
 );

@@ -180,4 +180,5 @@ export const LightTypeMap = {
 export type SnapshotEnabledStore<T> = {
   getSnapshot: () => T;
   hydrate: (snapshot: T) => void;
+  reset: () => void;
 };

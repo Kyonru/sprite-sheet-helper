@@ -51,6 +51,10 @@ export interface LightsState {
   lights: Record<string, LightComponent>;
 }
 
+const initialState: LightsState = {
+  lights: {},
+};
+
 interface LightsActions extends SnapshotEnabledStore<LightsState> {
   initLight: (
     uuid: string,
@@ -65,7 +69,7 @@ export const useLightsStore = create<LightsState & LightsActions>()(
   inspector(
     withHistory(
       (set, get) => ({
-        lights: {},
+        ...initialState,
 
         initLight: (uuid, type, props = {}) =>
           set((state) => ({
@@ -89,6 +93,8 @@ export const useLightsStore = create<LightsState & LightsActions>()(
             const { [uuid]: _, ...rest } = state.lights;
             return { lights: rest };
           }),
+
+        reset: () => set(initialState),
 
         getSnapshot: () => {
           return {

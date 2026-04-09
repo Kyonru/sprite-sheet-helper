@@ -42,6 +42,20 @@ interface SettingsActions extends SnapshotEnabledStore<SettingsState> {
   update: (settings: Partial<SettingsState>) => void;
 }
 
+const initialState: SettingsState = {
+  name: "Untitled Project",
+  mode: "spritesheet",
+  editorBackgroundColor: "#1a1a1a",
+  width: DEFAULT_DISPLAY_SIZE,
+  height: DEFAULT_DISPLAY_SIZE,
+  exportWidth: 64,
+  exportHeight: 64,
+  cameraDistance: 5,
+  theme: "dark",
+  gridSectionColor: "#a09f9f",
+  gridCellColor: "#868686",
+};
+
 interface SettingsStore extends SettingsState, SettingsActions {}
 
 const WATCHED_KEYS: (keyof SettingsState)[] = [
@@ -62,17 +76,7 @@ export const useSettingsStore = create<SettingsStore>()(
   inspector(
     withHistory(
       (set, get) => ({
-        name: "Untitled Project",
-        mode: "spritesheet",
-        editorBackgroundColor: "#1a1a1a",
-        width: DEFAULT_DISPLAY_SIZE,
-        height: DEFAULT_DISPLAY_SIZE,
-        exportWidth: 64,
-        exportHeight: 64,
-        cameraDistance: 5,
-        theme: "dark",
-        gridSectionColor: "#a09f9f",
-        gridCellColor: "#868686",
+        ...initialState,
 
         update: (settings) => set((state) => ({ ...state, ...settings })),
         setMode: (mode) => set({ mode }),
@@ -101,6 +105,8 @@ export const useSettingsStore = create<SettingsStore>()(
             theme: get().theme,
           };
         },
+
+        reset: () => set(initialState),
 
         hydrate: (snapshot) =>
           set({

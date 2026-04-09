@@ -245,14 +245,18 @@ interface EffectsActions extends SnapshotEnabledStore<EffectsState> {
   removeEffect: (uuid: string) => void;
 }
 
+const initialState: EffectsState = {
+  effects: {},
+  selected: undefined,
+};
+
 interface EffectsStore extends EffectsState, EffectsActions {}
 
 export const useEffectsStore = create<EffectsStore>()(
   inspector(
     withHistory(
       (set, get) => ({
-        effects: {},
-        selected: undefined,
+        ...initialState,
 
         initEffect: (type) => {
           const uuid = generateUUID();
@@ -281,6 +285,8 @@ export const useEffectsStore = create<EffectsStore>()(
             const { [uuid]: _, ...rest } = state.effects;
             return { effects: rest };
           }),
+
+        reset: () => set(initialState),
 
         hydrate: (snapshot) =>
           set({

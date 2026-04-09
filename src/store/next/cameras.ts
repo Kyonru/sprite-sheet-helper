@@ -37,12 +37,16 @@ interface CamerasActions extends SnapshotEnabledStore<CamerasState> {
   setCameraType: (uuid: string, type: CameraType) => void;
 }
 
+const initialState: CamerasState = {
+  cameras: {},
+  mainCamera: undefined,
+};
+
 export const useCamerasStore = create<CamerasState & CamerasActions>()(
   inspector(
     withHistory(
       (set, get) => ({
-        cameras: {},
-        mainCamera: undefined,
+        ...initialState,
 
         initCamera: (uuid, overrides = {}) =>
           set((state) => ({
@@ -95,6 +99,8 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
                 state.mainCamera === uuid ? undefined : state.mainCamera,
             };
           }),
+
+        reset: () => set(initialState),
 
         getSnapshot: () => ({
           cameras: get().cameras,

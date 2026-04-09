@@ -28,6 +28,7 @@ import { AboutModalProvider } from "./components/about-modal";
 import { ShaderEditorProvider } from "./components/custom-shader-modal";
 import { initShortcutRegistry } from "./lib/shortcut-registry";
 import { useKeyboardShortcuts } from "./hooks/next/use-keyboard-shortcuts";
+import { EventType, PubSub } from "./lib/events";
 
 THREE.Cache.enabled = true;
 initShortcutRegistry();
@@ -40,7 +41,7 @@ function App() {
   const init = useRef(false);
 
   useEffect(() => {
-    setTimeout(() => {
+    const initProject = () => {
       if (init.current) return;
       init.current = true;
       addCamera({
@@ -49,7 +50,22 @@ function App() {
       addLight("ambient", "Ambient Light", {
         intensity: 1,
       });
+    };
+
+    const restartProject = () => {
+      init.current = false;
+      initProject();
+    };
+
+    PubSub.on(EventType.NEW_PROJECT, restartProject);
+
+    setTimeout(() => {
+      initProject();
     }, 0);
+
+    return () => {
+      PubSub.off(EventType.NEW_PROJECT, restartProject);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

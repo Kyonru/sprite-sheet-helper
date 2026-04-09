@@ -1,6 +1,7 @@
 import type { StateCreator, StoreApi, StoreMutatorIdentifier } from "zustand";
 import { useHistoryStore } from "@/store/next/history";
 import type { HistoryAction } from "@/types/history";
+import { isEqual } from "@/utils/object";
 
 type HistoryMiddleware = <
   T,
@@ -43,11 +44,15 @@ const historyMiddlewareImpl: HistoryMiddlewareImpl =
       // Skip if nothing changed
       if (prev === next) return;
 
+      if (isEqual(prev, next)) return;
+
       for (const watcher of options.watchers) {
         const prevVal = watcher.select(prev);
         const nextVal = watcher.select(next);
 
         if (prevVal === nextVal) continue;
+
+        if (isEqual(prevVal, nextVal)) return;
 
         const action = watcher.toAction(prev, next, api);
         if (!action) continue;
@@ -58,8 +63,6 @@ const historyMiddlewareImpl: HistoryMiddlewareImpl =
           ...action,
           mergeKey,
         });
-
-        useHistoryStore.getState().setDirty(true);
       }
     };
 

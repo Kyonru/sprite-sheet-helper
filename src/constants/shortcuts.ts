@@ -20,6 +20,10 @@ export const APP_SHORTCUTS: Record<
     shortcut: [CommandSymbols.Cmd, "I"],
     type: ShortCutEventType.IMPORT_MODEL,
   },
+  [ShortCutEventType.NEW_PROJECT]: {
+    shortcut: [CommandSymbols.Cmd, CommandSymbols.Shift, "M"],
+    type: ShortCutEventType.NEW_PROJECT,
+  },
   [ShortCutEventType.OPEN_PROJECT]: {
     shortcut: [CommandSymbols.Cmd, CommandSymbols.Shift, "O"],
     type: ShortCutEventType.OPEN_PROJECT,

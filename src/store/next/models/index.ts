@@ -80,20 +80,26 @@ interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
   setFreeze: (uuid: string, freeze: boolean) => void;
 }
 
-export const useModelsStore = create<ModelsState & ModelsActions>()(
+const initialState: ModelsState = {
+  models: {},
+  clips: {},
+  mixerRef: {},
+  animations: {},
+  durations: {},
+  speeds: {},
+  loops: {},
+  currentTime: {},
+  frameStep: {},
+  freeze: {},
+};
+
+interface ModelsStore extends ModelsState, ModelsActions {}
+
+export const useModelsStore = create<ModelsStore>()(
   inspector(
     withHistory(
       (set, get) => ({
-        models: {},
-        clips: {},
-        mixerRef: {},
-        animations: {},
-        durations: {},
-        speeds: {},
-        loops: {},
-        currentTime: {},
-        frameStep: {},
-        freeze: {},
+        ...initialState,
 
         setLoadState: (uuid, loadState, errorMessage = "") =>
           set((state) => ({
@@ -213,6 +219,8 @@ export const useModelsStore = create<ModelsState & ModelsActions>()(
           set((state) => ({
             freeze: { ...state.freeze, [uuid]: freeze },
           })),
+
+        reset: () => set(initialState),
 
         getSnapshot: () => {
           return {
