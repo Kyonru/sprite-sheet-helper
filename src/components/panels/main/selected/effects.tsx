@@ -7,7 +7,7 @@ import {
   SMAA_PRESETS,
   TONE_MAPPING_MODES,
 } from "@/constants/effects";
-import { useEffectsStore, type EffectType } from "@/store/next/effects";
+import { useEffectsStore } from "@/store/next/effects";
 
 import {
   button,
@@ -22,6 +22,7 @@ import { useMemo } from "react";
 import { PALETTE_INDEX } from "../../scene/custom-effects.tsx/palette";
 import { LEVA_THEME } from "@/constants/theming";
 import { openShaderEditor } from "@/components/custom-shader-modal";
+import type { EffectType } from "@/types/effects";
 
 const MODE_OPTIONS_MAP: Partial<
   Record<EffectType, Record<string, number | string>>

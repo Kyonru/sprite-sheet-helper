@@ -558,7 +558,7 @@ function AssetCreation() {
   }, [isDirty, name]);
 
   return (
-    <ResizablePanel defaultSize="75%">
+    <ResizablePanel>
       <ResizablePanelGroup orientation="vertical">
         <ResizablePanel defaultSize="60%" style={{ position: "relative" }}>
           <EntityContextProvider isPreview={false}>

@@ -44,8 +44,6 @@ const historyMiddlewareImpl: HistoryMiddlewareImpl =
       // Skip if nothing changed
       if (prev === next) return;
 
-      if (isEqual(prev, next)) return;
-
       for (const watcher of options.watchers) {
         const prevVal = watcher.select(prev);
         const nextVal = watcher.select(next);

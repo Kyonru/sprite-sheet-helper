@@ -1,25 +1,22 @@
 import { useSharedContext } from "@/context/sharedContext";
 import { LevaPanel } from "leva";
-import { MINIMAL_LEVA_THEME } from "../constants/theming";
+import { LEVA_THEME } from "../constants/theming";
+import { ExportConfig } from "./config/export-config";
 
 export function ExportModal() {
   const { levaStore } = useSharedContext();
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        zIndex: 999,
-        width: "30vw",
-        right: "4vw",
-        top: "6vh",
-      }}
-    >
+    <div className="h-full overflow-scroll overflow-y-scroll no-scrollbar">
+      <ExportConfig />
       <LevaPanel
-        theme={MINIMAL_LEVA_THEME}
+        theme={LEVA_THEME}
         fill
-        titleBar={{ title: "Export Options" }}
+        titleBar={false}
         store={levaStore}
+        hidden={false}
+        neverHide
+        flat
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import type { EffectType } from "@/store/next/effects";
+import type { EffectType } from "@/types/effects";
 import type { LightType } from "@/types/lighting";
 import {
   BlendFunction,

@@ -48,6 +48,11 @@ interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
     frameHeight: number,
     fps: number,
   ) => void;
+  createEmptyRow: (
+    frameWidth: number,
+    frameHeight: number,
+    fps: number,
+  ) => void;
 }
 
 const initialState: ImagesState = {
@@ -164,6 +169,21 @@ export const useImagesStore = create<ImagesStore>()(
             selectedRow: index,
           };
         }),
+
+      createEmptyRow: (frameWidth, frameHeight, fps) =>
+        set((state) => ({
+          images: [
+            {
+              uuid: Date.now().toString(),
+              label: "Animation",
+              images: [],
+              frameWidth,
+              frameHeight,
+              fps,
+            },
+          ],
+          selectedRow: state.images.length,
+        })),
 
       getSnapshot: () => {
         return {

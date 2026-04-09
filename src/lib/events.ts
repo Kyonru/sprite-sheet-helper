@@ -5,6 +5,7 @@ export const EventType = {
   TAKE_SINGLE_SCREENSHOT: "take_single_screenshot",
   START_ASSETS_CREATION: "start_assets_creation",
   STOP_ASSETS_CREATION: "stop_assets_creation",
+  NEW_SEQUENCE: "new_sequence",
   SHORT_CUT: "shortcut",
   START_EXPORT: "start_export",
   STOP_EXPORT: "stop_export",

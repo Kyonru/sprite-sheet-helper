@@ -54,7 +54,7 @@ function Carousel({
       ...opts,
       axis: orientation === "horizontal" ? "x" : "y",
     },
-    plugins
+    plugins,
   );
   const [canScrollPrev, setCanScrollPrev] = React.useState(false);
   const [canScrollNext, setCanScrollNext] = React.useState(false);
@@ -83,7 +83,7 @@ function Carousel({
         scrollNext();
       }
     },
-    [scrollPrev, scrollNext]
+    [scrollPrev, scrollNext],
   );
 
   React.useEffect(() => {
@@ -143,7 +143,7 @@ function CarouselContent({ className, ...props }: React.ComponentProps<"div">) {
         className={cn(
           "flex",
           orientation === "horizontal" ? "-ms-4" : "-mt-4 flex-col",
-          className
+          className,
         )}
         {...props}
       />
@@ -162,7 +162,7 @@ function CarouselItem({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         "min-w-0 shrink-0 grow-0 basis-full",
         orientation === "horizontal" ? "ps-4" : "pt-4",
-        className
+        className,
       )}
       {...props}
     />
@@ -175,20 +175,14 @@ function CarouselPrevious({
   size = "icon",
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { orientation, scrollPrev, canScrollPrev } = useCarousel();
+  const { scrollPrev, canScrollPrev } = useCarousel();
 
   return (
     <Button
       data-slot="carousel-previous"
       variant={variant}
       size={size}
-      className={cn(
-        "absolute size-8 rounded-full",
-        orientation === "horizontal"
-          ? "top-1/2 -start-12 -translate-y-1/2"
-          : "-top-12 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 rotate-90",
-        className
-      )}
+      className={cn("size-8 rounded-full", className)}
       disabled={!canScrollPrev}
       onClick={scrollPrev}
       {...props}
@@ -205,20 +199,14 @@ function CarouselNext({
   size = "icon",
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { orientation, scrollNext, canScrollNext } = useCarousel();
+  const { scrollNext, canScrollNext } = useCarousel();
 
   return (
     <Button
       data-slot="carousel-next"
       variant={variant}
       size={size}
-      className={cn(
-        "absolute size-8 rounded-full",
-        orientation === "horizontal"
-          ? "top-1/2 -end-12 -translate-y-1/2"
-          : "-bottom-12 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 rotate-90",
-        className
-      )}
+      className={cn("size-8 rounded-full", className)}
       disabled={!canScrollNext}
       onClick={scrollNext}
       {...props}

@@ -83,7 +83,7 @@ export const HistoryActions = () => {
             ) : (
               <div className="flex items-center gap-2 flex-row">
                 <PlusIcon className="size-4" />
-                <span>Add sequence</span>
+                <span>Record sequence</span>
               </div>
             )}
           </Button>

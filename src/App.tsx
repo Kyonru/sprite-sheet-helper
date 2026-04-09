@@ -82,16 +82,19 @@ function App() {
               orientation="horizontal"
               className="max-w-full border"
             >
-              <ResizablePanel defaultSize="25%">
+              <ResizablePanel defaultSize="20%">
                 <MainPanel />
               </ResizablePanel>
               <ResizableHandle withHandle />
               <SharedSceneProvider>
                 <AssetCreation />
               </SharedSceneProvider>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize="30%">
+                <ExportModal />
+              </ResizablePanel>
             </ResizablePanelGroup>
           </Layout>
-          <ExportModal />
         </MainPanelContextProvider>
       </SharedContextProvider>
       <ConfirmProvider />

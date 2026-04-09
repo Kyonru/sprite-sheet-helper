@@ -1,39 +1,41 @@
 import { useEffect, type ChangeEvent, useState } from "react";
 import Ruler from "@scena/react-ruler";
 import { LucidePlus } from "lucide-react";
-import { button, useControls } from "leva";
+// import { button, useControls } from "leva";
 import { DroppableKeyframe, DroppableTrack } from "./dropable-keyframe";
 import { TimeIndicator } from "./time-indicator";
 import { useTimelineContext } from "./hooks/useTimeline";
 import { interpolate } from "./utils/animations";
-import { useModelStore } from "@/store/model";
+// import { useModelStore } from "@/store/model";
 import { ObjectProperties } from "./object";
 import { useMotionValues } from "@/hooks/use-motion-values";
 
-const SelectionLayer = ({
-  onSelect,
-}: {
-  onSelect?: (objectId: string) => void;
-}) => {
-  const { uiStore } = useTimelineContext();
-  const modelObject = useModelStore((state) => state.ref);
+const SelectionLayer = () =>
+  //   {
+  //   onSelect,
+  // }: {
+  //   onSelect?: (objectId: string) => void;
+  // }
+  {
+    // const { uiStore } = useTimelineContext();
+    // const modelObject = useModelStore((state) => state.ref);
 
-  useControls(
-    {
-      object: {
-        options: ["", modelObject?.uuid || ""],
-        value: "",
-      },
-      done: button((get) => {
-        onSelect?.(get("object"));
-      }),
-    },
-    { store: uiStore },
-    [modelObject]
-  );
+    // useControls(
+    //   {
+    //     object: {
+    //       options: ["", modelObject?.uuid || ""],
+    //       value: "",
+    //     },
+    //     done: button((get) => {
+    //       onSelect?.(get("object"));
+    //     }),
+    //   },
+    //   { store: uiStore },
+    //   [modelObject]
+    // );
 
-  return null;
-};
+    return null;
+  };
 
 export function BaseTimelineEditor() {
   const {
@@ -47,7 +49,7 @@ export function BaseTimelineEditor() {
     time,
     setTime,
     unit,
-    addObject,
+    // addObject,
   } = useTimelineContext();
 
   const motionValues = useMotionValues();
@@ -57,12 +59,12 @@ export function BaseTimelineEditor() {
     setSelectingObject(true);
   };
 
-  const onSelectObject = (uuid: string) => {
-    setSelectingObject(false);
-    if (!uuid) return;
+  // const onSelectObject = (uuid: string) => {
+  //   setSelectingObject(false);
+  //   if (!uuid) return;
 
-    addObject(uuid);
-  };
+  //   addObject(uuid);
+  // };
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -117,7 +119,11 @@ export function BaseTimelineEditor() {
           />
         ))}
       </div> */}
-      {selectingObject && <SelectionLayer onSelect={onSelectObject} />}
+      {selectingObject && (
+        <SelectionLayer
+        // onSelect={onSelectObject}
+        />
+      )}
       <div className="p-4 bg-primary-foreground font-sans space-y-4 no-scrollbar">
         <div className="flex items-center gap-2">
           <button
@@ -213,7 +219,7 @@ export function BaseTimelineEditor() {
                             keyframeIndex={i}
                           />
                         );
-                      })
+                      }),
                     )}
                     <div
                       className="absolute w-1 z-50 h-full bg-[#cb2c36] "

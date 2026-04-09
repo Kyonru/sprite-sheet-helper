@@ -30,6 +30,7 @@ export const useExport = () => {
   const { exportHeight, exportWidth } = useSettingsStore();
   const addImages = useImagesStore((state) => state.addImagesRow);
   const addImageToRow = useImagesStore((state) => state.addImageToRow);
+  const createEmptyRow = useImagesStore((state) => state.createEmptyRow);
   const selectedRow = useImagesStore((state) => state.selectedRow);
   const exportedImages = useImagesStore((state) => state.images);
 
@@ -240,6 +241,18 @@ export const useExport = () => {
       PubSub.off(EventType.TAKE_SINGLE_SCREENSHOT, addScreenshot);
     };
   }, [addScreenshot]);
+
+  const onNewRow = useCallback(() => {
+    createEmptyRow(exportWidth, exportHeight, Math.round(1000 / intervals));
+  }, [createEmptyRow, exportWidth, exportHeight, intervals]);
+
+  useEffect(() => {
+    PubSub.on(EventType.NEW_SEQUENCE, onNewRow);
+
+    return () => {
+      PubSub.off(EventType.NEW_SEQUENCE, onNewRow);
+    };
+  }, [onNewRow]);
 
   useEffect(() => {
     PubSub.on(EventType.START_ASSETS_CREATION, takeScreenshotSequence);

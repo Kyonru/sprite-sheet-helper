@@ -143,18 +143,13 @@ const useAutoplay = (emblaApi: CarouselApi | undefined): UseAutoplayType => {
 const ZoomControls = () => {
   const { zoomIn, zoomOut, resetTransform } = useControls();
   return (
-    <div className="relative">
-      <div className="absolute top-2 left-2 w-full h-full bg-black bg-opacity-50 z-10">
-        <LucideZoomIn className="mb-2 text-chart-3" onClick={() => zoomIn()} />
-        <LucideZoomOut
-          className="mb-2 text-chart-3"
-          onClick={() => zoomOut()}
-        />
-        <LucideFullscreen
-          className="text-chart-3"
-          onClick={() => resetTransform()}
-        />
-      </div>
+    <div className="absolute top-2 left-2 z-10">
+      <LucideZoomIn className="mb-2 text-chart-3" onClick={() => zoomIn()} />
+      <LucideZoomOut className="mb-2 text-chart-3" onClick={() => zoomOut()} />
+      <LucideFullscreen
+        className="text-chart-3"
+        onClick={() => resetTransform()}
+      />
     </div>
   );
 };
@@ -461,8 +456,8 @@ export const LevaCarousel = () => {
       </Row>
       <Row>
         <div draggable={false} className="flex flex-col gap-2 mb-2">
-          <Card className="p-0">
-            <CardContent className="flex aspect-square p-0">
+          <Card className="p-0 justify-center items-center">
+            <CardContent className="flex aspect-square w-80 h-80 p-0">
               <TransformWrapper
                 maxScale={50}
                 pinch={{
@@ -474,6 +469,7 @@ export const LevaCarousel = () => {
                   wrapperStyle={{
                     width: "100%",
                     height: "100%",
+                    alignSelf: "center",
                   }}
                   wrapperClass="items-center justify-center"
                 >
@@ -493,6 +489,26 @@ export const LevaCarousel = () => {
                   </div>
                 </TransformComponent>
               </TransformWrapper>
+              <ToggleGroup
+                className="absolute top-2 right-2 z-99"
+                type="single"
+                value={autoplayIsPlaying ? "on" : "off"}
+                onValueChange={onTogglePlay}
+              >
+                <ToggleGroupItem value="on" aria-label="on">
+                  <LucidePlay className="size-6" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <ToggleGroup
+                className="absolute top-12 right-2 z-99"
+                type="single"
+                value={loop ? "on" : "off"}
+                onValueChange={onToggleLoop}
+              >
+                <ToggleGroupItem value="on" aria-label="on">
+                  <LucideInfinity className="size-6" />
+                </ToggleGroupItem>
+              </ToggleGroup>
             </CardContent>
           </Card>
           <Carousel
@@ -511,9 +527,10 @@ export const LevaCarousel = () => {
               }),
             ]}
             setApi={setApi}
-            className="w-full"
+            className="w-full flex flex-row"
           >
-            <CarouselContent className="w-full">
+            <CarouselPrevious />
+            <CarouselContent className="w-[90%]">
               {(images[selectedRow]?.images || []).map((imageSrc, index) => (
                 <CarouselItem
                   className={`${
@@ -532,7 +549,6 @@ export const LevaCarousel = () => {
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious />
             <CarouselNext />
           </Carousel>
           {imagesLength <= 2 && (
@@ -557,27 +573,6 @@ export const LevaCarousel = () => {
             <div className="text-muted-foreground py-2 text-center text-sm">
               Frame {selectedSnap + 1} of {snapCount}
             </div>
-            <div></div>
-            <ToggleGroup
-              className="absolute top-2 right-2"
-              type="single"
-              value={autoplayIsPlaying ? "on" : "off"}
-              onValueChange={onTogglePlay}
-            >
-              <ToggleGroupItem value="on" aria-label="on">
-                <LucidePlay className="size-6" />
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <ToggleGroup
-              className="absolute top-12 right-2"
-              type="single"
-              value={loop ? "on" : "off"}
-              onValueChange={onToggleLoop}
-            >
-              <ToggleGroupItem value="on" aria-label="on">
-                <LucideInfinity className="size-6" />
-              </ToggleGroupItem>
-            </ToggleGroup>
           </div>
 
           <Button
