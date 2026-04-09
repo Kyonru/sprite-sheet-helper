@@ -517,7 +517,7 @@ function PreviewScene({
   );
 }
 
-export function AssetCreation() {
+function AssetCreation() {
   const isDirty = useHistoryStore((state) => state.isDirty);
   const name = useSettingsStore((state) => state.name);
   const isDragging = useRef(false);

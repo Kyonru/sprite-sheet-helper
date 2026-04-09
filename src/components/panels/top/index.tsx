@@ -1,5 +1,4 @@
 import { Menubar } from "@/components/ui/menubar";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useTransformsStore } from "@/store/next/transforms";
 import type { Transform } from "@/types/transform";
@@ -65,7 +64,6 @@ const TopPanel = () => {
   return (
     <Menubar className="w-full rounded-none justify-between">
       <div className="flex items-center flex-row">
-        <SidebarTrigger className="w-4 h-4 px-4" />
         <FileMenu />
         <CameraMenu />
         <LightMenu />
