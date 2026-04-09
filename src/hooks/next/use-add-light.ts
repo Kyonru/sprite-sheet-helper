@@ -89,7 +89,7 @@ export const useAddLight = (select = true) => {
       });
     }
 
-    pushBatch("Add light", actions);
+    pushBatch(`Add light ${entity.metadata?.type}`, actions);
 
     return uuid;
   };
