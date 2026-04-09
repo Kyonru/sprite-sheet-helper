@@ -183,10 +183,8 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
                 }
               }
 
-              // ✅ Rename (entity-level change)
+              // Rename (entity-level change)
               for (const uuid of nextKeys) {
-                console.log(prevEntities, nextEntities);
-
                 const p = prevEntities[uuid];
                 const n = nextEntities[uuid];
 
@@ -210,7 +208,7 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
                 }
               }
 
-              // ✅ Children change (structure)
+              // Children change (structure)
               const prevChildren = prev.children || {};
               const nextChildren = next.children || {};
 
@@ -243,8 +241,6 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
             mergeKey: (prev, next) => {
               const prevEntities = prev.entities;
               const nextEntities = next.entities;
-
-              console.log(prevEntities, nextEntities);
 
               for (const uuid of Object.keys(nextEntities)) {
                 const p = prevEntities[uuid];

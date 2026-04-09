@@ -44,9 +44,11 @@ function App() {
       if (init.current) return;
       init.current = true;
       addCamera({
-        position: [0, 5, 5],
+        position: [0, 2.5, 3],
       });
-      addLight("ambient");
+      addLight("ambient", "Ambient Light", {
+        intensity: 1,
+      });
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

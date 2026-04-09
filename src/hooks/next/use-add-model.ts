@@ -2,6 +2,7 @@ import { useEntitiesStore } from "@/store/next/entities";
 import { useHistoryStore } from "@/store/next/history";
 import { useModelsStore } from "@/store/next/models";
 import { useTransformsStore } from "@/store/next/transforms";
+import type { Transform } from "@/types/ecs";
 import type { HistoryAction } from "@/types/history";
 import { toast } from "sonner";
 
@@ -17,18 +18,16 @@ export const useAddModel = (select = true) => {
       const label = name ?? file.name ?? "Model";
       const uuid = addEntity("model", label);
 
-      initTransform(uuid);
+      const transform: Partial<Transform> = {
+        position: [0, 0.8, 0],
+      };
+
+      initTransform(uuid, transform);
       await loadModel(uuid, file);
 
       if (select) {
         selectEntity(uuid);
       }
-
-      // push({
-      //   type: "entity/add",
-      //   uuid,
-      //   entity: useEntitiesStore.getState().entities[uuid],
-      // });
 
       const entity = structuredClone(
         useEntitiesStore.getState().entities[uuid],
@@ -53,7 +52,7 @@ export const useAddModel = (select = true) => {
           uuid,
           from: null,
           to: {
-            position: [0, 0, 0],
+            position: transform.position!,
             rotation: [0, 0, 0],
             scale: [1, 1, 1],
           },

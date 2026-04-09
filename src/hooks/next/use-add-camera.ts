@@ -15,7 +15,7 @@ export const useAddCamera = (isMain = false) => {
     const uuid = addEntity("camera", "Main Camera");
     initCamera(uuid);
     initTransform(uuid, transform);
-    initTarget(uuid);
+    initTarget(uuid, [0, 2.5, 0]);
 
     if (isMain) {
       setActiveCamera(uuid);

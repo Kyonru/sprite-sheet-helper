@@ -3,7 +3,7 @@ import { useHistoryStore } from "@/store/next/history";
 import { useLightsStore } from "@/store/next/lights";
 import { useTargetsStore } from "@/store/next/targets";
 import { useTransformsStore } from "@/store/next/transforms";
-import type { LightType } from "@/types/ecs";
+import type { LightComponent, LightType } from "@/types/ecs";
 import type { HistoryAction } from "@/types/history";
 import { capitalize } from "@/utils/strings";
 
@@ -15,13 +15,17 @@ export const useAddLight = (select = true) => {
   const pushBatch = useHistoryStore((state) => state.pushBatch);
   const initTarget = useTargetsStore((state) => state.initTarget);
 
-  return (type: LightType, name?: string) => {
+  return (
+    type: LightType,
+    name?: string,
+    values?: Omit<Partial<LightComponent>, "type">,
+  ) => {
     const label = name ?? capitalize(`${type} light`, true);
     const uuid = addEntity("light", label, {
       type,
     });
     const position: [number, number, number] = [0, 2.5, 2.5];
-    initLight(uuid, type);
+    initLight(uuid, type, values);
     initTransform(uuid, {
       position: position,
     });
