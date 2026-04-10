@@ -94,7 +94,7 @@ export const useExport = () => {
         frameDelay,
       );
       const content = await (await fetch(gifUrl)).arrayBuffer();
-      zip.file(`${row.uuid}.gif`, content);
+      zip.file(`${row.label}.gif`, content);
     }
     const zipData = await zip.generateAsync({ type: "base64" });
     downloadFile("data:application/zip;base64," + zipData, "gif.zip");
@@ -131,7 +131,7 @@ export const useExport = () => {
     zip.file("spritesheet_anim8.lua", anim8Lua);
 
     const zipData = await zip.generateAsync({ type: "base64" });
-    downloadFile("data:application/zip;base64," + zipData, "spritesheet.zip");
+    downloadFile("data:application/zip;base64," + zipData, "animation.zip");
   }, [exportedImages]);
 
   const exportSpriteSheet = useCallback(

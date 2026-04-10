@@ -173,6 +173,7 @@ export const useImagesStore = create<ImagesStore>()(
       createEmptyRow: (frameWidth, frameHeight, fps) =>
         set((state) => ({
           images: [
+            ...state.images,
             {
               uuid: Date.now().toString(),
               label: "Animation",
