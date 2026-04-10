@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.2.0",
   "type": "module",
+  "packageManager": "npm@11.7.0",
   "scripts": {
     "dev": "vite",
     "dev:tauri": "npm run tauri build -- --debug",

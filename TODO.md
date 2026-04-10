@@ -1,30 +1,6 @@
 # Things to fix or improve
 
-## Bugs
-
-### Model
-
-- Some formats and models are not correctly loaded
-
-### Effects
-
-- Outline it not working
-- Maximum update depth exceeded on outline
-- Depth of field is not working when outline is enabled
-
 ## Features
-
-### Export
-
-- Fix carousel when items < 6
-- Add option to rename animations
-
-### Preview
-
-- More control over positioning
-  - Maybe presets like ortogonal, isometric, top-down, side-view, etc
-  - Grid
-    - Grid Color
 
 ### Timeline
 
@@ -34,9 +10,30 @@
 - Add timeline export
 - Add animation keyframes for all properties
 
-### AI Assistant
+### Animation
 
-- Add "AI" assistant
-  - Being able to ask about the tool and how to use it
-  - Doesn't need to be a chatbot, just a simple question and answer system
-  - Using window.ai and knowledge graphs
+- Flux programmed useFrame animations
+- Camera mixamo.com armature animation using vision camera
+
+### Models
+
+- Drag and drop models
+
+### Desktop
+
+- Top menu should be hidden on desktop, use native menubar instead
+
+## Bugs
+
+- Fix carousel when items < 6
+
+## Improvements
+
+- Performance
+- Export images changes history
+- Free preview windows (instead of fixed at the button since it doesn't use all the space anyway).
+- Tutorial
+- Documentation pages
+- Add option to add sprite sheets back to the project
+- add a separate pipeline for sprite sheets
+- Check for updates
