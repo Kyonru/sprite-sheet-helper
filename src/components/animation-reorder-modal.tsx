@@ -39,7 +39,7 @@ export function ReorderModalProvider() {
     items: [],
     open: false,
     onChange: () => {},
-    onRenderItem: () => {},
+    onRenderItem: () => <></>,
     orientation: "vertical",
   });
 

@@ -48,6 +48,8 @@ export async function getFileFromOPFS(
 ): Promise<ArrayBuffer | null> {
   try {
     const dir = await getDir(folder, false);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore Type is broken
     const entries = dir.values();
     for await (const entry of entries) {
       if (entry.kind === "file" && entry.name.startsWith(uuid)) {

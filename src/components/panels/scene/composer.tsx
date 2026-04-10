@@ -21,7 +21,7 @@ import {
   Grid,
   ToneMapping,
 } from "@react-three/postprocessing";
-import { useEffectsStore, type EffectComponent } from "@/store/next/effects";
+import { useEffectsStore } from "@/store/next/effects";
 import { useSceneStore } from "./store";
 import { PaletteEffect } from "./custom-effects.tsx/palette";
 import { DitherEffect } from "./custom-effects.tsx/dither";
@@ -31,6 +31,7 @@ import { useRefsStore } from "@/store/next/refs";
 import { useMemo } from "react";
 import * as THREE from "three";
 import { Vector2 } from "three";
+import type { EffectComponent } from "@/types/effects";
 
 function EffectNode({ effect }: { effect: EffectComponent }) {
   const refs = useRefsStore((state) => state.refs);

@@ -15,6 +15,7 @@ const runAction = (entry: HistoryEntry, dir: Direction) => {
 
   const value = dir === "forward" ? entry.to : entry.from;
 
+  // @ts-expect-error Type is broken
   entry.apply({ dir, value });
 };
 

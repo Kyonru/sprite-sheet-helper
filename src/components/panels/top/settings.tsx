@@ -41,7 +41,6 @@ import { GradientPicker } from "@/components/ui/gradient-picker";
 import { Switch } from "@/components/ui/switch";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme, type Theme } from "@/components/theme-provider";
-import { useProjectStore } from "@/store/next/project";
 import { setAppTitle } from "@/utils/app";
 
 const ExportFormats = ["spritesheet", "gif", "zip", "lua"] as const;
@@ -81,7 +80,6 @@ export function openSettings(options?: Omit<SettingsModalState, "open">) {
 
 export function SettingsModalProvider() {
   const settings = useSettingsStore((state) => state);
-  const projectName = useProjectStore((state) => state.name);
   const updateSettings = useSettingsStore((state) => state.update);
   const [state, setState] = useState<SettingsModalState>({ open: false });
   const { setTheme } = useTheme();
@@ -136,7 +134,7 @@ export function SettingsModalProvider() {
         theme: settings.theme,
       });
     }
-  }, [form, settings, state.open, projectName]);
+  }, [form, settings, state.open]);
 
   const onClose = () => {
     setTheme(originalThemeRef.current);

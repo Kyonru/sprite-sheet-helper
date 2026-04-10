@@ -54,6 +54,7 @@ export default defineConfig({
         injectRegister: "auto",
         workbox: {
           sourcemap: true,
+          maximumFileSizeToCacheInBytes: 3.5 * 1024 * 1024,
         },
       }),
     devtools({
