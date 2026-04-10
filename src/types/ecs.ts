@@ -169,14 +169,6 @@ export type LightComponent =
   | SpotLightComponent
   | HemisphereLightComponent;
 
-export const LightTypeMap = {
-  ambient: {} as AmbientLightComponent,
-  directional: {} as DirectionalLightComponent,
-  point: {} as PointLightComponent,
-  spot: {} as SpotLightComponent,
-  hemisphere: {} as HemisphereLightComponent,
-};
-
 export type SnapshotEnabledStore<T> = {
   getSnapshot: () => T;
   hydrate: (snapshot: T) => void;

@@ -7,7 +7,7 @@ interface SharedContextProps {
   levaStore?: StoreType;
 }
 
-export const sharedContext = React.createContext<SharedContextProps>({});
+const sharedContext = React.createContext<SharedContextProps>({});
 
 export function useSharedContext() {
   const context = React.useContext(sharedContext);

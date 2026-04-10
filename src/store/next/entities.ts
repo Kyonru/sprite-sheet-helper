@@ -269,10 +269,5 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
   ),
 );
 
-export const useEntitiesByType = (type: ObjectType) =>
-  useEntitiesStore((state) =>
-    Object.values(state.entities).filter((e) => e.type === type),
-  );
-
 export const useEntity = (uuid?: string) =>
   useEntitiesStore((state) => (uuid ? state.entities[uuid] : undefined));

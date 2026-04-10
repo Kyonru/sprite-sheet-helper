@@ -1,4 +1,4 @@
-import type { HistoryAction, HistoryEntry } from "@/types/history";
+import type { HistoryEntry } from "@/types/history";
 
 type Direction = "forward" | "backward";
 
@@ -36,25 +36,4 @@ export const createMergeKey = (
     | "init",
 ) => {
   return property ? `${scope}:${uuid}:${property}` : `${scope}:${uuid}`;
-};
-
-export const mergeKeyForAction = (
-  action: HistoryAction,
-): string | undefined => {
-  switch (action.type) {
-    case "transform/position":
-      return createMergeKey("transform", action.uuid, "position");
-
-    case "transform/rotate":
-      return createMergeKey("transform", action.uuid, "rotation");
-
-    case "transform/scale":
-      return createMergeKey("transform", action.uuid, "scale");
-
-    case "transform/edit":
-      return createMergeKey("transform", action.uuid, "edit");
-
-    default:
-      return undefined;
-  }
 };

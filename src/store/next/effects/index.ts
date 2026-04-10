@@ -22,7 +22,7 @@ type EffectDefaults = {
   [K in EffectType]: Omit<Extract<EffectComponent, { type: K }>, "type">;
 };
 
-export const EFFECT_DEFAULTS: EffectDefaults = {
+const EFFECT_DEFAULTS: EffectDefaults = {
   grid: {
     enabled: true,
     scale: 1,
@@ -388,6 +388,3 @@ export const useEffectsStore = create<EffectsStore>()(
     { name: "Effects" },
   ),
 );
-
-export const useEffect = (uuid?: string) =>
-  useEffectsStore((state) => (uuid ? state.effects[uuid] : undefined));
