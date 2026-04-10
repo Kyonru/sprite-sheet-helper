@@ -1,5 +1,6 @@
 import type { ExportRow } from "@/store/next/images";
 import GIF from "gif.js.optimized";
+import openFile from "../lib/file/opener.web";
 import { toast } from "sonner";
 
 export interface SpritesheetOptions {
@@ -224,36 +225,21 @@ export const createSpritesheetJSON = (
   };
 };
 
-export const downloadFile = (href: string, name: string) => {
+export const downloadFile = (file: Blob | string, name: string) => {
+  const url = typeof file === "string" ? file : URL.createObjectURL(file);
+
   const a = document.createElement("a");
-  a.target = "_blank";
-  a.href = href;
+  a.href = url;
   a.download = name;
   a.click();
+
+  toast.success(`"${name}" downloaded`, {
+    description: "Check the downloaded files in the Downloads folder.",
+  });
+  if (typeof file === "string") return;
+  URL.revokeObjectURL(url);
 };
 
 export const importFile = (accepts: string[], onFile: (file: File) => void) => {
-  const allowedExtensions = accepts
-    .map((type) => `.${type}`)
-    .map((s) => s.trim().toLowerCase());
-
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = allowedExtensions.join(",");
-  input.onchange = (e: Event) => {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-
-    const ext = `.${file.name.split(".").pop()?.toLowerCase()}`;
-
-    if (!allowedExtensions.includes(ext)) {
-      toast.error(
-        `File type not supported. Accepted: ${allowedExtensions.join(", ")}`,
-      );
-      return;
-    }
-
-    onFile(file);
-  };
-  setTimeout(() => input.click(), 0);
+  openFile(accepts, onFile);
 };

@@ -19,12 +19,12 @@ createRoot(document.getElementById("root")!).render(
         }}
         plugins={[
           {
-            id: "react-devtools",
-
+            id: "zustand-inspector",
             name: "Zustand Inspector",
             render: <StoreInspectorPanel />,
           },
           {
+            id: "pub-sub",
             name: "PubSub",
             render: <PubSubDevtoolPanel />,
           },

@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+import { readFile } from "./file-system/fs.web";
 const modelCache = new Map<string, THREE.Object3D>();
 const mixerCache = new Map<string, THREE.AnimationMixer>();
 const clipsCache = new Map<
@@ -19,22 +20,6 @@ export type ParsedModel = {
   mixer: THREE.AnimationMixer | null;
   clips: { action: THREE.AnimationAction; clip: THREE.AnimationClip }[];
 };
-
-const readFile = (file: File, asText = false): Promise<ArrayBuffer | string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result;
-      if (result == null) reject(new Error("Failed to read file"));
-      else resolve(result as ArrayBuffer | string);
-    };
-    reader.onerror = () => reject(reader.error);
-    if (asText) {
-      reader.readAsText(file);
-    } else {
-      reader.readAsArrayBuffer(file);
-    }
-  });
 
 export const parseModel = async (
   file: File,

@@ -36,7 +36,7 @@ const initialState: HistoryState = {
 };
 
 const MAX_HISTORY = 100;
-const MERGE_WINDOW = 1000;
+const MERGE_WINDOW = 200;
 
 function canMerge(a?: HistoryEntry, b?: HistoryEntry, now?: number) {
   if (!a || !b) return false;

@@ -560,7 +560,7 @@ function AssetCreation() {
   return (
     <ResizablePanel>
       <ResizablePanelGroup orientation="vertical">
-        <ResizablePanel defaultSize="60%" style={{ position: "relative" }}>
+        <ResizablePanel style={{ position: "relative" }}>
           <EntityContextProvider isPreview={false}>
             <Canvas
               scene={scene}

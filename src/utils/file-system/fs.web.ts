@@ -8,7 +8,7 @@ const getDir = async (
   return root.getDirectoryHandle(dir, { create });
 };
 
-export const saveFileToOPFS = async (
+export const saveFileToFS = async (
   uuid: string,
   file: File,
   folder: FileSystemDirectory = "general",
@@ -25,7 +25,7 @@ export const saveFileToOPFS = async (
   return fileName;
 };
 
-export const readFileFromOPFS = async (
+export const readFileFromFS = async (
   fileName: string,
   folder: FileSystemDirectory = "general",
 ): Promise<File> => {
@@ -34,7 +34,7 @@ export const readFileFromOPFS = async (
   return handle.getFile();
 };
 
-export const deleteFileFromOPFS = async (
+export const deleteFileFromFS = async (
   fileName: string,
   folder: FileSystemDirectory = "general",
 ): Promise<void> => {
@@ -42,7 +42,7 @@ export const deleteFileFromOPFS = async (
   await dir.removeEntry(fileName).catch(() => {}); // ignore if already gone
 };
 
-export async function getFileFromOPFS(
+export async function getFileFromFS(
   uuid: string,
   folder: FileSystemDirectory = "general",
 ): Promise<ArrayBuffer | null> {
@@ -63,11 +63,21 @@ export async function getFileFromOPFS(
   }
 }
 
-export const downloadFile = (blob: Blob, name: string) => {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(url);
-};
+export const readFile = (
+  file: File,
+  asText = false,
+): Promise<ArrayBuffer | string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (result == null) reject(new Error("Failed to read file"));
+      else resolve(result as ArrayBuffer | string);
+    };
+    reader.onerror = () => reject(reader.error);
+    if (asText) {
+      reader.readAsText(file);
+    } else {
+      reader.readAsArrayBuffer(file);
+    }
+  });

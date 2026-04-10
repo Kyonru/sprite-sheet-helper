@@ -6,7 +6,7 @@ import type {
   SnapshotEnabledStore,
 } from "@/types/ecs";
 import * as THREE from "three";
-import { saveFileToOPFS } from "@/utils/fs";
+import { saveFileToFS } from "@/utils/file-system/fs.web";
 import { toast } from "sonner";
 import {
   withHistory,
@@ -116,7 +116,11 @@ export const useModelsStore = create<ModelsStore>()(
             .pop()
             ?.toLowerCase() as ModelComponent["format"];
 
-          const opfsFileName = await saveFileToOPFS(uuid, file, "models");
+          console.log("Saving file:", file);
+
+          const opfsFileName = await saveFileToFS(uuid, file, "models");
+
+          console.log("Saving file:", opfsFileName);
 
           set((state) => ({
             models: {

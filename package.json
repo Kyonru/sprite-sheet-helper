@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:tauri": "npm run tauri build -- --debug",
     "build": "tsc -b && vite build",
     "build:tauri": "TAURI_BUILD=true tsc -b && TAURI_BUILD=true vite build",
     "lint": "eslint .",
@@ -55,6 +56,8 @@
     "@tanstack/devtools-event-client": "^0.4.1",
     "@tanstack/devtools-vite": "^0.5.3",
     "@tanstack/react-devtools": "^0.9.9",
+    "@tauri-apps/plugin-dialog": "^2.7.0",
+    "@tauri-apps/plugin-fs": "^2.5.0",
     "@types/three": "^0.176.0",
     "browserify": "^17.0.1",
     "class-variance-authority": "^0.7.1",

@@ -90,7 +90,7 @@ function App() {
                 <AssetCreation />
               </SharedSceneProvider>
               <ResizableHandle withHandle />
-              <ResizablePanel defaultSize="30%">
+              <ResizablePanel defaultSize="20%">
                 <ExportModal />
               </ResizablePanel>
             </ResizablePanelGroup>

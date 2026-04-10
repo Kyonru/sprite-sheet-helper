@@ -72,7 +72,7 @@ export const useAddModel = (select = true) => {
 
       return uuid;
     } catch (e) {
-      toast.error(`Failed to load model: ${(e as Error).message}`);
+      toast.error(`Failed to load model: ${(e as Error).message || e}`);
     }
   };
 };

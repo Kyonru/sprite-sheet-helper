@@ -9,7 +9,7 @@ import { useTransformsStore } from "../transforms";
 import { useModelsStore } from "../models";
 import { useCamerasStore } from "../cameras";
 import { useHistoryStore } from "../history";
-import { downloadFile, getFileFromOPFS } from "@/utils/fs";
+import { getFileFromFS } from "@/utils/file-system/fs.web";
 import { toast } from "sonner";
 import { useTargetsStore } from "../targets";
 import { useLightsStore } from "../lights";
@@ -18,6 +18,8 @@ import { useSettingsStore } from "../settings";
 import { useEffectsStore } from "../effects";
 import { setAppTitle } from "@/utils/app";
 import { EventType, PubSub } from "@/lib/events";
+import { downloadFile } from "@/utils/assets";
+import saveAs from "@/lib/file/save-as.web";
 
 export interface ProjectState {
   version: number;
@@ -127,34 +129,12 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         const snapshot = get().snapshot();
         const blob = await get().buildZipBlob(snapshot);
 
-        if ("showSaveFilePicker" in window) {
-          try {
-            // @ts-expect-error - showSaveFilePicker is not yet in TypeScript's lib.dom.d.ts
-            const handle = await window.showSaveFilePicker({
-              suggestedName: `${snapshot.settings.name.replace(/\s+/g, "_")}.sshProj`,
-              types: [
-                {
-                  description: "Sprite Sheet Helper Project",
-                  accept: { "application/octet-stream": [".sshProj"] },
-                },
-              ],
-            });
-            const writable = await handle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-          } catch (e) {
-            // User cancelled the picker — not an error
-            if ((e as Error).name === "AbortError") return;
-            toast.error(`Failed to save project: ${(e as Error).message}`);
-            return;
-          }
-        } else {
-          // Fallback for browsers without File System Access API
-          downloadFile(
-            blob,
-            `${snapshot.settings.name.replace(/\s+/g, "_")}.sshProj`,
-          );
-        }
+        saveAs(
+          blob,
+          `${snapshot.settings.name}.sshProj`,
+          [".sshProj"],
+          "Sprite Sheet Helper Project",
+        );
 
         set({ savedAt: snapshot.savedAt });
         useHistoryStore.getState().setDirty(false);
@@ -167,7 +147,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
 
         for (const [uuid, model] of Object.entries(snapshot.models.models)) {
           try {
-            const fileData = await getFileFromOPFS(uuid, "models");
+            const fileData = await getFileFromFS(uuid, "models");
             if (fileData) {
               modelsFolder.file(`${uuid}.${model.format}`, fileData);
             }

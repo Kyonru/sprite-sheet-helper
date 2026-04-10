@@ -2,10 +2,22 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "fs:default",
+    "fs:allow-open",
+    "fs:allow-exists",
+    "fs:allow-app-read-recursive",
+    "fs:allow-app-read",
+    "fs:allow-app-write-recursive",
+    "fs:allow-app-write",
+    "fs:allow-download-write",
+    "fs:allow-write",
+    "fs:allow-mkdir",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-message"
   ]
 }

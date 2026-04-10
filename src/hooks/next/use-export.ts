@@ -13,7 +13,6 @@ import {
 import { useSceneStore } from "@/components/panels/scene/store";
 import { useSettingsStore } from "@/store/next/settings";
 import { useImagesStore } from "@/store/next/images";
-import { toast } from "sonner";
 import type { ExportFormat } from "@/types/file";
 import { createAnim8Lua, createVanillaLua } from "@/utils/exports/lua";
 
@@ -157,9 +156,6 @@ export const useExport = () => {
         console.error(err);
       } finally {
         PubSub.emit(EventType.STOP_EXPORT);
-        toast.success("Export complete", {
-          description: "Check the downloaded files in the Downloads folder.",
-        });
       }
     },
     [
