@@ -31,7 +31,7 @@ interface AnimationState {
   addKeyframe: (
     id: string,
     property: TrackProperty,
-    keyframe: Keyframe
+    keyframe: Keyframe,
   ) => void;
   removeKeyframe: (id: string, property: TrackProperty, index: number) => void;
   zoom: number;
@@ -183,7 +183,7 @@ export const useAnimationStore = create<AnimationState>((set) => ({
   }) =>
     set((state) => {
       const objectIndex = state.timeline.findIndex(
-        (obj) => obj.id === objectId
+        (obj) => obj.id === objectId,
       );
       if (objectIndex < 0) return state;
       const duration = getDuration(state.timeline);
@@ -201,7 +201,7 @@ export const useAnimationStore = create<AnimationState>((set) => ({
       const deltaTime = draggableEvent.delta.x / pixelsPerSecond;
       const shift = Math.max(
         -keyframeCopy.start,
-        Math.min(duration - keyframeCopy.end, deltaTime)
+        Math.min(duration - keyframeCopy.end, deltaTime),
       );
       const newStart = keyframeCopy.start + shift / 2;
       const newEnd = keyframeCopy.end + shift / 2;

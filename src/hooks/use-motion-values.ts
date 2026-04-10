@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
 export const useMotionValues = () => {
   const motionValuesRef = useAnimationStore((state) => state.motionValuesRef);
   const setMotionValuesRef = useAnimationStore(
-    (state) => state.setMotionValuesRef
+    (state) => state.setMotionValuesRef,
   );
   const motionValues = useRef<Record<string, MotionValues>>({});
 

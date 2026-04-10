@@ -1,23 +1,14 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "./components/app-sidebar";
-import { useAppColorStore } from "./store/app-color";
 import useReloadPrompt from "./components/reload-prompt/prompt.web";
+import TopPanel from "./components/panels/top";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const background = useAppColorStore((state) => state.color);
-
   useReloadPrompt();
   return (
-    <div className="w-full" style={{ background: background }}>
-      <SidebarProvider>
-        <AppSidebar />
-        <main className="flex-1 overflow-auto">
-          <div className="relative">
-            <SidebarTrigger className="absolute top-0 left-0 z-50" />
-          </div>
-          <div className="h-full min-w-0">{children}</div>
-        </main>
-      </SidebarProvider>
+    <div className="flex h-screen w-screen">
+      <div className="flex flex-1 flex-col h-full w-full">
+        <TopPanel />
+        <div className="h-full min-w-0">{children}</div>
+      </div>
     </div>
   );
 }

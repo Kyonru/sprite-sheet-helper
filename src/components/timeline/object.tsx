@@ -196,7 +196,7 @@ const AddPropertyMenu = ({
         onCancel();
       }),
     },
-    { store: store }
+    { store: store },
   );
 
   return null;

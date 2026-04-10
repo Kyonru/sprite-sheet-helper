@@ -1,29 +1,81 @@
 import { useSharedContext } from "@/context/sharedContext";
-import { useExportOptionsStore } from "@/store/export";
 import type { ExportFormat } from "@/types/file";
-import { folder, useControls } from "leva";
-import { useEffect, useMemo } from "react";
+import { button, folder, useControls } from "leva";
+import { useEffect } from "react";
 import { carousel } from "../leva/carousel";
+import { useImagesStore } from "@/store/next/images";
+import { useSettingsStore } from "@/store/next/settings";
+import { EventType, PubSub } from "@/lib/events";
 
-const FrameConfig = () => {
-  const heightDefault = useExportOptionsStore((state) => state.height);
-  const widthDefault = useExportOptionsStore((state) => state.width);
-  const setHeight = useExportOptionsStore((state) => state.setHeight);
-  const setWidth = useExportOptionsStore((state) => state.setWidth);
-  const exportHeightDefault = useExportOptionsStore(
-    (state) => state.exportHeight
-  );
-  const exportWidthDefault = useExportOptionsStore(
-    (state) => state.exportWidth
-  );
-  const setExportHeight = useExportOptionsStore(
-    (state) => state.setExportHeight
-  );
-  const setExportWidth = useExportOptionsStore((state) => state.setExportWidth);
+export const ExportConfig = () => {
+  const { levaStore } = useSharedContext();
+  const exportHeightDefault = useSettingsStore((state) => state.exportHeight);
+  const exportWidthDefault = useSettingsStore((state) => state.exportWidth);
+  const fpsDefault = useImagesStore((state) => state.fps);
+  const setFPS = useImagesStore((state) => state.setFPS);
+  const intervalsDefault = useImagesStore((state) => state.intervals);
+  const iterationsDefault = useImagesStore((state) => state.iterations);
+  const setIntervals = useImagesStore((state) => state.setIntervals);
+  const setIterations = useImagesStore((state) => state.setIterations);
+  const exportModeDefault = useSettingsStore((state) => state.mode);
+  const setExportMode = useSettingsStore((state) => state.setMode);
 
-  const { height, width, previewHeight, previewWidth } = useControls({
-    editor: folder({
-      size: folder(
+  const heightDefault = useSettingsStore((state) => state.height);
+  const widthDefault = useSettingsStore((state) => state.width);
+  const setHeight = useSettingsStore((state) => state.setHeight);
+  const setWidth = useSettingsStore((state) => state.setWidth);
+  const setExportHeight = useSettingsStore((state) => state.setExportHeight);
+  const setExportWidth = useSettingsStore((state) => state.setExportWidth);
+
+  const [
+    {
+      fps,
+      mode,
+      intervals,
+      iterations,
+      height,
+      width,
+      previewHeight,
+      previewWidth,
+    },
+    set,
+  ] = useControls(
+    () => ({
+      "Sequence Options": folder(
+        {
+          intervals: {
+            label: "Time between frames",
+            value: intervalsDefault,
+            min: 1,
+            max: 1000,
+            step: 1,
+          },
+          iterations: {
+            label: "Frames amount",
+            value: iterationsDefault,
+            min: 1,
+            max: 100,
+            step: 1,
+          },
+
+          "Record Sequence": button(() => {
+            PubSub.emit(EventType.START_ASSETS_CREATION);
+          }, {}),
+
+          "Add Frame to Sequence": button(() => {
+            PubSub.emit(EventType.TAKE_SINGLE_SCREENSHOT);
+          }, {}),
+
+          "New Empty Sequence": button(() => {
+            PubSub.emit(EventType.NEW_SEQUENCE);
+          }, {}),
+        },
+        {
+          color: "var(--chart-2)",
+        },
+      ),
+
+      "Default Sizes": folder(
         {
           preview: folder(
             {
@@ -38,7 +90,7 @@ const FrameConfig = () => {
             },
             {
               collapsed: true,
-            }
+            },
           ),
           export: folder(
             {
@@ -47,15 +99,65 @@ const FrameConfig = () => {
             },
             {
               collapsed: true,
-            }
+            },
           ),
         },
         {
-          collapsed: true,
-        }
+          color: "var(--chart-3)",
+        },
+      ),
+
+      "Export Options": folder(
+        {
+          mode: {
+            options: ["zip", "spritesheet", "gif", "lua"] as ExportFormat[],
+            value: exportModeDefault,
+          },
+          fps: {
+            label: "Frame duration",
+            value: fpsDefault,
+            min: 1,
+            max: 1000,
+            step: 1,
+          },
+          preview: carousel(),
+        },
+        {
+          color: "var(--chart-4)",
+        },
       ),
     }),
-  });
+    {
+      store: levaStore,
+    },
+    [exportHeightDefault, exportWidthDefault],
+  );
+
+  useEffect(() => {
+    setFPS(fps);
+  }, [fps, setFPS]);
+
+  useEffect(() => {
+    setIntervals(intervals);
+  }, [intervals, setIntervals]);
+
+  useEffect(() => {
+    setIterations(iterations);
+  }, [iterations, setIterations]);
+
+  useEffect(() => {
+    set({
+      preview: {
+        // @ts-expect-error 🤷 Preview type is broken
+        width: exportWidthDefault,
+        height: exportHeightDefault,
+      },
+    });
+  }, [set, exportHeightDefault, exportWidthDefault]);
+
+  useEffect(() => {
+    setExportMode(mode);
+  }, [mode, setExportMode]);
 
   useEffect(() => {
     setHeight(previewHeight);
@@ -68,123 +170,4 @@ const FrameConfig = () => {
   }, [height, width, setExportHeight, setExportWidth]);
 
   return null;
-};
-
-export const PreviewConfig = () => {
-  const { levaStore } = useSharedContext();
-  const exportHeightDefault = useExportOptionsStore(
-    (state) => state.exportHeight
-  );
-  const exportWidthDefault = useExportOptionsStore(
-    (state) => state.exportWidth
-  );
-  const images = useExportOptionsStore((state) => state.images);
-  const frameDelayDefault = useExportOptionsStore((state) => state.frameDelay);
-  const exportModeDefault = useExportOptionsStore((state) => state.mode);
-  const setExportMode = useExportOptionsStore((state) => state.setMode);
-  const setFrameDelay = useExportOptionsStore((state) => state.setFrameDelay);
-
-  const state = useMemo(
-    () => ({
-      images: images,
-      width: exportWidthDefault,
-      height: exportHeightDefault,
-    }),
-    [exportWidthDefault, images, exportHeightDefault]
-  );
-
-  const [{ frameDelay, mode }, set] = useControls(
-    () => ({
-      mode: {
-        options: ["zip", "spritesheet", "gif"] as ExportFormat[],
-        value: exportModeDefault,
-      },
-      frameDelay: {
-        label: "Delay",
-        value: frameDelayDefault,
-        min: 1,
-        max: 1000,
-        step: 1,
-      },
-      preview: carousel(state),
-    }),
-    {
-      store: levaStore,
-    },
-    [exportHeightDefault, exportWidthDefault]
-  );
-
-  useEffect(() => {
-    setFrameDelay(frameDelay);
-  }, [frameDelay, setFrameDelay]);
-
-  useEffect(() => {
-    set({
-      preview: {
-        images: state.images,
-        width: exportWidthDefault,
-        height: exportHeightDefault,
-      },
-    });
-  }, [set, exportHeightDefault, exportWidthDefault, state]);
-
-  useEffect(() => {
-    set({
-      preview: {
-        images: images.map((i) => {
-          return {
-            ...i,
-            images: i.images.map((i) => `data:image/png;base64,${i}`),
-          };
-        }),
-        width: state.width,
-        height: state.height,
-      },
-    });
-  }, [images, state, set]);
-
-  useEffect(() => {
-    setExportMode(mode);
-  }, [mode, setExportMode]);
-
-  return null;
-};
-
-export const ExportConfig = () => {
-  const intervalsDefault = useExportOptionsStore((state) => state.intervals);
-  const setIntervals = useExportOptionsStore((state) => state.setIntervals);
-  const iterationsDefault = useExportOptionsStore((state) => state.iterations);
-  const setIterations = useExportOptionsStore((state) => state.setIterations);
-  const previewDefault = useExportOptionsStore((state) => state.preview);
-  const setPreview = useExportOptionsStore((state) => state.setPreview);
-
-  const { intervals, count, preview } = useControls({
-    editor: folder({
-      intervals: intervalsDefault,
-      count: iterationsDefault,
-      preview: {
-        label: "Pixel Grid",
-        value: previewDefault,
-      },
-    }),
-  });
-
-  useEffect(() => {
-    setIntervals(intervals);
-  }, [intervals, setIntervals]);
-
-  useEffect(() => {
-    setIterations(count);
-  }, [count, setIterations]);
-
-  useEffect(() => {
-    setPreview(preview);
-  }, [preview, setPreview]);
-
-  return (
-    <>
-      <FrameConfig />
-      <PreviewConfig />
-    </>
-  );
 };

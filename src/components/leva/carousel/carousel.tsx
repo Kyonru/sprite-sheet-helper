@@ -1,4 +1,4 @@
-import { useInputContext, type LevaInputProps, Components } from "leva/plugin";
+import { Components } from "leva/plugin";
 import {
   CarouselContent,
   CarouselItem,
@@ -15,37 +15,54 @@ import {
   useControls,
 } from "react-zoom-pan-pinch";
 import {
-  LucideCircleX,
+  CircleEllipsisIcon,
   LucideFullscreen,
   LucideInfinity,
   LucidePlay,
   LucideTrash,
   LucideZoomIn,
   LucideZoomOut,
+  PencilIcon,
+  PencilRulerIcon,
+  TrashIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EventType, PubSub } from "@/lib/events";
 import Autoplay from "embla-carousel-autoplay";
-import { useExportOptionsStore } from "@/store/export";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { useImagesStore } from "@/store/next/images";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { confirm } from "@/components/confirm";
+import { reorderItems } from "@/components/animation-reorder-modal";
+import { addDataToImageIfNeeded } from "@/utils/images";
+import { Field, FieldGroup } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 const { Row } = Components;
 
 type LevaCarouselSettings = { alpha?: number };
 type LevaCarouselType = {
-  images: Array<{ name: string; label: string; images: string[] }>;
+  images: Array<{
+    uuid: string;
+    name?: string;
+    label: string;
+    images: string[];
+    frameWidth: number;
+    frameHeight: number;
+  }>;
   width: number;
   height: number;
 };
 export type LevaCarouselInput = LevaCarouselType & LevaCarouselSettings;
-
-type LevaCarouselProps = LevaInputProps<
-  LevaCarouselType,
-  LevaCarouselSettings,
-  string
->;
 
 const useSelectedSnapDisplay = (emblaApi: CarouselApi) => {
   const [selectedSnap, setSelectedSnap] = useState(0);
@@ -94,7 +111,7 @@ const useAutoplay = (emblaApi: CarouselApi | undefined): UseAutoplayType => {
       resetOrStop();
       callback();
     },
-    [emblaApi]
+    [emblaApi],
   );
 
   const toggleAutoplay = useCallback(() => {
@@ -126,18 +143,13 @@ const useAutoplay = (emblaApi: CarouselApi | undefined): UseAutoplayType => {
 const ZoomControls = () => {
   const { zoomIn, zoomOut, resetTransform } = useControls();
   return (
-    <div className="relative">
-      <div className="absolute top-2 left-2 w-full h-full bg-black bg-opacity-50 z-10">
-        <LucideZoomIn className="mb-2 text-chart-3" onClick={() => zoomIn()} />
-        <LucideZoomOut
-          className="mb-2 text-chart-3"
-          onClick={() => zoomOut()}
-        />
-        <LucideFullscreen
-          className="text-chart-3"
-          onClick={() => resetTransform()}
-        />
-      </div>
+    <div className="absolute top-2 left-2 z-10">
+      <LucideZoomIn className="mb-2 text-chart-3" onClick={() => zoomIn()} />
+      <LucideZoomOut className="mb-2 text-chart-3" onClick={() => zoomOut()} />
+      <LucideFullscreen
+        className="text-chart-3"
+        onClick={() => resetTransform()}
+      />
     </div>
   );
 };
@@ -167,18 +179,21 @@ const CarrouselRow = ({
         {label}
       </Label>
       <div className="relative h-10 flex flex-1 gap-2 overflow-hidden">
-        {images?.slice(0, 10).map((imageSrc, i) => (
-          <img
-            style={{
-              opacity: 2 * (1 / (i + 1)),
-              transform: `translateX(${i * 45}%)`,
-            }}
-            key={`${name}-${i}`}
-            className={`h-10 w-10 rounded-md absolute object-contain`}
-            src={imageSrc}
-            alt={`Frame ${i}`}
-          />
-        ))}
+        {images?.slice(0, 10).map(
+          (imageSrc, i) =>
+            imageSrc && (
+              <img
+                style={{
+                  opacity: 2 * (1 / (i + 1)),
+                  transform: `translateX(${i * 45}%)`,
+                }}
+                key={`${name}-${i}`}
+                className={`h-10 w-10 rounded-md absolute object-contain`}
+                src={addDataToImageIfNeeded(imageSrc)}
+                alt={`Frame ${i}`}
+              />
+            ),
+        )}
       </div>
     </div>
   );
@@ -203,7 +218,7 @@ const CarouselAnimatedRowContent = ({
         className={`h-10 w-10 rounded-md ${
           index === selectedSnap ? "border-2 border-chart-3" : ""
         }`}
-        src={src}
+        src={addDataToImageIfNeeded(src)}
         alt={`Frame ${index}`}
       />
       <div className="absolute flex size-10 top-0 right-0 items-center justify-center group">
@@ -218,51 +233,51 @@ const CarouselAnimatedRowContent = ({
 
 // Could be reused for others, but for now it's just for exporting
 export const LevaCarousel = () => {
-  const props = useInputContext<LevaCarouselProps>();
   const [api, setApi] = useState<CarouselApi>();
   const [exporting, setExporting] = useState(false);
-
-  const {
-    value: { images = [], width, height },
-  } = props;
 
   const { selectedSnap, snapCount } = useSelectedSnapDisplay(api);
   const { autoplayIsPlaying, toggleAutoplay } = useAutoplay(api);
   const [loop, setLoop] = useState(false);
 
-  const frameDelay = useExportOptionsStore((state) => state.frameDelay);
-  const removeImagesRow = useExportOptionsStore(
-    (state) => state.removeImagesRow
+  const frameDelay = useImagesStore((state) => state.fps);
+  const selectedRow = useImagesStore((state) => state.selectedRow);
+  const removeImagesRow = useImagesStore((state) => state.removeImagesRow);
+  const updateLabel = useImagesStore((state) => state.updateLabel);
+  const updateWidth = useImagesStore((state) => state.updateWidth);
+  const updateHeight = useImagesStore((state) => state.updateHeight);
+  const setSelectedRow = useImagesStore((state) => state.setSelectedRow);
+  const images = useImagesStore((state) => state.images);
+
+  const removeImageFromRow = useImagesStore(
+    (state) => state.removeImageFromRow,
   );
 
-  const removeImageFromRow = useExportOptionsStore(
-    (state) => state.removeImageFromRow
-  );
+  const updateImagesRow = useImagesStore((state) => state.updateImagesRow);
 
   const onTogglePlay = useCallback(() => {
     toggleAutoplay();
   }, [toggleAutoplay]);
 
-  const [selectedRow, setSelectedRow] = useState(0);
   const onRemoveRow = useCallback(
     (index: number) => {
-      removeImagesRow(index);
-
       setSelectedRow(0);
+      removeImagesRow(index);
     },
-    [removeImagesRow]
+    [removeImagesRow, setSelectedRow],
   );
 
   const onRemoveImageFromRow = useCallback(
     (index: number, imageIndex: number) => {
       removeImageFromRow(index, imageIndex);
     },
-    [removeImageFromRow]
+    [removeImageFromRow],
   );
 
   const onExport = useCallback(() => {
     PubSub.emit(EventType.START_EXPORT);
     setExporting(true);
+    console.log("Exporting");
   }, []);
 
   const onToggleLoop = useCallback(() => {
@@ -313,7 +328,7 @@ export const LevaCarousel = () => {
             >
               <CarrouselRow
                 images={row.images}
-                name={row.name}
+                name={row.label || ""}
                 label={row.label}
                 selected={selectedRow === index}
                 onClick={() => {
@@ -321,19 +336,128 @@ export const LevaCarousel = () => {
                 }}
               />
               <div className="flex justify-center items-center">
-                <LucideCircleX
-                  onClick={() => onRemoveRow(index)}
-                  className="ml-2 hover:text-chart-3 active:size-4 size-6 active:animate-in transition-all duration-200"
-                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger>
+                    <CircleEllipsisIcon className="ml-2 hover:text-chart-3 active:size-4 size-6 active:animate-in transition-all duration-200" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="z-9999">
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          confirm.withInput("Rename sequence", {
+                            input: {
+                              label: "Sequence name",
+                              placeholder: "Sequence name…",
+                              defaultValue: row.label,
+                            },
+                            onConfirm: (value) =>
+                              updateLabel(row.uuid, value || row.label), // value: string
+                          })
+                        }
+                      >
+                        <PencilIcon />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          reorderItems({
+                            items: row.images.map((v, i) => {
+                              return {
+                                src: v,
+                                id: i,
+                              };
+                            }),
+                            onChange: (items) =>
+                              updateImagesRow(
+                                index,
+                                items.map((i) => i.src),
+                              ),
+                            onRenderItem: (item) => (
+                              <img
+                                key={`${item.id}`}
+                                className={`h-24 w-24 rounded-md object-contain`}
+                                src={addDataToImageIfNeeded(item.src)}
+                                alt={`Frame ${item.id}`}
+                              />
+                            ),
+                            header: (
+                              <form>
+                                <FieldGroup>
+                                  <Field>
+                                    <Label htmlFor="name-1">Name</Label>
+                                    <Input
+                                      id="name-1"
+                                      name="name"
+                                      defaultValue={row.label}
+                                      onChange={(e) =>
+                                        updateLabel(row.uuid, e.target.value)
+                                      }
+                                    />
+                                  </Field>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <Field>
+                                      <Label htmlFor="width-1">Width</Label>
+                                      <Input
+                                        id="width-1"
+                                        name="width"
+                                        defaultValue={row.frameWidth}
+                                        type="number"
+                                        onChange={(e) =>
+                                          updateWidth(row.uuid, +e.target.value)
+                                        }
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <Label htmlFor="height-1">Height</Label>
+                                      <Input
+                                        id="height-1"
+                                        name="height"
+                                        defaultValue={row.frameHeight}
+                                        type="number"
+                                        onChange={(e) =>
+                                          updateHeight(
+                                            row.uuid,
+                                            +e.target.value,
+                                          )
+                                        }
+                                      />
+                                    </Field>
+                                  </div>
+                                </FieldGroup>
+                              </form>
+                            ),
+                          });
+                        }}
+                      >
+                        <PencilRulerIcon />
+                        Edit
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() =>
+                          confirm.delete(row.label, {
+                            onConfirm: () => onRemoveRow(index),
+                          })
+                        }
+                      >
+                        <TrashIcon />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           ))}
         </RadioGroup>
       </Row>
       <Row>
-        <div draggable={false} className="flex flex-col w-72 gap-2 mb-2">
-          <Card className="p-0">
-            <CardContent className="flex aspect-square p-0">
+        <div draggable={false} className="flex flex-col gap-2 mb-2">
+          <Card className="p-0 justify-center items-center">
+            <CardContent className="flex aspect-square w-80 h-80 p-0">
               <TransformWrapper
                 maxScale={50}
                 pinch={{
@@ -345,6 +469,7 @@ export const LevaCarousel = () => {
                   wrapperStyle={{
                     width: "100%",
                     height: "100%",
+                    alignSelf: "center",
                   }}
                   wrapperClass="items-center justify-center"
                 >
@@ -352,19 +477,38 @@ export const LevaCarousel = () => {
                     <img
                       className="align-middle"
                       style={{
-                        width: width,
-                        height: height,
+                        width: images[selectedRow]?.frameWidth,
+                        height: images[selectedRow]?.frameHeight,
+                        imageRendering: "pixelated",
                       }}
-                      src={
-                        images[selectedRow]
-                          ? images[selectedRow]?.images[selectedSnap]
-                          : ""
-                      }
+                      src={addDataToImageIfNeeded(
+                        images?.[selectedRow]?.images?.[selectedSnap] || "",
+                      )}
                       alt="Picture"
                     />
                   </div>
                 </TransformComponent>
               </TransformWrapper>
+              <ToggleGroup
+                className="absolute top-2 right-2 z-99"
+                type="single"
+                value={autoplayIsPlaying ? "on" : "off"}
+                onValueChange={onTogglePlay}
+              >
+                <ToggleGroupItem value="on" aria-label="on">
+                  <LucidePlay className="size-6" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <ToggleGroup
+                className="absolute top-12 right-2 z-99"
+                type="single"
+                value={loop ? "on" : "off"}
+                onValueChange={onToggleLoop}
+              >
+                <ToggleGroupItem value="on" aria-label="on">
+                  <LucideInfinity className="size-6" />
+                </ToggleGroupItem>
+              </ToggleGroup>
             </CardContent>
           </Card>
           <Carousel
@@ -383,9 +527,10 @@ export const LevaCarousel = () => {
               }),
             ]}
             setApi={setApi}
-            className="w-full"
+            className="w-full flex flex-row"
           >
-            <CarouselContent className="w-full">
+            <CarouselPrevious />
+            <CarouselContent className="w-[90%]">
               {(images[selectedRow]?.images || []).map((imageSrc, index) => (
                 <CarouselItem
                   className={`${
@@ -404,7 +549,6 @@ export const LevaCarousel = () => {
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious />
             <CarouselNext />
           </Carousel>
           {imagesLength <= 2 && (
@@ -429,27 +573,6 @@ export const LevaCarousel = () => {
             <div className="text-muted-foreground py-2 text-center text-sm">
               Frame {selectedSnap + 1} of {snapCount}
             </div>
-            <div></div>
-            <ToggleGroup
-              className="absolute top-2 right-2"
-              type="single"
-              value={autoplayIsPlaying ? "on" : "off"}
-              onValueChange={onTogglePlay}
-            >
-              <ToggleGroupItem value="on" aria-label="on">
-                <LucidePlay className="size-6" />
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <ToggleGroup
-              className="absolute top-12 right-2"
-              type="single"
-              value={loop ? "on" : "off"}
-              onValueChange={onToggleLoop}
-            >
-              <ToggleGroupItem value="on" aria-label="on">
-                <LucideInfinity className="size-6" />
-              </ToggleGroupItem>
-            </ToggleGroup>
           </div>
 
           <Button
@@ -457,7 +580,7 @@ export const LevaCarousel = () => {
             disabled={exporting}
             onClick={onExport}
           >
-            Export
+            {exporting ? "Exporting..." : "Export"}
           </Button>
         </div>
       </Row>

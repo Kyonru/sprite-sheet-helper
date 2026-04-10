@@ -6,3 +6,5 @@ export const ACCEPTED_MODEL_FILE_TYPES: FileType[] = [
   "obj",
   "fbx",
 ] as const;
+
+export const PROJECT_FILE_TYPE = "sshProj";
