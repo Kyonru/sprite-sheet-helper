@@ -36,7 +36,7 @@ import { Text } from "@react-three/drei";
 import type { PerspectiveCameraComponent, Transform } from "@/types/ecs";
 import { setGLContext } from "@/lib/gl-context";
 import { useHistoryStore } from "@/store/next/history";
-import { setAppTitle } from "@/utils/app";
+import { setAppTitle } from "@/utils/app.web";
 
 type SharedCameraState = React.RefObject<{
   position: THREE.Vector3;

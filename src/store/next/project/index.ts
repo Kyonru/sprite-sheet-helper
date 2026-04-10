@@ -16,7 +16,7 @@ import { useLightsStore } from "../lights";
 import { useImagesStore } from "../images";
 import { useSettingsStore } from "../settings";
 import { useEffectsStore } from "../effects";
-import { setAppTitle } from "@/utils/app";
+import { setAppTitle } from "@/utils/app.web";
 import { EventType, PubSub } from "@/lib/events";
 import { downloadFile } from "@/utils/assets";
 import saveAs from "@/lib/file/save-as.web";

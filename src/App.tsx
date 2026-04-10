@@ -29,6 +29,7 @@ import { ShaderEditorProvider } from "./components/custom-shader-modal";
 import { initShortcutRegistry } from "./lib/shortcut-registry";
 import { useKeyboardShortcuts } from "./hooks/next/use-keyboard-shortcuts";
 import { EventType, PubSub } from "./lib/events";
+import useFileHandlers from "./hooks/file/use-file-handlers.web";
 
 THREE.Cache.enabled = true;
 initShortcutRegistry();
@@ -70,6 +71,7 @@ function App() {
   }, []);
 
   useKeyboardShortcuts();
+  useFileHandlers();
 
   const theme = useSettingsStore((state) => state.theme);
 

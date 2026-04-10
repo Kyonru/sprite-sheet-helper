@@ -41,7 +41,7 @@ import { GradientPicker } from "@/components/ui/gradient-picker";
 import { Switch } from "@/components/ui/switch";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme, type Theme } from "@/components/theme-provider";
-import { setAppTitle } from "@/utils/app";
+import { setAppTitle } from "@/utils/app.web";
 
 const ExportFormats = ["spritesheet", "gif", "zip", "lua"] as const;
 

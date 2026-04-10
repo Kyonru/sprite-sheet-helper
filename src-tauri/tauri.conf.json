@@ -33,6 +33,14 @@
     ],
     "macOS": {
       "signingIdentity": "-"
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": ["sshProj"],
+        "name": "Sprite Sheet Helper Project",
+        "description": "Sprite Sheet Helper Project File",
+        "role": "Editor"
+      }
+    ]
   }
 }

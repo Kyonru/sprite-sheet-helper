@@ -6,6 +6,7 @@
   "permissions": [
     "core:default",
     "fs:default",
+    "fs:allow-read",
     "fs:allow-open",
     "fs:allow-exists",
     "fs:allow-app-read-recursive",
@@ -18,6 +19,9 @@
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
-    "dialog:allow-message"
+    "dialog:allow-message",
+    "deep-link:default",
+    "process:default",
+    "core:window:allow-set-title"
   ]
 }

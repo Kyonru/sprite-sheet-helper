@@ -22,10 +22,8 @@ export default async function openFile(
 
     console.log("Opening file:", filePath);
 
-    // 🔥 Read actual file bytes
     const data = await readFile(filePath);
 
-    // ✅ Convert to proper File
     const fileName = filePath.split("/").pop()!;
 
     const buffer = data.buffer.slice(
