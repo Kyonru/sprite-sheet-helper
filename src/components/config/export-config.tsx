@@ -1,5 +1,5 @@
 import { useSharedContext } from "@/context/sharedContext";
-import type { ExportFormat } from "@/types/file";
+import { ExportFormats, type ExportFormat } from "@/types/file";
 import { button, folder, useControls } from "leva";
 import { useEffect } from "react";
 import { carousel } from "../leva/carousel";
@@ -110,7 +110,7 @@ export const ExportConfig = () => {
       "Export Options": folder(
         {
           mode: {
-            options: ["zip", "spritesheet", "gif", "lua"] as ExportFormat[],
+            options: ExportFormats,
             value: exportModeDefault,
           },
           fps: {
@@ -156,7 +156,7 @@ export const ExportConfig = () => {
   }, [set, exportHeightDefault, exportWidthDefault]);
 
   useEffect(() => {
-    setExportMode(mode);
+    setExportMode(mode as ExportFormat);
   }, [mode, setExportMode]);
 
   useEffect(() => {

@@ -133,3 +133,24 @@ export const createAnim8Lua = (
 
   return lines.join("\n");
 };
+
+export const createLuaExample = (json: SpritesheetJSON): string => {
+  const firstName = json.animations[0]?.name ?? "walk";
+  return [
+    `local spritesheet = require("spritesheet")`,
+    ``,
+    `local sheet`,
+    ``,
+    `function love.load()`,
+    `  sheet = spritesheet.load()`,
+    `end`,
+    ``,
+    `function love.update(dt)`,
+    `  spritesheet.update(sheet.animations["${firstName}"], dt)`,
+    `end`,
+    ``,
+    `function love.draw()`,
+    `  spritesheet.draw(sheet.animations["${firstName}"], sheet.image, 100, 100)`,
+    `end`,
+  ].join("\n");
+};

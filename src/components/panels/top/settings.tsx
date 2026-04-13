@@ -36,14 +36,12 @@ import { useState, useEffect, useRef } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { createPortal } from "react-dom";
 import * as z from "zod";
-import type { ExportFormat } from "@/types/file";
+import { ExportFormats, type ExportFormat } from "@/types/file";
 import { GradientPicker } from "@/components/ui/gradient-picker";
 import { Switch } from "@/components/ui/switch";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme, type Theme } from "@/components/theme-provider";
 import { setAppTitle } from "@/utils/app.web";
-
-const ExportFormats = ["spritesheet", "gif", "zip", "lua"] as const;
 
 const formSchema = z.object({
   name: z.string(),

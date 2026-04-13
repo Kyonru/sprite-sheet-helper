@@ -12,9 +12,38 @@ import {
 } from "../../utils/assets";
 import { useSceneStore } from "@/components/panels/scene/store";
 import { useSettingsStore } from "@/store/next/settings";
-import { useImagesStore } from "@/store/next/images";
+import { useImagesStore, type ExportRow } from "@/store/next/images";
 import type { ExportFormat } from "@/types/file";
-import { createAnim8Lua, createVanillaLua } from "@/utils/exports/lua";
+import {
+  createAnim8Lua,
+  createLuaExample,
+  createVanillaLua,
+} from "@/utils/exports/lua";
+import { createTurboExample, createTurboRust } from "@/utils/exports/rust";
+import { createRaylibExample, createRaylibH } from "@/utils/exports/c";
+import { createPygameExample, createPygamePy } from "@/utils/exports/python";
+import { createGodotExample, createGodotGD } from "@/utils/exports/godot";
+import {
+  createPhaserAtlasJSON,
+  createPhaserExample,
+  createPhaserTS,
+} from "@/utils/exports/ts";
+import { createUnityCS, createUnityExample } from "@/utils/exports/cs";
+
+async function buildZip(
+  populate: (zip: JSZip) => Promise<void> | void,
+): Promise<string> {
+  const zip = new JSZip();
+  await populate(zip);
+  return zip.generateAsync({ type: "base64" });
+}
+
+async function buildSpritesheetAssets(exportedImages: ExportRow[]) {
+  const dataUrl = await createSpriteSheet(exportedImages);
+  const json = createSpritesheetJSON(exportedImages);
+  const base64PNG = dataUrl.split("base64,")[1];
+  return { json, base64PNG };
+}
 
 export const useExport = () => {
   const images = useRef<{ name: string; dataURL: string }[]>([]);
@@ -71,86 +100,171 @@ export const useExport = () => {
     composer.render();
   }, [gl, exportWidth, composer, exportHeight]);
 
-  const downloadImageFiles = useCallback(async () => {
-    const zip = new JSZip();
-    for (const row of exportedImages) {
-      const folder = zip.folder(row.label)!;
-      row.images.forEach((img, j) => {
-        folder.file(`${row.uuid}_${j}.png`, img, { base64: true });
-      });
-    }
-    const zipData = await zip.generateAsync({ type: "base64" });
-    downloadFile("data:application/zip;base64," + zipData, "images.zip");
-  }, [exportedImages]);
-
-  const downloadGifFiles = useCallback(async () => {
-    const zip = new JSZip();
-    for (const row of exportedImages) {
-      const gifUrl = await createGif(
-        row.images,
-        row.frameWidth,
-        row.frameHeight,
-        frameDelay,
-      );
-      const content = await (await fetch(gifUrl)).arrayBuffer();
-      zip.file(`${row.label}.gif`, content);
-    }
-    const zipData = await zip.generateAsync({ type: "base64" });
-    downloadFile("data:application/zip;base64," + zipData, "gif.zip");
-  }, [exportedImages, frameDelay]);
-
-  const downloadSpriteSheet = useCallback(async () => {
-    const dataUrl = await createSpriteSheet(exportedImages);
-    const json = createSpritesheetJSON(exportedImages);
-
-    const zip = new JSZip();
-
-    const base64PNG = dataUrl.split("base64,")[1];
-    zip.file("spritesheet.png", base64PNG, { base64: true });
-
-    zip.file("spritesheet.json", JSON.stringify(json, null, 2));
-
-    const zipData = await zip.generateAsync({ type: "base64" });
-    downloadFile("data:application/zip;base64," + zipData, "spritesheet.zip");
-  }, [exportedImages]);
-
-  const downloadLua = useCallback(async () => {
-    const zip = new JSZip();
-    const dataUrl = await createSpriteSheet(exportedImages);
-    const json = createSpritesheetJSON(exportedImages);
-    const vanillaLua = createVanillaLua(json, "spritesheet.png");
-    const anim8Lua = createAnim8Lua(json, "spritesheet.png");
-
-    const base64PNG = dataUrl.split("base64,")[1];
-
-    zip.file("spritesheet.png", base64PNG, { base64: true });
-    zip.file("spritesheet.json", JSON.stringify(json, null, 2));
-
-    zip.file("spritesheet.lua", vanillaLua);
-    zip.file("spritesheet_anim8.lua", anim8Lua);
-
-    const zipData = await zip.generateAsync({ type: "base64" });
-    downloadFile("data:application/zip;base64," + zipData, "animation.zip");
-  }, [exportedImages]);
-
   const exportSpriteSheet = useCallback(
     async (format?: ExportFormat) => {
-      const exportType = format || exportFormat;
-
+      const exportType = format ?? exportFormat;
       try {
+        let zipData: string;
+
         switch (exportType) {
-          case "zip":
-            await downloadImageFiles();
+          case "zip": {
+            zipData = await buildZip((zip) => {
+              for (const row of exportedImages) {
+                const folder = zip.folder(row.label)!;
+                row.images.forEach((img, j) => {
+                  folder.file(`${row.uuid}_${j}.png`, img, { base64: true });
+                });
+              }
+            });
+            downloadFile(
+              "data:application/zip;base64," + zipData,
+              "images.zip",
+            );
             break;
-          case "spritesheet":
-            await downloadSpriteSheet();
+          }
+
+          case "gif": {
+            zipData = await buildZip(async (zip) => {
+              for (const row of exportedImages) {
+                const gifUrl = await createGif(
+                  row.images,
+                  row.frameWidth,
+                  row.frameHeight,
+                  frameDelay,
+                );
+                const content = await (await fetch(gifUrl)).arrayBuffer();
+                zip.file(`${row.label}.gif`, content);
+              }
+            });
+            downloadFile("data:application/zip;base64," + zipData, "gif.zip");
             break;
-          case "gif":
-            await downloadGifFiles();
+          }
+
+          case "spritesheet": {
+            const { json, base64PNG } =
+              await buildSpritesheetAssets(exportedImages);
+            zipData = await buildZip((zip) => {
+              zip.file("spritesheet.png", base64PNG, { base64: true });
+              zip.file("spritesheet.json", JSON.stringify(json, null, 2));
+            });
+            downloadFile(
+              "data:application/zip;base64," + zipData,
+              "spritesheet.zip",
+            );
             break;
-          case "lua":
-            await downloadLua();
+          }
+
+          case "lua": {
+            const { json, base64PNG } =
+              await buildSpritesheetAssets(exportedImages);
+            zipData = await buildZip((zip) => {
+              zip.file("spritesheet.png", base64PNG, { base64: true });
+              zip.file("spritesheet.json", JSON.stringify(json, null, 2));
+              zip.file(
+                "spritesheet.lua",
+                createVanillaLua(json, "spritesheet.png"),
+              );
+              zip.file(
+                "spritesheet_anim8.lua",
+                createAnim8Lua(json, "spritesheet.png"),
+              );
+              zip.file("main.lua", createLuaExample(json));
+            });
+            downloadFile(
+              "data:application/zip;base64," + zipData,
+              "animation.zip",
+            );
             break;
+          }
+
+          case "turbo-rust": {
+            const { json, base64PNG } =
+              await buildSpritesheetAssets(exportedImages);
+            zipData = await buildZip((zip) => {
+              zip.file("spritesheet.png", base64PNG, { base64: true });
+              zip.file("spritesheet.json", JSON.stringify(json, null, 2));
+              zip.file(
+                "spritesheet_turbo.rs",
+                createTurboRust(json, "spritesheet.png"),
+              );
+              zip.file("example.rs", createTurboExample(json));
+            });
+            downloadFile(
+              "data:application/zip;base64," + zipData,
+              "animation.zip",
+            );
+            break;
+          }
+
+          case "phaser": {
+            const { json, base64PNG } =
+              await buildSpritesheetAssets(exportedImages);
+            zipData = await buildZip((zip) => {
+              zip.file("spritesheet.png", base64PNG, { base64: true });
+              zip.file("spritesheet_atlas.json", createPhaserAtlasJSON(json));
+              zip.file("spritesheet_phaser.ts", createPhaserTS(json));
+              zip.file("example.ts", createPhaserExample(json));
+            });
+            downloadFile(
+              "data:application/zip;base64," + zipData,
+              "phaser.zip",
+            );
+            break;
+          }
+
+          case "godot": {
+            const { json, base64PNG } =
+              await buildSpritesheetAssets(exportedImages);
+            zipData = await buildZip((zip) => {
+              zip.file("spritesheet.png", base64PNG, { base64: true });
+              zip.file("SpriteSheetHelper.gd", createGodotGD(json));
+              zip.file("ExamplePlayer.gd", createGodotExample(json));
+            });
+            downloadFile("data:application/zip;base64," + zipData, "godot.zip");
+            break;
+          }
+
+          case "pygame": {
+            const { json, base64PNG } =
+              await buildSpritesheetAssets(exportedImages);
+            zipData = await buildZip((zip) => {
+              zip.file("spritesheet.png", base64PNG, { base64: true });
+              zip.file("spritesheet.py", createPygamePy(json));
+              zip.file("main.py", createPygameExample(json));
+            });
+            downloadFile(
+              "data:application/zip;base64," + zipData,
+              "pygame.zip",
+            );
+            break;
+          }
+
+          case "raylib": {
+            const { json, base64PNG } =
+              await buildSpritesheetAssets(exportedImages);
+            zipData = await buildZip((zip) => {
+              zip.file("spritesheet.png", base64PNG, { base64: true });
+              zip.file("spritesheet.h", createRaylibH(json));
+              zip.file("main.c", createRaylibExample(json));
+            });
+            downloadFile(
+              "data:application/zip;base64," + zipData,
+              "raylib.zip",
+            );
+            break;
+          }
+
+          case "unity": {
+            const { json, base64PNG } =
+              await buildSpritesheetAssets(exportedImages);
+            zipData = await buildZip((zip) => {
+              zip.file("spritesheet.png", base64PNG, { base64: true });
+              zip.file("SpriteSheetAnimator.cs", createUnityCS(json));
+              zip.file("ExamplePlayer.cs", createUnityExample(json));
+            });
+            downloadFile("data:application/zip;base64," + zipData, "unity.zip");
+            break;
+          }
         }
       } catch (err) {
         console.error(err);
@@ -158,13 +272,7 @@ export const useExport = () => {
         PubSub.emit(EventType.STOP_EXPORT);
       }
     },
-    [
-      exportFormat,
-      downloadImageFiles,
-      downloadSpriteSheet,
-      downloadGifFiles,
-      downloadLua,
-    ],
+    [exportedImages, exportFormat, frameDelay],
   );
 
   const takeScreenshotSequence = useCallback(() => {
