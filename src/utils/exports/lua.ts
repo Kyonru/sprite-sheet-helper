@@ -12,56 +12,57 @@ export const createVanillaLua = (
   lines.push(`local M = {}`);
   lines.push(``);
   lines.push(`function M.load(imagePath)`);
-  lines.push(`  imagePath = imagePath or "${imagePath}"`);
-  lines.push(`  local image = love.graphics.newImage(imagePath)`);
-  lines.push(`  local iw, ih = image:getDimensions()`);
+  lines.push(`\timagePath = imagePath or "${imagePath}"`);
+  lines.push(`\tlocal image = love.graphics.newImage(imagePath)`);
+  lines.push(`\tlocal iw, ih = image:getDimensions()`);
   lines.push(``);
-  lines.push(`  local animations = {}`);
+  lines.push(`\tlocal animations = {}`);
   lines.push(``);
 
   for (const anim of json.animations) {
-    lines.push(`  -- ${anim.name}`);
-    lines.push(`  do`);
-    lines.push(`    local frames = {}`);
+    lines.push(`\t-- ${anim.name}`);
+    lines.push(`\tdo`);
+    lines.push(`\t\tlocal frames = {}`);
 
     for (const quad of anim.quads) {
       lines.push(
-        `    table.insert(frames, love.graphics.newQuad(${quad.x}, ${quad.y}, ${quad.w}, ${quad.h}, iw, ih))`,
+        `\t\ttable.insert(frames, love.graphics.newQuad(${quad.x}, ${quad.y}, ${quad.w}, ${quad.h}, iw, ih))`,
       );
     }
 
     lines.push(``);
-    lines.push(`    animations["${anim.name}"] = {`);
-    lines.push(`      frames = frames,`);
-    lines.push(`      fps = ${anim.fps},`);
-    lines.push(`      frameWidth = ${anim.frameWidth},`);
-    lines.push(`      frameHeight = ${anim.frameHeight},`);
-    lines.push(`      currentFrame = 1,`);
-    lines.push(`      timer = 0,`);
-    lines.push(`    }`);
-    lines.push(`  end`);
+    lines.push(`\t\tanimations["${anim.name}"] = {`);
+    lines.push(`\t\t\tframes = frames,`);
+    lines.push(`\t\t\tfps = ${anim.fps},`);
+    lines.push(`\t\t\tframeWidth = ${anim.frameWidth},`);
+    lines.push(`\t\t\tframeHeight = ${anim.frameHeight},`);
+    lines.push(`\t\t\tcurrentFrame = 1,`);
+    lines.push(`\t\t\ttimer = 0,`);
+    lines.push(`\t\t}`);
+    lines.push(`\tend`);
     lines.push(``);
   }
 
-  lines.push(`  return {`);
-  lines.push(`    image = image,`);
-  lines.push(`    animations = animations,`);
-  lines.push(`  }`);
+  lines.push(`\treturn {`);
+  lines.push(`\t\timage = image,`);
+  lines.push(`\t\tanimations = animations,`);
+  lines.push(`\t}`);
   lines.push(`end`);
   lines.push(``);
 
-  // Minimal update/draw helpers so it works out of the box
-  lines.push(`function M.update(anim, dt)`);
-  lines.push(`  anim.timer = anim.timer + dt`);
-  lines.push(`  if anim.timer >= 1 / anim.fps then`);
-  lines.push(`    anim.timer = anim.timer - 1 / anim.fps`);
-  lines.push(`    anim.currentFrame = (anim.currentFrame % #anim.frames) + 1`);
-  lines.push(`  end`);
+  lines.push(`function M:update(currentAnimation, dt)`);
+  lines.push(`\tlocal anim = self.animations[currentAnimation]`);
+  lines.push(`\tanim.timer = anim.timer + dt`);
+  lines.push(`\tif anim.timer >= 1 / anim.fps then`);
+  lines.push(`\t\tanim.timer = anim.timer - 1 / anim.fps`);
+  lines.push(`\t\tanim.currentFrame = (anim.currentFrame % #anim.frames) + 1`);
+  lines.push(`\tend`);
   lines.push(`end`);
   lines.push(``);
-  lines.push(`function M.draw(anim, image, x, y)`);
+  lines.push(`function M:draw(currentAnimation, x, y)`);
+  lines.push(`\tlocal anim = self.animations[currentAnimation]`);
   lines.push(
-    `  love.graphics.draw(image, anim.frames[anim.currentFrame], x, y)`,
+    `\tlove.graphics.draw(self.image, anim.frames[anim.currentFrame], x, y)`,
   );
   lines.push(`end`);
   lines.push(``);
@@ -80,53 +81,49 @@ export const createAnim8Lua = (
   lines.push(`-- ${json.meta.exportedAt}`);
   lines.push(`-- Requires anim8: https://github.com/kikito/anim8`);
   lines.push(``);
-  lines.push(`local anim8 = require 'anim8'`);
+  lines.push(`local anim8 = require("anim8")`);
   lines.push(`local M = {}`);
   lines.push(``);
   lines.push(`function M.load(imagePath)`);
-  lines.push(`  imagePath = imagePath or "${imagePath}"`);
-  lines.push(`  local image = love.graphics.newImage(imagePath)`);
-  lines.push(`  local iw, ih = image:getDimensions()`);
+  lines.push(`\timagePath = imagePath or "${imagePath}"`);
+  lines.push(`\tlocal image = love.graphics.newImage(imagePath)`);
+  lines.push(`\tlocal iw, ih = image:getDimensions()`);
   lines.push(``);
-  lines.push(`  local animations = {}`);
+  lines.push(`\tlocal animations = {}`);
   lines.push(``);
 
   for (const anim of json.animations) {
     const frameCount = anim.quads.length;
     const frameDuration = Number((1 / anim.fps).toFixed(4));
 
-    // anim8 grid is uniform per row — origin is the first quad's x/y
     const originX = anim.quads[0].x;
     const originY = anim.quads[0].y;
 
-    lines.push(`  -- ${anim.name}`);
-    lines.push(`  do`);
+    lines.push(`\t-- ${anim.name}`);
+    lines.push(`\tdo`);
     lines.push(
-      `    local g = anim8.newGrid(${anim.frameWidth}, ${anim.frameHeight}, iw, ih, ${originX}, ${originY})`,
+      `\t\tlocal g = anim8.newGrid(${anim.frameWidth}, ${anim.frameHeight}, iw, ih, ${originX}, ${originY})`,
     );
     lines.push(
-      `    animations["${anim.name}"] = anim8.newAnimation(g('1-${frameCount}', 1), ${frameDuration})`,
+      `\t\tanimations["${anim.name}"] = anim8.newAnimation(g("1-${frameCount}", 1), ${frameDuration})`,
     );
-    lines.push(`  end`);
+    lines.push(`\tend`);
     lines.push(``);
   }
 
-  lines.push(`  return {`);
-  lines.push(`    image = image,`);
-  lines.push(`    animations = animations,`);
-  lines.push(`  }`);
+  lines.push(`\treturn {`);
+  lines.push(`\t\timage = image,`);
+  lines.push(`\t\tanimations = animations,`);
+  lines.push(`\t}`);
   lines.push(`end`);
   lines.push(``);
 
-  // Standard anim8 update/draw
-  lines.push(`function M.update(sprite, dt)`);
-  lines.push(`  sprite.animations[sprite.currentAnimation]:update(dt)`);
+  lines.push(`function M:update(currentAnimation, dt)`);
+  lines.push(`\tself.animations[currentAnimation]:update(dt)`);
   lines.push(`end`);
   lines.push(``);
-  lines.push(`function M.draw(sprite, x, y)`);
-  lines.push(
-    `  sprite.animations[sprite.currentAnimation]:draw(sprite.image, x, y)`,
-  );
+  lines.push(`function M:draw(currentAnimation, x, y)`);
+  lines.push(`\tself.animations[currentAnimation]:draw(self.image, x, y)`);
   lines.push(`end`);
   lines.push(``);
   lines.push(`return M`);
@@ -142,15 +139,15 @@ export const createLuaExample = (json: SpritesheetJSON): string => {
     `local sheet`,
     ``,
     `function love.load()`,
-    `  sheet = spritesheet.load()`,
+    `\tsheet = spritesheet.load()`,
     `end`,
     ``,
     `function love.update(dt)`,
-    `  spritesheet.update(sheet.animations["${firstName}"], dt)`,
+    `\tspritesheet.update(sheet, "${firstName}", dt)`,
     `end`,
     ``,
     `function love.draw()`,
-    `  spritesheet.draw(sheet.animations["${firstName}"], sheet.image, 100, 100)`,
+    `\tspritesheet.draw(sheet, "${firstName}", 100, 100)`,
     `end`,
   ].join("\n");
 };

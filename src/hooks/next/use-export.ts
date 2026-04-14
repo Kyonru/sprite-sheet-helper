@@ -61,6 +61,7 @@ export const useExport = () => {
   const createEmptyRow = useImagesStore((state) => state.createEmptyRow);
   const selectedRow = useImagesStore((state) => state.selectedRow);
   const exportedImages = useImagesStore((state) => state.images);
+  const lastIndex = useRef(0);
 
   const composer = useSceneStore((state) => state.composer);
   const { gl } = useThree();
@@ -154,7 +155,7 @@ export const useExport = () => {
             break;
           }
 
-          case "lua": {
+          case "love2d-lua": {
             const { json, base64PNG } =
               await buildSpritesheetAssets(exportedImages);
             zipData = await buildZip((zip) => {
@@ -164,16 +165,25 @@ export const useExport = () => {
                 "spritesheet.lua",
                 createVanillaLua(json, "spritesheet.png"),
               );
+              zip.file("main.lua", createLuaExample(json));
+            });
+            downloadFile("data:application/zip;base64," + zipData, "lua.zip");
+            break;
+          }
+
+          case "love2d-anim8": {
+            const { json, base64PNG } =
+              await buildSpritesheetAssets(exportedImages);
+            zipData = await buildZip((zip) => {
+              zip.file("spritesheet.png", base64PNG, { base64: true });
+              zip.file("spritesheet.json", JSON.stringify(json, null, 2));
               zip.file(
-                "spritesheet_anim8.lua",
+                "spritesheet.lua",
                 createAnim8Lua(json, "spritesheet.png"),
               );
               zip.file("main.lua", createLuaExample(json));
             });
-            downloadFile(
-              "data:application/zip;base64," + zipData,
-              "animation.zip",
-            );
+            downloadFile("data:application/zip;base64," + zipData, "anim8.zip");
             break;
           }
 
@@ -189,10 +199,7 @@ export const useExport = () => {
               );
               zip.file("example.rs", createTurboExample(json));
             });
-            downloadFile(
-              "data:application/zip;base64," + zipData,
-              "animation.zip",
-            );
+            downloadFile("data:application/zip;base64," + zipData, "turbo.zip");
             break;
           }
 
@@ -288,15 +295,15 @@ export const useExport = () => {
       async () => {
         PubSub.emit(EventType.STOP_ASSETS_CREATION);
 
-        const count = useImagesStore.getState().images.length;
         addImages(
           Date.now().toString(),
-          `animation_${count + 1}`,
+          `animation_${lastIndex.current + 1}`,
           images.current.map((img) => img.dataURL),
           exportWidth,
           exportHeight,
           Math.round(1000 / intervals),
         );
+        lastIndex.current += 1;
       },
     );
   }, [
