@@ -60,7 +60,17 @@ export type ShortCutKey =
   | "ArrowLeft"
   | "ArrowRight"
   | "ArrowUp"
-  | "ArrowDown";
+  | "ArrowDown"
+  | "-"
+  | "="
+  | "["
+  | "]"
+  | ";"
+  | "'"
+  | ","
+  | "."
+  | "/"
+  | "\\";
 
 export type CommandKey = keyof typeof CommandSymbols;
 export type CommandSymbol = (typeof CommandSymbols)[CommandKey];
@@ -86,7 +96,9 @@ const resolveCombo = (e: KeyboardEvent): string => {
   if (e.metaKey || e.ctrlKey) parts.push("meta");
   if (e.shiftKey) parts.push("shift");
   if (e.altKey) parts.push("alt");
-  parts.push(e.key.toLowerCase());
+
+  parts.push(normalizeCode(e.code));
+
   return parts.join("+");
 };
 
@@ -105,6 +117,26 @@ export const shortcutToCombo = (shortcut: ShortCutKey[]): string => {
   }
 
   return [...modifiers, key].join("+");
+};
+
+const normalizeCode = (code: string): string => {
+  if (code.startsWith("Digit")) return code.replace("Digit", "");
+  if (code.startsWith("Key")) return code.replace("Key", "").toLowerCase();
+
+  const map: Record<string, string> = {
+    Minus: "-",
+    Equal: "=",
+    BracketLeft: "[",
+    BracketRight: "]",
+    Semicolon: ";",
+    Quote: "'",
+    Comma: ",",
+    Period: ".",
+    Slash: "/",
+    Backslash: "\\",
+  };
+
+  return map[code] ?? code.toLowerCase();
 };
 
 export const initShortcutRegistry = () => {

@@ -1,5 +1,6 @@
 import EventEmitter from "eventemitter3";
 import { pubSubEventClient } from "../../devtools/pubsub-event-client";
+import { ExportFormats, type ExportFormat } from "@/types/file";
 
 export const EventType = {
   TAKE_SINGLE_SCREENSHOT: "take_single_screenshot",
@@ -14,12 +15,29 @@ export const EventType = {
   NEW_PROJECT: "new_project",
 } as const;
 
+type ExportShortcutKey = `EXPORT_${Uppercase<ExportFormat>}`;
+export type ExportShortcut = `shortcut_export_${ExportFormat}`;
+
+export const GetExportShortcutKey = (
+  format: ExportFormat,
+): ExportShortcutKey => {
+  return `EXPORT_${format.toUpperCase()}` as ExportShortcutKey;
+};
+
+export const GetExportShortcut = (format: ExportFormat): ExportShortcut => {
+  return `shortcut_export_${format}` as ExportShortcut;
+};
+
+const exportShortcuts = Object.fromEntries(
+  ExportFormats.map((format) => [
+    `EXPORT_${format.toUpperCase()}`,
+    `shortcut_export_${format}`,
+  ]),
+) as Record<ExportShortcutKey, ExportShortcut>;
+
 export const ShortCutEventType = {
   NEW_PROJECT: "shortcut_new_project",
-  EXPORT_ZIP: "shortcut_export_zip",
-  EXPORT_GIF: "shortcut_export_gif",
-  EXPORT_SPRITE_SHEET: "shortcut_export_sprite_sheet",
-  EXPORT_LUA: "shortcut_export_lua",
+  ...exportShortcuts,
   QUICK_SAVE: "shortcut_quick_save",
   SAVE_AS: "shortcut_save_as",
   IMPORT_MODEL: "shortcut_import_model",

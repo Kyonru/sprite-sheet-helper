@@ -4,6 +4,7 @@ import {
   EventType,
   PubSub,
   ShortCutEventType,
+  type ExportShortcut,
   type ShortCutEventPayload,
 } from "@/lib/events";
 import { useProjectStore } from "@/store/next/project";
@@ -14,6 +15,11 @@ import { openSettings } from "@/components/panels/top/settings";
 import { useHistoryStore } from "@/store/next/history";
 import { useEntitiesStore } from "@/store/next/entities";
 import { useEffectsStore } from "@/store/next/effects";
+import type { ExportFormat } from "@/types/file";
+
+const isExportShortcut = (type: string): type is ExportShortcut => {
+  return type.startsWith("shortcut_export_");
+};
 
 export const useKeyboardShortcuts = () => {
   const projectStore = useProjectStore();
@@ -49,6 +55,16 @@ export const useKeyboardShortcuts = () => {
 
   const onShortcut = useCallback(
     (payload: ShortCutEventPayload) => {
+      if (isExportShortcut(payload.type)) {
+        const format = payload.type.replace(
+          "shortcut_export_",
+          "",
+        ) as ExportFormat;
+
+        PubSub.emit(EventType.START_EXPORT, format);
+        return;
+      }
+
       switch (payload.type) {
         case ShortCutEventType.QUICK_SAVE:
           projectStore.save();
@@ -67,15 +83,6 @@ export const useKeyboardShortcuts = () => {
           break;
         case ShortCutEventType.OPEN_SETTINGS:
           openSettings();
-          break;
-        case ShortCutEventType.EXPORT_ZIP:
-          PubSub.emit(EventType.START_EXPORT, "zip");
-          break;
-        case ShortCutEventType.EXPORT_GIF:
-          PubSub.emit(EventType.START_EXPORT, "gif");
-          break;
-        case ShortCutEventType.EXPORT_SPRITE_SHEET:
-          PubSub.emit(EventType.START_EXPORT, "spritesheet");
           break;
         case ShortCutEventType.UNDO:
           onUndo();

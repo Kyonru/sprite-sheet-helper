@@ -10,12 +10,19 @@ import {
 } from "@/components/ui/menubar";
 import { ACCEPTED_MODEL_FILE_TYPES, PROJECT_FILE_TYPE } from "@/constants/file";
 import { useAddModel } from "@/hooks/next/use-add-model";
-import { EventType, PubSub, ShortCutEventType } from "@/lib/events";
+import {
+  GetExportShortcut,
+  EventType,
+  PubSub,
+  ShortCutEventType,
+} from "@/lib/events";
 import { MenuIcon } from "lucide-react";
 import { openSettings } from "./settings";
 import { useProjectStore } from "@/store/next/project";
 import { MenubarItemAction } from "./components/MenubarItemAction";
 import { importFile } from "@/utils/assets";
+import { ExportFormats } from "@/types/file";
+import { capitalize } from "@/utils/strings";
 
 export const FileMenu = () => {
   const loadFromFile = useAddModel(true);
@@ -63,28 +70,13 @@ export const FileMenu = () => {
             <MenubarSubTrigger>Export</MenubarSubTrigger>
             <MenubarSubContent>
               <MenubarGroup>
-                <MenubarItemAction
-                  title="As zip"
-                  action={() => PubSub.emit(EventType.START_EXPORT, "zip")}
-                  shortcut={ShortCutEventType.EXPORT_ZIP}
-                />
-                <MenubarItemAction
-                  title="As gif"
-                  action={() => PubSub.emit(EventType.START_EXPORT, "gif")}
-                  shortcut={ShortCutEventType.EXPORT_GIF}
-                />
-                <MenubarItemAction
-                  title="As sprite sheet"
-                  action={() =>
-                    PubSub.emit(EventType.START_EXPORT, "spritesheet")
-                  }
-                  shortcut={ShortCutEventType.EXPORT_SPRITE_SHEET}
-                />
-                <MenubarItemAction
-                  title="As Lua (Plain & Love2D)"
-                  action={() => PubSub.emit(EventType.START_EXPORT, "lua")}
-                  shortcut={ShortCutEventType.EXPORT_LUA}
-                />
+                {ExportFormats.map((format) => (
+                  <MenubarItemAction
+                    title={`${capitalize(format)}`}
+                    action={() => PubSub.emit(EventType.START_EXPORT, format)}
+                    shortcut={GetExportShortcut(format)}
+                  />
+                ))}
               </MenubarGroup>
             </MenubarSubContent>
           </MenubarSub>
