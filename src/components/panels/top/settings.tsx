@@ -42,6 +42,7 @@ import { Switch } from "@/components/ui/switch";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme, type Theme } from "@/components/theme-provider";
 import { setAppTitle } from "@/utils/app.web";
+import { exporters } from "@/utils/exports";
 
 const formSchema = z.object({
   name: z.string(),
@@ -313,9 +314,9 @@ export function SettingsModalProvider() {
                               <SelectValue placeholder="Select format" />
                             </SelectTrigger>
                             <SelectContent>
-                              {ExportFormats.map((fmt) => (
-                                <SelectItem key={fmt} value={fmt}>
-                                  {fmt}
+                              {Object.values(exporters).map((exp) => (
+                                <SelectItem key={exp.id} value={exp.id}>
+                                  {exp.label}
                                 </SelectItem>
                               ))}
                             </SelectContent>

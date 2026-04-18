@@ -1,7 +1,7 @@
-import type { ExportRow } from "@/store/next/images";
 import GIF from "gif.js.optimized";
 import openFile from "../lib/file/opener.web";
 import { toast } from "sonner";
+import type { ExportRow } from "@/types/file";
 
 export interface SpritesheetOptions {
   spacing: number; // px between frames

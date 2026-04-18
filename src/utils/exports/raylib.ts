@@ -1,4 +1,6 @@
+import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
+import { buildSpritesheetAssets } from "./helpers";
 
 export const createRaylibH = (
   json: SpritesheetJSON,
@@ -136,4 +138,22 @@ export const createRaylibExample = (json: SpritesheetJSON): string => {
     `    return 0;`,
     `}`,
   ].join("\n");
+};
+
+export const raylibExporter: Exporter<"raylib"> = {
+  id: "raylib",
+  label: "Raylib",
+
+  async run({ exportedImages }) {
+    const { json, base64PNG } = await buildSpritesheetAssets(exportedImages);
+
+    return {
+      filename: "raylib.zip",
+      files: [
+        { name: "spritesheet.png", content: base64PNG, base64: true },
+        { name: "spritesheet.h", content: createRaylibH(json) },
+        { name: "main.c", content: createRaylibExample(json) },
+      ],
+    };
+  },
 };

@@ -1,11 +1,12 @@
 import { useSharedContext } from "@/context/sharedContext";
-import { ExportFormats, type ExportFormat } from "@/types/file";
+import { type ExportFormat } from "@/types/file";
 import { button, folder, useControls } from "leva";
 import { useEffect } from "react";
 import { carousel } from "../leva/carousel";
 import { useImagesStore } from "@/store/next/images";
 import { useSettingsStore } from "@/store/next/settings";
 import { EventType, PubSub } from "@/lib/events";
+import { exporters } from "@/utils/exports";
 
 export const ExportConfig = () => {
   const { levaStore } = useSharedContext();
@@ -110,7 +111,18 @@ export const ExportConfig = () => {
       "Export Options": folder(
         {
           mode: {
-            options: ExportFormats,
+            options: Object.values(exporters)
+              .map((exporter) => ({
+                label: exporter.label,
+                value: exporter.id,
+              }))
+              .reduce(
+                (acc, curr) => {
+                  acc[curr.label] = curr.value;
+                  return acc;
+                },
+                {} as Record<string, ExportFormat>,
+              ),
             value: exportModeDefault,
           },
           fps: {

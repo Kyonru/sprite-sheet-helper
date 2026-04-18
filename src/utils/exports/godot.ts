@@ -1,4 +1,6 @@
+import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
+import { buildSpritesheetAssets } from "./helpers";
 
 export const createGodotGD = (
   json: SpritesheetJSON,
@@ -74,4 +76,22 @@ export const createGodotExample = (json: SpritesheetJSON): string => {
     `\t# your game logic here`,
     `\tpass`,
   ].join("\n");
+};
+
+export const godotExporter: Exporter<"godot"> = {
+  id: "godot",
+  label: "Godot (GDScript)",
+
+  async run({ exportedImages }) {
+    const { json, base64PNG } = await buildSpritesheetAssets(exportedImages);
+
+    return {
+      filename: "godot.zip",
+      files: [
+        { name: "spritesheet.png", content: base64PNG, base64: true },
+        { name: "SpriteSheetHelper.gd", content: createGodotGD(json) },
+        { name: "ExamplePlayer.gd", content: createGodotExample(json) },
+      ],
+    };
+  },
 };

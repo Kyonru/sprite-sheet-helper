@@ -1,4 +1,6 @@
+import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
+import { buildSpritesheetAssets } from "./helpers";
 
 export const createPhaserAtlasJSON = (
   json: SpritesheetJSON,
@@ -106,4 +108,26 @@ export const createPhaserExample = (json: SpritesheetJSON): string => {
     `  }`,
     `}`,
   ].join("\n");
+};
+
+export const phaserExporter: Exporter<"phaser"> = {
+  id: "phaser",
+  label: "PhaserJS",
+
+  async run({ exportedImages }) {
+    const { json, base64PNG } = await buildSpritesheetAssets(exportedImages);
+
+    return {
+      filename: "phaser.zip",
+      files: [
+        { name: "spritesheet.png", content: base64PNG, base64: true },
+        {
+          name: "spritesheet_atlas.json",
+          content: createPhaserAtlasJSON(json),
+        },
+        { name: "spritesheet_phaser.ts", content: createPhaserTS(json) },
+        { name: "example.ts", content: createPhaserExample(json) },
+      ],
+    };
+  },
 };

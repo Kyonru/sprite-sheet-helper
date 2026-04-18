@@ -1,4 +1,6 @@
+import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
+import { buildSpritesheetAssets } from "./helpers";
 
 export const createUnityCS = (
   json: SpritesheetJSON,
@@ -169,4 +171,22 @@ export const createUnityExample = (json: SpritesheetJSON): string => {
     `    }`,
     `}`,
   ].join("\n");
+};
+
+export const unityExporter: Exporter<"unity"> = {
+  id: "unity",
+  label: "Unity (C#)",
+
+  async run({ exportedImages }) {
+    const { json, base64PNG } = await buildSpritesheetAssets(exportedImages);
+
+    return {
+      filename: "unity.zip",
+      files: [
+        { name: "spritesheet.png", content: base64PNG, base64: true },
+        { name: "SpriteSheetAnimator.cs", content: createUnityCS(json) },
+        { name: "ExamplePlayer.cs", content: createUnityExample(json) },
+      ],
+    };
+  },
 };

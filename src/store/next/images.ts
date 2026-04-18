@@ -1,15 +1,7 @@
 import { create } from "zustand";
 import { inspector } from "../../../devtools/inspector-middleware";
 import type { SnapshotEnabledStore } from "@/types/ecs";
-
-export interface ExportRow {
-  uuid: string;
-  label: string;
-  images: string[];
-  frameWidth: number;
-  frameHeight: number;
-  fps: number;
-}
+import type { ExportRow } from "@/types/file";
 
 export interface ImagesState {
   intervals: number;

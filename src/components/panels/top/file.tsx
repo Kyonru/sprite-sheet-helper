@@ -21,8 +21,7 @@ import { openSettings } from "./settings";
 import { useProjectStore } from "@/store/next/project";
 import { MenubarItemAction } from "./components/MenubarItemAction";
 import { importFile } from "@/utils/assets";
-import { ExportFormats } from "@/types/file";
-import { capitalize } from "@/utils/strings";
+import { exporters } from "@/utils/exports";
 
 export const FileMenu = () => {
   const loadFromFile = useAddModel(true);
@@ -70,11 +69,13 @@ export const FileMenu = () => {
             <MenubarSubTrigger>Export</MenubarSubTrigger>
             <MenubarSubContent>
               <MenubarGroup>
-                {ExportFormats.map((format) => (
+                {Object.values(exporters).map((exporter) => (
                   <MenubarItemAction
-                    title={`${capitalize(format)}`}
-                    action={() => PubSub.emit(EventType.START_EXPORT, format)}
-                    shortcut={GetExportShortcut(format)}
+                    title={exporter.label}
+                    action={() =>
+                      PubSub.emit(EventType.START_EXPORT, exporter.id)
+                    }
+                    shortcut={GetExportShortcut(exporter.id)}
                   />
                 ))}
               </MenubarGroup>

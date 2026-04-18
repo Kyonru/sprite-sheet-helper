@@ -1,4 +1,6 @@
+import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
+import { buildSpritesheetAssets } from "./helpers";
 
 export const createTurboRust = (
   json: SpritesheetJSON,
@@ -124,4 +126,23 @@ export const createTurboExample = (json: SpritesheetJSON): string => {
     `    }`,
     `}`,
   ].join("\n");
+};
+
+export const turboRustExporter: Exporter<"turbo"> = {
+  id: "turbo",
+  label: "Turbo (Rust)",
+
+  async run({ exportedImages }) {
+    const { json, base64PNG } = await buildSpritesheetAssets(exportedImages);
+
+    return {
+      filename: "turbo.zip",
+      files: [
+        { name: "spritesheet.png", content: base64PNG, base64: true },
+        { name: "spritesheet.json", content: JSON.stringify(json, null, 2) },
+        { name: "spritesheet_turbo.rs", content: createTurboRust(json) },
+        { name: "example.rs", content: createTurboExample(json) },
+      ],
+    };
+  },
 };
