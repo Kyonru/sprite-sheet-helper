@@ -1,3 +1,4 @@
+if (__CLI_BUILD__) await import("./lib/cli-bridge");
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { TanStackDevtools } from "@tanstack/react-devtools";

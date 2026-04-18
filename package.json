@@ -4,11 +4,16 @@
   "version": "0.2.0",
   "type": "module",
   "packageManager": "npm@11.7.0",
+  "bin": {
+    "sprite-sheet-helper": "./dist/cli/index.js"
+  },
   "scripts": {
     "dev": "vite",
     "dev:tauri": "npm run tauri build -- --debug",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && tsc -p tsconfig.cli.json && vite build",
+    "build:cli": "tsc -b && tsc -p tsconfig.cli.json && cross-env CLI_BUILD=true vite build",
     "build:tauri": "cross-env TAURI_BUILD=true tsc -b && cross-env TAURI_BUILD=true vite build",
+    "cli": "node ./dist/cli/index.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json --composite false",
     "preview": "vite preview",
@@ -114,6 +119,7 @@
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.30.1",
     "vite": "^6.3.5",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "puppeteer": "^22.0.0"
   }
 }

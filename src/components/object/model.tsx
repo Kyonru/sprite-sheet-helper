@@ -35,30 +35,32 @@ export function Based({ uuid, ...props }: { uuid: string }) {
 
   useEffect(() => {
     const openFile = async () => {
-      if (model?.file) {
-        const format = model?.file?.name
-          .split(".")
-          .pop()
-          ?.toLowerCase() as ModelComponentType["format"];
+      if (!model?.file) return;
 
-        if (!format) return;
+      const format = model.file.name
+        .split(".")
+        .pop()
+        ?.toLowerCase() as ModelComponentType["format"];
 
+      if (!format) return;
+
+      try {
         const parsed = await parseModel(model.file, format);
 
         setObject(parsed.object);
-
         mixerRef.current = parsed.mixer;
 
         const camera = controls?.camera;
-
         if (camera) {
           const scale = fitObjectToCamera(parsed.object, camera, 1);
           parsed.object.scale.setScalar(scale);
         }
 
         setClips(uuid, parsed.clips);
-
         setMixerRef(uuid, parsed.mixer);
+      } catch (err) {
+        console.error("[sprite-sheet-helper] parseModel failed:", err);
+        setMixerRef(uuid, null);
       }
     };
 

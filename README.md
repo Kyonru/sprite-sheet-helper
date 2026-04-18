@@ -20,6 +20,112 @@ Download the appropriate file for your OS and run it directly — no setup requi
 
 ---
 
+## ✨ Features
+
+### Supported model formats
+
+| Format | Notes |
+| ------ | ----- |
+| GLB | Recommended — fully self-contained |
+| GLTF | External `.bin` and textures must be co-located |
+| FBX | Binary FBX recommended |
+| OBJ | Geometry only; `.mtl` materials not loaded |
+
+### Scene setup
+
+- **Lights** — Ambient, Directional, Point, Spot with adjustable intensity and color
+- **Camera** — Orbit controls with preset angles: Top-down, Isometric (45° / 225°), ¾ RPG (55°), and more
+- **Transform controls** — Reposition, rotate, and scale objects in the scene
+- **Post-processing effects** — Pixelation, Bloom, Outline, Glitch, Depth of Field, ASCII, Dither, Palette, SSAO, and 20+ more
+
+### Animations
+
+- Loads animation clips embedded in the model
+- Timeline editor with play/pause, frame stepping, and per-clip trim/speed/loop settings
+- Per-frame capture synced to animation playback
+
+### Export formats
+
+| Format | Output |
+| ------ | ------ |
+| `spritesheet` | PNG + JSON metadata |
+| `zip` | Raw frame PNGs in a ZIP |
+| `gif` | Animated GIF |
+| `bevy` | Rust structs + `Cargo.toml` snippet |
+| `godot` | GDScript + resource file |
+| `unity` | C# `SpriteSheetAnimator` class |
+| `phaser` | Atlas JSON for Phaser 3 |
+| `pygame` | Python module |
+| `raylib` | C header |
+| `love2d-lua` | Lua module for LÖVE 2D |
+| `love2d-anim8` | anim8 library format |
+| `turbo` | Turbo engine format |
+
+### Project files
+
+Save and load `.sshProj` files to preserve the full scene state — objects, lights, camera, animations, and undo history included.
+
+---
+
+## 🖥 CLI
+
+The CLI drives the app headlessly: it starts a local preview server, injects the model into a Puppeteer browser, captures frames, and writes the exported files to disk. No GUI required.
+
+### Before running
+
+Build the app with the CLI bridge before running:
+
+```bash
+npm run build:cli
+```
+
+### Usage
+
+```bash
+npm run cli -- <input> [options]
+# or after npm link / global install:
+sprite-sheet-helper <input> [options]
+```
+
+### Options
+
+| Option | Default | Description |
+| ------ | ------- | ----------- |
+| `--format` | `spritesheet` | Export format (see table above) |
+| `--frames` | `8` | Number of frames to capture |
+| `--fps` | `10` | Playback frame rate |
+| `--width` | `64` | Frame width in pixels |
+| `--height` | `64` | Frame height in pixels |
+| `--output` | `./out` | Output directory |
+| `--port` | `4174` | Port for the local preview server |
+
+Format aliases: `bevy-rust` → `bevy`, `love2d` → `love2d-lua`
+
+### Examples
+
+```bash
+# 8-frame spritesheet at 64×64 (defaults)
+sprite-sheet-helper character.glb
+
+# LÖVE 2D export, 16 frames at 128×128
+sprite-sheet-helper character.glb --format love2d --frames 16 --width 128 --height 128
+
+# Animated GIF
+sprite-sheet-helper character.fbx --format gif --frames 12 --fps 12 --output ./exports
+```
+
+### Example output — `--format love2d`
+
+```text
+out/
+  spritesheet.png
+  spritesheet.json
+  spritesheet.lua
+  main.lua
+```
+
+---
+
 ## 🚀 Development Setup
 
 ### Prerequisites

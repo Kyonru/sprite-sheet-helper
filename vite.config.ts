@@ -9,6 +9,7 @@ import { WebTauriSwapPlugin } from "./vite-plugins/web-tauri-swap";
 const host = process.env.TAURI_DEV_HOST;
 
 const __TAURI__ = !!process.env.TAURI_BUILD;
+const __CLI__ = !!process.env.CLI_BUILD;
 
 const tauriConfig: Partial<UserConfig> = {
   clearScreen: false,
@@ -45,6 +46,9 @@ const tauriConfig: Partial<UserConfig> = {
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __CLI_BUILD__: JSON.stringify(__CLI__),
+  },
   plugins: [
     __TAURI__ && WebTauriSwapPlugin(),
     react(),

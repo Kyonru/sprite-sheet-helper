@@ -116,11 +116,7 @@ export const useModelsStore = create<ModelsStore>()(
             .pop()
             ?.toLowerCase() as ModelComponent["format"];
 
-          console.log("Saving file:", file);
-
           const opfsFileName = await saveFileToFS(uuid, file, "models");
-
-          console.log("Saving file:", opfsFileName);
 
           set((state) => ({
             models: {

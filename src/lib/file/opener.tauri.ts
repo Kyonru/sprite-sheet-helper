@@ -20,8 +20,6 @@ export default async function openFile(
 
     if (!filePath || typeof filePath !== "string") return;
 
-    console.log("Opening file:", filePath);
-
     const data = await readFile(filePath);
 
     const fileName = filePath.split("/").pop()!;

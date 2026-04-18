@@ -36,8 +36,6 @@ const uint8ToFile = (
     data.byteOffset + data.byteLength,
   );
 
-  console.log("Converting uint8tofile:", fileName);
-
   return new File([buffer as ArrayBuffer], fileName, {
     type: mimeType ?? getMimeType(fileName),
   });
