@@ -2,12 +2,17 @@ import puppeteer from "puppeteer";
 import type { Browser, Page } from "puppeteer";
 
 export async function launchBrowser(): Promise<Browser> {
+  const ciArgs = process.env.CI
+    ? ["--disable-gpu", "--disable-dev-shm-usage"]
+    : [];
+
   const browser = await puppeteer.launch({
     headless: true,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-web-security",
+      ...ciArgs,
     ],
   });
   return browser;

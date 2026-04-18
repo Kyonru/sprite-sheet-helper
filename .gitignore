@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 out
 
-example_model.fbx
+example_model.*

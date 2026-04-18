@@ -18,7 +18,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json --composite false",
     "preview": "vite preview",
     "tauri": "tauri",
-    "knip": "knip"
+    "knip": "knip",
+    "merge-animations": "node scripts/merge-animations.js"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
