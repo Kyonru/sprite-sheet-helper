@@ -13,15 +13,15 @@ import { gifExporter } from "./gif";
 
 export const exporters = {
   [zipExporter.id]: zipExporter,
-  [bevyExporter.id]: bevyExporter,
+  [SpritesheetExporter.id]: SpritesheetExporter,
+  [gifExporter.id]: gifExporter,
   [love2dVanillaExporter.id]: love2dVanillaExporter,
   [love2dAnim8Exporter.id]: love2dAnim8Exporter,
   [turboRustExporter.id]: turboRustExporter,
+  [bevyExporter.id]: bevyExporter,
   [phaserExporter.id]: phaserExporter,
   [godotExporter.id]: godotExporter,
   [pygameExporter.id]: pygameExporter,
   [raylibExporter.id]: raylibExporter,
   [unityExporter.id]: unityExporter,
-  [SpritesheetExporter.id]: SpritesheetExporter,
-  [gifExporter.id]: gifExporter,
 } satisfies Record<ExportFormat, Exporter<ExportFormat>>;
