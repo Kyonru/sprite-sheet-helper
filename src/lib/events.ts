@@ -6,6 +6,11 @@ export const EventType = {
   TAKE_SINGLE_SCREENSHOT: "take_single_screenshot",
   START_ASSETS_CREATION: "start_assets_creation",
   STOP_ASSETS_CREATION: "stop_assets_creation",
+  SET_WORKFLOW: "set_workflow",
+  START_WORKFLOW: "start_workflow",
+  STOP_WORKFLOW: "stop_workflow",
+  ANIMATION_READY: "animation_ready",
+  MODEL_READY: "model_ready",
   NEW_SEQUENCE: "new_sequence",
   SHORT_CUT: "shortcut",
   START_EXPORT: "start_export",
@@ -76,6 +81,8 @@ class InstrumentedEventEmitter extends EventEmitter {
   private counter = 0;
   private devListeners: Set<EventBusListener> = new Set();
   public isDev = import.meta.env.DEV;
+  public readonly EVENT_TYPE = EventType;
+  public readonly SHORTCUT_EVENT_TYPE = ShortCutEventType;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emit<T extends string | symbol>(event: T, ...args: any[]): boolean {

@@ -9,28 +9,18 @@ import { triggerExport } from "./export.js";
 import { extractToOutput } from "./output.js";
 import type { ChildProcess } from "child_process";
 import type { Browser } from "puppeteer";
+import {
+  WORKFLOW_PRESETS,
+  EXPORT_FORMATS,
+  ACCEPTED_MODEL_FILE_TYPES,
+} from "./data.js";
+import { captureWorkflow } from "./workflows.js";
 
 const FORMAT_ALIASES: Record<string, string> = {
   "bevy-rust": "bevy",
   love2d: "love2d-lua",
+  anim8: "love2d-anim8",
 };
-
-const ACCEPTED_MODEL_EXTENSIONS = ["glb", "gltf", "obj", "fbx"] as const;
-
-const VALID_FORMATS = [
-  "zip",
-  "spritesheet",
-  "gif",
-  "love2d-lua",
-  "love2d-anim8",
-  "turbo",
-  "bevy",
-  "phaser",
-  "godot",
-  "pygame",
-  "raylib",
-  "unity",
-] as const;
 
 interface CliArgs {
   glbPath: string;
@@ -41,6 +31,8 @@ interface CliArgs {
   height: number;
   output: string;
   port: number;
+  workflow?: string;
+  cameraDistance?: number;
 }
 
 function parseCliArgs(): CliArgs {
@@ -54,6 +46,8 @@ function parseCliArgs(): CliArgs {
       height: { type: "string", default: "64" },
       output: { type: "string", default: "./out" },
       port: { type: "string", default: "4174" },
+      workflow: { type: "string", default: undefined },
+      cameraDistance: { type: "string", default: "5" },
     },
     allowPositionals: true,
   });
@@ -61,15 +55,15 @@ function parseCliArgs(): CliArgs {
   const glbPath = positionals[0];
   if (!glbPath) {
     console.error(
-      `Usage: sprite-sheet-helper <input> [options]\nAccepted model formats: ${ACCEPTED_MODEL_EXTENSIONS.join(", ")}`,
+      `Usage: sprite-sheet-helper <input> [options]\nAccepted model formats: ${ACCEPTED_MODEL_FILE_TYPES.join(", ")}`,
     );
     process.exit(1);
   }
 
   const ext = extname(glbPath).replace(".", "").toLowerCase();
-  if (!(ACCEPTED_MODEL_EXTENSIONS as readonly string[]).includes(ext)) {
+  if (!(ACCEPTED_MODEL_FILE_TYPES as readonly string[]).includes(ext)) {
     console.error(
-      `Unsupported model format ".${ext}". Accepted: ${ACCEPTED_MODEL_EXTENSIONS.join(", ")}`,
+      `Unsupported model format ".${ext}". Accepted: ${ACCEPTED_MODEL_FILE_TYPES.join(", ")}`,
     );
     process.exit(1);
   }
@@ -77,9 +71,21 @@ function parseCliArgs(): CliArgs {
   const rawFormat = values.format ?? "spritesheet";
   const format = FORMAT_ALIASES[rawFormat] ?? rawFormat;
 
-  if (!(VALID_FORMATS as readonly string[]).includes(format)) {
-    console.error(`Unknown format "${rawFormat}". Valid: ${VALID_FORMATS.join(", ")}`);
+  if (!(EXPORT_FORMATS as readonly string[]).includes(format)) {
+    console.error(
+      `Unknown format "${rawFormat}". Valid: ${EXPORT_FORMATS.join(", ")}`,
+    );
     process.exit(1);
+  }
+
+  if (values.workflow) {
+    const workflow = WORKFLOW_PRESETS.find((w) => w.id === values.workflow);
+    if (!workflow) {
+      console.error(
+        `Unknown workflow "${values.workflow}". Valid: ${WORKFLOW_PRESETS.map((w) => w.id).join(", ")}`,
+      );
+      process.exit(1);
+    }
   }
 
   return {
@@ -91,6 +97,8 @@ function parseCliArgs(): CliArgs {
     height: parseInt(values.height ?? "64", 10),
     output: resolve(values.output ?? "./out"),
     port: parseInt(values.port ?? "4174", 10),
+    workflow: values.workflow,
+    cameraDistance: parseFloat(values.cameraDistance ?? "5"),
   };
 }
 
@@ -105,7 +113,9 @@ async function main() {
   let browser: Browser | undefined;
 
   try {
-    console.log(`[sprite-sheet-helper] Starting preview server on port ${args.port}...`);
+    console.log(
+      `[sprite-sheet-helper] Starting preview server on port ${args.port}...`,
+    );
     serverProc = await startServer(args.port);
 
     console.log("[sprite-sheet-helper] Launching headless browser...");
@@ -115,14 +125,29 @@ async function main() {
     console.log(`[sprite-sheet-helper] Injecting model: ${args.glbPath}`);
     const modelUuid = await injectModel(page, args.glbPath);
 
-    console.log(`[sprite-sheet-helper] Capturing frames...`);
-    await captureFrames(page, {
-      modelUuid,
-      frames: args.frames,
-      fps: args.fps,
-      width: args.width,
-      height: args.height,
-    });
+    console.log("Injected model passed", args.workflow);
+
+    if (args.workflow) {
+      console.log(`[sprite-sheet-helper] Setting workflow to ${args.workflow}`);
+      await captureWorkflow(page, {
+        modelUuid,
+        frames: args.frames,
+        fps: args.fps,
+        width: args.width,
+        height: args.height,
+        workflow: args.workflow,
+        cameraDistance: args.cameraDistance,
+      });
+    } else {
+      console.log(`[sprite-sheet-helper] Capturing frames...`);
+      await captureFrames(page, {
+        modelUuid,
+        frames: args.frames,
+        fps: args.fps,
+        width: args.width,
+        height: args.height,
+      });
+    }
 
     console.log(`[sprite-sheet-helper] Exporting as ${args.format}...`);
     const { href } = await triggerExport(page, args.format);
@@ -130,7 +155,9 @@ async function main() {
     console.log(`[sprite-sheet-helper] Writing to ${args.output}...`);
     const files = await extractToOutput(href, args.output);
 
-    console.log(`[sprite-sheet-helper] Done — ${files.length} file(s) written:`);
+    console.log(
+      `[sprite-sheet-helper] Done — ${files.length} file(s) written:`,
+    );
     for (const f of files) console.log(`  ${f}`);
   } finally {
     await browser?.close();

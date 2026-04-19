@@ -6,13 +6,18 @@ export async function triggerExport(
   timeoutMs = 60000,
 ): Promise<{ href: string; filename: string }> {
   let captureResolve!: (value: { href: string; filename: string }) => void;
-  const capturePromise = new Promise<{ href: string; filename: string }>((res) => {
-    captureResolve = res;
-  });
+  const capturePromise = new Promise<{ href: string; filename: string }>(
+    (res) => {
+      captureResolve = res;
+    },
+  );
 
-  await page.exposeFunction("__sshCapture__", (href: string, filename: string) => {
-    captureResolve({ href, filename });
-  });
+  await page.exposeFunction(
+    "__sshCapture__",
+    (href: string, filename: string) => {
+      captureResolve({ href, filename });
+    },
+  );
 
   // downloadFile() creates a detached <a> and calls .click() directly — DOM click
   // events don't bubble from detached nodes, so we intercept at the prototype level.
@@ -29,14 +34,15 @@ export async function triggerExport(
   });
 
   await page.evaluate(
-    (fmt: string) =>
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__SSH_BRIDGE__.PubSub.emit("start_export", fmt),
+    (fmt: string) => window.__SSH_BRIDGE__.PubSub.emit("start_export", fmt),
     format,
   );
 
   const timeoutPromise = new Promise<never>((_, rej) =>
-    setTimeout(() => rej(new Error(`Export timed out after ${timeoutMs}ms`)), timeoutMs),
+    setTimeout(
+      () => rej(new Error(`Export timed out after ${timeoutMs}ms`)),
+      timeoutMs,
+    ),
   );
 
   return Promise.race([capturePromise, timeoutPromise]);

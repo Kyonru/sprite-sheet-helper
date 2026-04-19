@@ -98,39 +98,44 @@ export const useExport = () => {
     [exportedImages, exportFormat, frameDelay],
   );
 
-  const takeScreenshotSequence = useCallback(() => {
-    if (!gl) return;
-    if (intervalRef.current) clearInterval(intervalRef.current);
+  const takeScreenshotSequence = useCallback(
+    (payload?: { label?: string }) => {
+      if (!gl) return;
+      if (intervalRef.current) clearInterval(intervalRef.current);
 
-    images.current = [];
+      images.current = [];
 
-    intervalRef.current = scheduleInterval(
-      captureScreenshotData,
+      intervalRef.current = scheduleInterval(
+        captureScreenshotData,
+        intervals,
+        iterations,
+        async () => {
+          PubSub.emit(EventType.STOP_ASSETS_CREATION, {
+            label: payload?.label,
+          });
+
+          addImages(
+            Date.now().toString(),
+            payload?.label ?? `animation_${lastIndex.current + 1}`,
+            images.current.map((img) => img.dataURL),
+            exportWidth,
+            exportHeight,
+            Math.round(1000 / intervals),
+          );
+          lastIndex.current += 1;
+        },
+      );
+    },
+    [
+      gl,
       intervals,
       iterations,
-      async () => {
-        PubSub.emit(EventType.STOP_ASSETS_CREATION);
-
-        addImages(
-          Date.now().toString(),
-          `animation_${lastIndex.current + 1}`,
-          images.current.map((img) => img.dataURL),
-          exportWidth,
-          exportHeight,
-          Math.round(1000 / intervals),
-        );
-        lastIndex.current += 1;
-      },
-    );
-  }, [
-    gl,
-    intervals,
-    iterations,
-    addImages,
-    captureScreenshotData,
-    exportWidth,
-    exportHeight,
-  ]);
+      addImages,
+      captureScreenshotData,
+      exportWidth,
+      exportHeight,
+    ],
+  );
 
   const addScreenshot = useCallback(() => {
     if (!gl) return;

@@ -1,20 +1,15 @@
 import type { Page } from "puppeteer";
+import { CaptureOptions } from "./types.js";
 
 const TWO_PI = Math.PI * 2;
 
-interface CaptureOptions {
-  modelUuid: string;
-  frames: number;
-  fps: number;
-  width: number;
-  height: number;
-}
-
-export async function captureFrames(page: Page, { modelUuid, frames, fps, width, height }: CaptureOptions): Promise<void> {
+export async function captureFrames(
+  page: Page,
+  { modelUuid, frames, fps, width, height }: CaptureOptions,
+): Promise<void> {
   await page.evaluate(
     (w: number, h: number, f: number) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { settings, images } = (window as any).__SSH_BRIDGE__.stores;
+      const { settings, images } = window.__SSH_BRIDGE__.stores;
       settings.getState().setExportWidth(w);
       settings.getState().setExportHeight(h);
       images.getState().setIntervals(Math.round(1000 / f));
@@ -26,8 +21,7 @@ export async function captureFrames(page: Page, { modelUuid, frames, fps, width,
 
   await page.evaluate(
     (w: number, h: number, f: number) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__SSH_BRIDGE__.stores.images
+      window.__SSH_BRIDGE__.stores.images
         .getState()
         .createEmptyRow(w, h, Math.round(1000 / f));
     },
@@ -37,8 +31,7 @@ export async function captureFrames(page: Page, { modelUuid, frames, fps, width,
   );
 
   const selectedRow = await page.evaluate(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    () => (window as any).__SSH_BRIDGE__.stores.images.getState().selectedRow as string,
+    () => window.__SSH_BRIDGE__.stores.images.getState().selectedRow as string,
   );
 
   process.stdout.write(`Capturing ${frames} frames`);
@@ -48,8 +41,7 @@ export async function captureFrames(page: Page, { modelUuid, frames, fps, width,
 
     await page.evaluate(
       (uuid: string, y: number) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).__SSH_BRIDGE__.stores.transforms
+        window.__SSH_BRIDGE__.stores.transforms
           .getState()
           .setTransform(uuid, { rotation: [0, y, 0] });
       },
@@ -57,17 +49,19 @@ export async function captureFrames(page: Page, { modelUuid, frames, fps, width,
       angle,
     );
 
-    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => r())),
+    );
 
     await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__SSH_BRIDGE__.PubSub.emit("take_single_screenshot");
+      window.__SSH_BRIDGE__.PubSub.emit(
+        window.__SSH_BRIDGE__.PubSub.EVENT_TYPE.TAKE_SINGLE_SCREENSHOT,
+      );
     });
 
     await page.waitForFunction(
       (row: string, count: number) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const imgs = (window as any).__SSH_BRIDGE__.stores.images.getState().images;
+        const imgs = window.__SSH_BRIDGE__.stores.images.getState().images;
         return imgs[row] && imgs[row].images.length >= count;
       },
       { timeout: 10000 },

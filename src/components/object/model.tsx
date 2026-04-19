@@ -58,6 +58,9 @@ export function Based({ uuid, ...props }: { uuid: string }) {
 
         setClips(uuid, parsed.clips);
         setMixerRef(uuid, parsed.mixer);
+
+        // Emit event to signal model is ready for use
+        PubSub.emit(EventType.MODEL_READY, { uuid });
       } catch (err) {
         console.error("[sprite-sheet-helper] parseModel failed:", err);
         setMixerRef(uuid, null);
@@ -79,16 +82,26 @@ export function Based({ uuid, ...props }: { uuid: string }) {
   }, []);
 
   useEffect(() => {
-    if (!mixerRef.current) return;
+    if (!mixerRef.current) {
+      console.debug(`[Model] mixerRef not ready for ${uuid}:${animation}`);
+      return;
+    }
 
     mixerRef.current.stopAllAction();
     if (!animation || animation === "none") {
+      console.debug(`[Model] Animation is "none" for ${uuid}`);
       return;
     }
     const entityClips = clips[uuid];
     const clip = entityClips?.find((c) => c.clip.name === animation);
 
-    if (!entityClips || !clip) return;
+    if (!entityClips || !clip) {
+      console.warn(
+        `[Model] No clips found for ${uuid}:${animation}. Available:`,
+        entityClips?.map((c) => c.clip.name),
+      );
+      return;
+    }
 
     const [trimStart, trimEnd] = durations[uuid]?.[animation] ?? [
       0,
@@ -122,6 +135,9 @@ export function Based({ uuid, ...props }: { uuid: string }) {
     const loop = loops[uuid]?.[animation];
     action.setLoop(loop ?? THREE.LoopOnce, Infinity);
     action.play();
+
+    console.debug(`[Model] Emitting ANIMATION_READY for ${uuid}:${animation}`);
+    PubSub.emit(EventType.ANIMATION_READY, { uuid, animation });
 
     // currentActionRef.current = action;
 

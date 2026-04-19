@@ -92,12 +92,14 @@ sprite-sheet-helper <input> [options]
 | Option | Default | Description |
 | ------ | ------- | ----------- |
 | `--format` | `spritesheet` | Export format (see table above) |
-| `--frames` | `8` | Number of frames to capture |
+| `--frames` | `8` | Number of frames to capture per animation sequence |
 | `--fps` | `10` | Playback frame rate |
 | `--width` | `64` | Frame width in pixels |
 | `--height` | `64` | Frame height in pixels |
 | `--output` | `./out` | Output directory |
 | `--port` | `4174` | Port for the local preview server |
+| `--workflow` | — | Workflow preset ID (see table below) |
+| `--cameraDistance` | `5` | Camera distance from the model (used with `--workflow`) |
 
 Format aliases: `bevy-rust` → `bevy`, `love2d` → `love2d-lua`
 
@@ -122,6 +124,83 @@ out/
   spritesheet.json
   spritesheet.lua
   main.lua
+```
+
+---
+
+## 🔄 Workflows (CLI)
+
+Workflows automate multi-angle sprite sheet generation. Instead of capturing a single sequence, a workflow iterates over every animation embedded in the model and every camera direction defined by the preset — producing one labeled sequence per combination.
+
+Each row in the output is named `{animationName}_{direction}`, for example `walk_N`, `idle_SE`, `run_Left`.
+
+### Workflow presets
+
+| ID | Label | Directions | Camera elevation |
+| -- | ----- | ---------- | ---------------- |
+| `topdown-8dir` | Top Down 8-directional | N, NE, E, SE, S, SW, W, NW | ~overhead (phi=1°) |
+| `topdown-4dir` | Top Down 4-directional | N, E, S, W | ~overhead (phi=1°) |
+| `isometric` | Isometric | SE, NE, NW, SW | 45° elevation |
+| `platformer` | Platformer / Side View | Right, Left | Horizon (phi=90°) |
+
+### Workflow usage
+
+```bash
+sprite-sheet-helper character.glb --workflow <id> [options]
+```
+
+### Workflow-specific options
+
+| Option | Default | Description |
+| ------ | ------- | ----------- |
+| `--workflow` | — | Workflow preset ID (required for workflow mode) |
+| `--frames` | `8` | Frames captured per animation × direction combination |
+| `--fps` | `10` | Playback frame rate for each capture |
+| `--width` | `64` | Frame width in pixels |
+| `--height` | `64` | Frame height in pixels |
+| `--cameraDistance` | `5` | Distance of the camera from the model origin |
+| `--format` | `spritesheet` | Export format applied to the full multi-sequence output |
+| `--output` | `./out` | Output directory |
+
+### Workflow examples
+
+```bash
+# Top-down 8-directional sheet — all animations, all 8 angles
+sprite-sheet-helper character.glb --workflow topdown-8dir
+
+# Isometric at 128×128, exported as a Godot resource
+sprite-sheet-helper character.glb --workflow isometric --width 128 --height 128 --format godot
+
+# Platformer workflow with closer camera and more frames
+sprite-sheet-helper character.glb --workflow platformer --cameraDistance 3 --frames 16 --fps 12
+
+# Top-down 4-dir, exported as a Bevy plugin
+sprite-sheet-helper character.glb --workflow topdown-4dir --format bevy --output ./bevy-assets
+```
+
+### Example output — `topdown-4dir` with a model that has `idle` and `walk` clips
+
+```text
+out/
+  spritesheet.png       ← atlas image with all 8 sequences (2 anims × 4 dirs)
+  spritesheet.json      ← metadata: frame size, quads, animation names
+```
+
+The JSON metadata labels each animation strip:
+
+```json
+{
+  "animations": [
+    { "name": "idle_N", "fps": 10, "frameWidth": 64, "frameHeight": 64, "quads": [...] },
+    { "name": "idle_E", "fps": 10, ... },
+    { "name": "idle_S", "fps": 10, ... },
+    { "name": "idle_W", "fps": 10, ... },
+    { "name": "walk_N", "fps": 10, ... },
+    { "name": "walk_E", "fps": 10, ... },
+    { "name": "walk_S", "fps": 10, ... },
+    { "name": "walk_W", "fps": 10, ... }
+  ]
+}
 ```
 
 ---

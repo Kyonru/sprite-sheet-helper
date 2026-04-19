@@ -10,6 +10,7 @@ const host = process.env.TAURI_DEV_HOST;
 
 const __TAURI__ = !!process.env.TAURI_BUILD;
 const __CLI__ = !!process.env.CLI_BUILD;
+const __WEB__ = !__TAURI__ && !__CLI__;
 
 const tauriConfig: Partial<UserConfig> = {
   clearScreen: false,
@@ -50,10 +51,10 @@ export default defineConfig({
     __CLI_BUILD__: JSON.stringify(__CLI__),
   },
   plugins: [
-    __TAURI__ && WebTauriSwapPlugin(),
+    (__TAURI__ || __CLI__) && WebTauriSwapPlugin(),
     react(),
     tailwindcss(),
-    !__TAURI__ &&
+    __WEB__ &&
       VitePWA({
         injectRegister: "auto",
         workbox: {
@@ -70,6 +71,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: __CLI__
+    ? {
+        // CLI builds run on Node.js, not browsers
+        target: "es2022",
+        // Don't delete dist/cli that was compiled by TypeScript
+        emptyOutDir: false,
+      }
+    : undefined,
 
   ...(__TAURI__ ? tauriConfig : {}),
 });
