@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build CLI
+      - name: Build CLI (local)
         run: npm run build:cli
 
       - name: Install Chrome system dependencies
@@ -31,18 +31,32 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y libgbm1
 
-      - name: Download test model
-        run: |
-          curl -fsSL \
-            "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Box/glTF-Binary/Box.glb" \
-            -o test.glb
-
       - name: Smoke test — spritesheet
-        run: node ./dist/cli/index.js test.glb --format spritesheet --frames 4 --width
-          64 --height 64 --output ./test-out
+        run: npm run cli -- example.fbx --format spritesheet --frames 4 --width 64
+          --height 64 --output ./sprite-sheet-test
 
       - name: Verify output
         run: |
-          test -f ./test-out/spritesheet.png || (echo "spritesheet.png not found" && exit 1)
+          test -f ./sprite-sheet-test/spritesheet.png || (echo "spritesheet.png not found" && exit 1)
           echo "Output files:"
-          ls ./test-out/
+          ls ./sprite-sheet-test/
+
+      - name: Smoke test — Love2d
+        run: npm run cli -- example.fbx --format love2d --frames 4 --width 64 --height
+          64 --output ./love2d-test
+
+      - name: Verify output
+        run: |
+          test -f ./love2d-test/spritesheet.lua || (echo "spritesheet.lua not found" && exit 1)
+          echo "Output files:"
+          ls ./love2d-test/
+
+      - name: SmokeTest - Workflow
+        run: npm run cli -- example.fbx --workflow platformer --cameraDistance 2.5
+          --output ./workflow-test
+
+      - name: Verify output
+        run: |
+          test -f ./workflow-test/spritesheet.png || (echo "spritesheet.png not found" && exit 1)
+          echo "Output files:"
+          ls ./workflow-test/

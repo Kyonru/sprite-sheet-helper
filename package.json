@@ -4,6 +4,7 @@
   "version": "0.2.0",
   "type": "module",
   "packageManager": "npm@11.7.0",
+  "funding": "https://github.com/sponsors/Kyonru",
   "bin": {
     "sprite-sheet-helper": "./dist/cli/index.js"
   },
@@ -13,6 +14,7 @@
     "build": "tsc -b && tsc -p tsconfig.cli.json && vite build",
     "build:cli": "tsc -b && tsc -p tsconfig.cli.json && cross-env CLI_BUILD=true vite build",
     "build:tauri": "cross-env TAURI_BUILD=true tsc -b && cross-env TAURI_BUILD=true vite build",
+    "cli:local": "npm run build:cli && node ./dist/cli/index.js",
     "cli": "node ./dist/cli/index.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json --composite false",
@@ -116,11 +118,11 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "knip": "^6.3.1",
+    "puppeteer": "^24.41.0",
     "tw-animate-css": "^1.3.0",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.30.1",
     "vite": "^6.3.5",
-    "vite-plugin-pwa": "^1.2.0",
-    "puppeteer": "^22.0.0"
+    "vite-plugin-pwa": "^1.2.0"
   }
 }

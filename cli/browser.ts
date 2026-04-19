@@ -27,11 +27,19 @@ export async function openPage(browser: Browser, port: number): Promise<Page> {
     if (msg.type() === "error") console.error(`[browser] ${text}`);
     else console.log(`[browser] ${text}`);
   });
-  page.on("pageerror", (err) => console.error(`[browser:pageerror] ${err.message}`));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  page.on("pageerror", (err: any) =>
+    console.error(`[browser:pageerror] ${err.message}`),
+  );
 
-  await page.goto(`http://localhost:${port}`, { waitUntil: "networkidle0", timeout: 30000 });
+  await page.goto(`http://localhost:${port}`, {
+    waitUntil: "networkidle0",
+    timeout: 30000,
+  });
 
-  await page.waitForFunction(() => "__SSH_BRIDGE__" in window, { timeout: 15000 });
+  await page.waitForFunction(() => "__SSH_BRIDGE__" in window, {
+    timeout: 15000,
+  });
 
   return page;
 }

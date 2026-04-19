@@ -144,19 +144,14 @@ export const useWorkflow = () => {
           const clip = modelClips.find((c) => c.clip.name === animName);
           if (clip || animName === "none") {
             useModelsStore.getState().setAnimation(uuid, animName);
-            console.log("[DEBUG]: Setting animation", animName, clip);
             useModelsStore
               .getState()
               .setDuration(uuid, animName, [0, clip?.clip.duration ?? 0]);
-            console.log("[DEBUG]: Setting duration", animName, clip);
             useModelsStore.getState().mixerRef[uuid]?.setTime(0);
           }
         }
 
-        console.log("[DEBUG]: Setting animations");
-
         await Promise.all(waiters);
-        console.log("[DEBUG]: Animations set");
 
         for (const dir of workflow.directions) {
           if (abortRef.current) break;
@@ -169,7 +164,6 @@ export const useWorkflow = () => {
             currentStep,
             currentLabel: rowLabel,
           }));
-          console.log("[DEBUG]: animation", animName, dir.label);
 
           for (const uuid of allModelUUIDs) {
             useModelsStore.getState().mixerRef[uuid]?.setTime(0);
@@ -183,7 +177,6 @@ export const useWorkflow = () => {
                 .mixerRef[uuid]?.clipAction(clip!.clip!)
                 ?.play();
             }
-            console.log("[DEBUG]: clip", clip);
           }
 
           const position = computePosition(
@@ -195,11 +188,8 @@ export const useWorkflow = () => {
 
           PubSub.emit(EventType.SET_CAMERA_ANGLE, { position, target });
 
-          console.log("[DEBUG]: Setting camera angle", position);
           PubSub.emit(EventType.START_ASSETS_CREATION, { label: rowLabel });
-          console.log("[DEBUG]: Starting assets creation");
           await waitForCaptureDone(rowLabel);
-          console.log("[DEBUG]: Assets creation done");
         }
       }
 

@@ -224,7 +224,7 @@ export const ObjectProperties = ({ obj }: { obj: AnimationObject }) => {
   };
 
   return (
-    <div className="w-[150px] sticky left-0 z-100 bg-muted border-b border-r">
+    <div className="w-37.5 sticky left-0 z-100 bg-muted border-b border-r">
       {isAddingProperty && (
         <AddPropertyMenu
           store={propertyStore}
@@ -238,7 +238,7 @@ export const ObjectProperties = ({ obj }: { obj: AnimationObject }) => {
           <DropdownMenuTrigger className="w-full">
             <div
               onAuxClick={(e) => e.stopPropagation()}
-              className="px-2 py-1 font-medium text-sm bg-popover text-popover-foreground border-b h-[32px]"
+              className="px-2 py-1 font-medium text-sm bg-popover text-popover-foreground border-b h-8"
             >
               {obj.name}
             </div>

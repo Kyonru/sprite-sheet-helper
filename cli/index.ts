@@ -160,9 +160,21 @@ async function main() {
     );
     for (const f of files) console.log(`  ${f}`);
   } finally {
-    await browser?.close();
-    if (serverProc) stopServer(serverProc);
+    try {
+      await browser?.close();
+    } catch {
+      // Browser might already be closed
+      console.log("[sprite-sheet-helper] Browser already closed");
+    }
+    if (serverProc) {
+      stopServer(serverProc);
+      // Give server time to shut down
+      await new Promise((r) => setTimeout(r, 100));
+      console.log("[sprite-sheet-helper] Server stopped");
+    }
   }
+
+  process.exit(0);
 }
 
 main().catch((err: Error) => {
