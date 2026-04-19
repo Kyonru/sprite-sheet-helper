@@ -35,31 +35,51 @@ jobs:
         run: npm run cli -- example.fbx --format spritesheet --frames 4 --width 64
           --height 64 --output ./sprite-sheet-test
 
-      - name: Verify output
+      - name: Verify spritesheet output
         run: |
           test -f ./sprite-sheet-test/spritesheet.png || (echo "spritesheet.png not found" && exit 1)
           echo "Output files:"
           ls ./sprite-sheet-test/
 
-      - name: Smoke test — Love2d
-        run: npm run cli -- example.fbx --format love2d --frames 4 --width 64 --height
-          64 --output ./love2d-test
-
-      - name: Verify output
+      - name: Test export formats
         run: |
-          test -f ./love2d-test/spritesheet.lua || (echo "spritesheet.lua not found" && exit 1)
-          echo "Output files:"
-          ls ./love2d-test/
+          formats=("zip" "gif" "love2d-lua" "love2d-anim8" "turbo" "bevy" "phaser" "godot" "pygame" "raylib" "unity")
 
-      - name: SmokeTest - Workflow
-        run: npm run cli -- example.fbx --workflow platformer --cameraDistance 2.5
-          --output ./workflow-test
+          for format in "${formats[@]}"; do
+            echo "Testing format: $format"
+            output_dir="./format-test-$format"
+            npm run cli -- example.fbx --format "$format" --frames 4 --width 64 --height 64 --output "$output_dir"
 
-      - name: Verify output
+            # Verify output directory has files
+            if [ -z "$(ls -A "$output_dir")" ]; then
+              echo "No files generated for format: $format"
+              exit 1
+            fi
+
+            echo "Output files for $format:"
+            ls "$output_dir"
+            echo "---"
+          done
+
+      - name: Test workflows
         run: |
-          test -f ./workflow-test/spritesheet.png || (echo "spritesheet.png not found" && exit 1)
-          echo "Output files:"
-          ls ./workflow-test/
+          workflows=("topdown-8dir" "topdown-4dir" "isometric" "platformer")
+
+          for workflow in "${workflows[@]}"; do
+            echo "Testing workflow: $workflow"
+            output_dir="./workflow-test-$workflow"
+            npm run cli -- example.fbx --workflow "$workflow" --frames 4 --cameraDistance 2.5 --output "$output_dir"
+
+            # Verify output directory has files
+            if [ -z "$(ls -A "$output_dir")" ]; then
+              echo "No files generated for workflow: $workflow"
+              exit 1
+            fi
+
+            echo "Output files for $workflow:"
+            ls "$output_dir"
+            echo "---"
+          done
 
       - name: Upload spritesheet test output
         if: always()
@@ -67,20 +87,20 @@ jobs:
         with:
           name: spritesheet-test-output
           path: ./sprite-sheet-test/
-          retention-days: 1
+          retention-days: 3
 
-      - name: Upload Love2d test output
+      - name: Upload format test outputs
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: love2d-test-output
-          path: ./love2d-test/
-          retention-days: 1
+          name: format-tests-output
+          path: ./format-test-*/
+          retention-days: 3
 
-      - name: Upload workflow test output
+      - name: Upload workflow test outputs
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: workflow-test-output
-          path: ./workflow-test/
-          retention-days: 1
+          name: workflow-tests-output
+          path: ./workflow-test-*/
+          retention-days: 3
