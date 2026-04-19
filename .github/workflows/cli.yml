@@ -60,3 +60,27 @@ jobs:
           test -f ./workflow-test/spritesheet.png || (echo "spritesheet.png not found" && exit 1)
           echo "Output files:"
           ls ./workflow-test/
+
+      - name: Upload spritesheet test output
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: spritesheet-test-output
+          path: ./sprite-sheet-test/
+          retention-days: 1
+
+      - name: Upload Love2d test output
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: love2d-test-output
+          path: ./love2d-test/
+          retention-days: 1
+
+      - name: Upload workflow test output
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: workflow-test-output
+          path: ./workflow-test/
+          retention-days: 1
