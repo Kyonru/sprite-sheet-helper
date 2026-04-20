@@ -23,6 +23,7 @@ export interface SettingsState {
   exportWidth: number;
   exportHeight: number;
   cameraDistance: number;
+  cameraAngle?: number;
   editorBackgroundColor: string;
   gridSectionColor: string;
   gridCellColor: string;
@@ -36,6 +37,7 @@ interface SettingsActions extends SnapshotEnabledStore<SettingsState> {
   setExportWidth: (exportWidth: number) => void;
   setExportHeight: (exportHeight: number) => void;
   setCameraDistance: (cameraDistance: number) => void;
+  setCameraAngle: (cameraAngle?: number) => void;
   setEditorBackgroundColor: (editorBackgroundColor: string) => void;
   setTheme: (theme: "light" | "dark") => void;
   setName: (name: string) => void;
@@ -51,6 +53,7 @@ const initialState: SettingsState = {
   exportWidth: 64,
   exportHeight: 64,
   cameraDistance: 5,
+  cameraAngle: undefined,
   theme: "dark",
   gridSectionColor: "#a09f9f",
   gridCellColor: "#868686",
@@ -65,6 +68,7 @@ const WATCHED_KEYS: (keyof SettingsState)[] = [
   "exportWidth",
   "exportHeight",
   "cameraDistance",
+  "cameraAngle",
   "editorBackgroundColor",
   "gridSectionColor",
   "gridCellColor",
@@ -85,6 +89,7 @@ export const useSettingsStore = create<SettingsStore>()(
         setExportWidth: (exportWidth) => set({ exportWidth }),
         setExportHeight: (exportHeight) => set({ exportHeight }),
         setCameraDistance: (cameraDistance) => set({ cameraDistance }),
+        setCameraAngle: (cameraAngle) => set({ cameraAngle }),
         setEditorBackgroundColor: (editorBackgroundColor) =>
           set({ editorBackgroundColor }),
         setTheme: (theme) => set({ theme }),
@@ -99,6 +104,7 @@ export const useSettingsStore = create<SettingsStore>()(
             exportWidth: get().exportWidth,
             exportHeight: get().exportHeight,
             cameraDistance: get().cameraDistance,
+            cameraAngle: get().cameraAngle,
             editorBackgroundColor: get().editorBackgroundColor,
             gridSectionColor: get().gridSectionColor,
             gridCellColor: get().gridCellColor,
@@ -117,6 +123,7 @@ export const useSettingsStore = create<SettingsStore>()(
             exportWidth: snapshot.exportWidth,
             exportHeight: snapshot.exportHeight,
             cameraDistance: snapshot.cameraDistance,
+            cameraAngle: snapshot.cameraAngle,
             editorBackgroundColor: snapshot.editorBackgroundColor,
             gridSectionColor: snapshot.gridSectionColor,
             gridCellColor: snapshot.gridCellColor,

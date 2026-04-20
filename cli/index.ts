@@ -33,6 +33,7 @@ interface CliArgs {
   port: number;
   workflow?: string;
   cameraDistance?: number;
+  cameraAngle?: number;
 }
 
 function parseCliArgs(): CliArgs {
@@ -48,6 +49,7 @@ function parseCliArgs(): CliArgs {
       port: { type: "string", default: "4174" },
       workflow: { type: "string", default: undefined },
       cameraDistance: { type: "string", default: "5" },
+      phi: { type: "string", default: undefined },
     },
     allowPositionals: true,
   });
@@ -99,6 +101,7 @@ function parseCliArgs(): CliArgs {
     port: parseInt(values.port ?? "4174", 10),
     workflow: values.workflow,
     cameraDistance: parseFloat(values.cameraDistance ?? "5"),
+    cameraAngle: values.phi ? parseFloat(values.phi) : undefined,
   };
 }
 
@@ -127,6 +130,18 @@ async function main() {
 
     console.log("Injected model passed", args.workflow);
 
+    const cameraAngle = args.cameraAngle ? args.cameraAngle : undefined;
+
+    if (cameraAngle) {
+      console.log(
+        `[sprite-sheet-helper] Setting camera angle to ${cameraAngle}`,
+      );
+
+      await page.evaluate((angle: number) => {
+        window.__SSH_BRIDGE__.stores.settings.getState().setCameraAngle(angle);
+      }, cameraAngle);
+    }
+
     if (args.workflow) {
       console.log(`[sprite-sheet-helper] Setting workflow to ${args.workflow}`);
       await captureWorkflow(page, {
@@ -146,6 +161,7 @@ async function main() {
         fps: args.fps,
         width: args.width,
         height: args.height,
+        cameraDistance: args.cameraDistance,
       });
     }
 

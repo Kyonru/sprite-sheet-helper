@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MenubarContent,
   MenubarGroup,
@@ -16,7 +16,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CircleCheckIcon, LoaderCircleIcon, WorkflowIcon } from "lucide-react";
+import {
+  CircleCheckIcon,
+  LoaderCircleIcon,
+  TrashIcon,
+  WorkflowIcon,
+} from "lucide-react";
 import { useWorkflow } from "@/hooks/next/use-workflow";
 import {
   WORKFLOW_PRESETS,
@@ -43,6 +48,8 @@ export const WorkflowsMenu = () => {
   } = useWorkflow();
 
   const cameraDistance = useSettingsStore((state) => state.cameraDistance);
+  const cameraAngle = useSettingsStore((state) => state.cameraAngle);
+  const cameraAngleRef = useRef<HTMLInputElement>(null);
 
   const steps = selectedWorkflow ? buildSteps(selectedWorkflow) : [];
   const isRunning = workflowState.status === "running";
@@ -145,6 +152,39 @@ export const WorkflowsMenu = () => {
                       .setCameraDistance(parseFloat(e.target.value))
                   }
                 />
+              </div>
+
+              <div className="flex items-center flex-row">
+                <div className="grid gap-2">
+                  <Label htmlFor="camera-angle">Camera angle</Label>
+                  <Input
+                    id="camera-angle"
+                    type="number"
+                    ref={cameraAngleRef}
+                    defaultValue={cameraAngle}
+                    disabled={isRunning}
+                    onChange={(e) =>
+                      useSettingsStore
+                        .getState()
+                        .setCameraAngle(parseFloat(e.target.value))
+                    }
+                  />
+                </div>
+                <div className="self-end-safe mb-2 ml-1">
+                  <button
+                    type="button"
+                    className="p-1 hover:bg-muted rounded transition-colors"
+                    onClick={() => {
+                      useSettingsStore.getState().setCameraAngle(undefined);
+                      if (cameraAngleRef.current) {
+                        cameraAngleRef.current.value = "";
+                      }
+                    }}
+                    title="Clear angle override"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
             <p className="text-sm font-medium">

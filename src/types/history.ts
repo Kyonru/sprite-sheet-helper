@@ -94,8 +94,8 @@ type EntityAction =
 // Settings
 type SettingsChange = Action<
   "settings/change",
-  string | number,
-  string | number
+  string | number | undefined,
+  string | number | undefined
 >;
 
 // Lights

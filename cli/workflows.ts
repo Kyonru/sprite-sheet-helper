@@ -3,7 +3,6 @@ import type { CaptureOptions } from "./types.js";
 
 interface WorkflowOptions extends CaptureOptions {
   workflow: string;
-  cameraDistance?: number;
 }
 
 export async function captureWorkflow(

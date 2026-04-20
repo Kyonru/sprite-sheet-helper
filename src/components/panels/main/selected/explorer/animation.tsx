@@ -22,7 +22,6 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   const store = useStoreContext();
   const entity = useEntity(uuid);
   const model = useModel(uuid);
-  const clips = useModelsStore((state) => state.clips);
   const setAnimation = useModelsStore((state) => state.setAnimation);
   const animation = useModelsStore((state) => uuid && state.animations[uuid]);
   const durations = useModelsStore((state) => state.durations);
@@ -38,13 +37,13 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   const currentTime = useModelsStore((state) => state.currentTime[uuid]);
   const setCurrentTime = useModelsStore((state) => state.setCurrentTime);
 
+  const animations = useModelsStore((state) => state.clips[uuid]);
+
   const inputs = useMemo(() => {
     const i: Schema = {};
     if (!uuid) return i;
 
-    if (!entity || !uuid || !model) return {};
-
-    const animations = clips[uuid];
+    if (!entity?.uuid || !uuid || !model?.file || !animations) return {};
 
     if (animations) {
       const animationOptions = [
@@ -118,10 +117,10 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
 
     return i;
   }, [
-    entity,
+    entity?.uuid,
     uuid,
-    model,
-    clips,
+    model.file,
+    animations,
     animation,
     setAnimation,
     durations,
@@ -138,12 +137,11 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
 
   // Function form + key forces Leva to remount when entity/type changes
   const [, set] = useControls(() => inputs satisfies Schema, { store }, [
-    // HATE THIS
-    JSON.stringify(inputs),
+    uuid,
+    animation,
   ]);
 
   useEffect(() => {
-    const animations = clips[uuid];
     if (!animations) return;
 
     const clip = animations.find((clip) => clip.clip.name === animation);
@@ -151,7 +149,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     set({
       length: `${clip?.clip.duration ?? 0} seconds`,
     });
-  }, [uuid, set, animation, clips]);
+  }, [uuid, set, animation, animations]);
 
   return (
     <LevaPanel

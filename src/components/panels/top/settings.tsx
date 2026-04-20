@@ -30,7 +30,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { FieldContent } from "@/components/ui/field";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, TrashIcon } from "lucide-react";
 import { useSettingsStore, type SettingsState } from "@/store/next/settings";
 import { useState, useEffect, useRef } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -52,6 +52,7 @@ const formSchema = z.object({
   exportWidth: z.coerce.number().min(1),
   exportHeight: z.coerce.number().min(1),
   cameraDistance: z.coerce.number().min(0),
+  cameraAngle: z.string().optional(),
   editorBackgroundColor: z.string(),
   gridSectionColor: z.string(),
   gridCellColor: z.string(),
@@ -105,6 +106,7 @@ export function SettingsModalProvider() {
       exportWidth: settings.exportWidth,
       exportHeight: settings.exportHeight,
       cameraDistance: settings.cameraDistance,
+      cameraAngle: `${settings.cameraAngle}`,
       editorBackgroundColor: settings.editorBackgroundColor,
       gridSectionColor: settings.gridSectionColor,
       gridCellColor: settings.gridCellColor,
@@ -127,6 +129,7 @@ export function SettingsModalProvider() {
         exportWidth: settings.exportWidth,
         exportHeight: settings.exportHeight,
         cameraDistance: settings.cameraDistance,
+        cameraAngle: `${settings.cameraAngle}`,
         editorBackgroundColor: settings.editorBackgroundColor,
         gridSectionColor: settings.gridSectionColor,
         gridCellColor: settings.gridCellColor,
@@ -146,7 +149,13 @@ export function SettingsModalProvider() {
   };
 
   function onSubmit(data: FormValues) {
-    updateSettings(data as SettingsState);
+    updateSettings({
+      ...data,
+      cameraAngle:
+        data.cameraAngle !== undefined && data.cameraAngle !== ""
+          ? parseFloat(data.cameraAngle)
+          : undefined,
+    } as SettingsState);
     originalThemeRef.current = data.theme as Exclude<Theme, "system">;
     originalBgRef.current = data.editorBackgroundColor as string;
     originalGridSectionRef.current = data.gridSectionColor as string;
@@ -391,15 +400,12 @@ export function SettingsModalProvider() {
                   <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="pt-3">
+                  <div className="grid grid-cols-2 gap-4">
                     <Controller
                       name="cameraDistance"
                       control={form.control}
                       render={({ field, fieldState }) => (
-                        <Field
-                          data-invalid={fieldState.invalid}
-                          orientation="horizontal"
-                        >
+                        <Field data-invalid={fieldState.invalid}>
                           <FieldContent>
                             <FieldLabel htmlFor="settings-camera-distance">
                               Distance
@@ -418,8 +424,58 @@ export function SettingsModalProvider() {
                             type="number"
                             min={0}
                             aria-invalid={fieldState.invalid}
-                            className="max-w-24"
                           />
+                        </Field>
+                      )}
+                    />
+
+                    {/* Camera Angle */}
+                    <Controller
+                      name="cameraAngle"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldContent>
+                            <FieldLabel htmlFor="settings-camera-angle">
+                              Angle Override
+                            </FieldLabel>
+                            <FieldDescription>
+                              Camera angle in degrees.
+                            </FieldDescription>
+                            {fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                          </FieldContent>
+
+                          <div className="flex items-center gap-2 flex-row">
+                            <Input
+                              name={field.name}
+                              ref={field.ref}
+                              onBlur={field.onBlur}
+                              value={
+                                field.value === undefined ? "" : field.value
+                              }
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                field.onChange(value ? value : "");
+                              }}
+                              id="settings-camera-angle"
+                              type="number"
+                              placeholder="None"
+                              aria-invalid={fieldState.invalid}
+                            />
+
+                            <button
+                              type="button"
+                              className="p-1 hover:bg-muted rounded transition-colors"
+                              onClick={() => {
+                                field.onChange("");
+                              }}
+                              title="Clear angle override"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
                         </Field>
                       )}
                     />

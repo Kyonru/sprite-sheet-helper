@@ -4,4 +4,5 @@ export interface CaptureOptions {
   fps: number;
   width: number;
   height: number;
+  cameraDistance?: number;
 }

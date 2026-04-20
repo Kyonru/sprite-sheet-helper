@@ -124,10 +124,7 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
     return i;
   }, [effects, uuid, setEffect]);
 
-  useControls(() => inputs satisfies Schema, { store }, [
-    // HATE THIS
-    JSON.stringify(inputs),
-  ]);
+  useControls(() => inputs satisfies Schema, { store }, [uuid]);
 
   return (
     <LevaPanel

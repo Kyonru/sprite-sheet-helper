@@ -64,7 +64,7 @@ const waitForAnimationReady = (
         resolve();
       }
     };
-    PubSub.once(EventType.ANIMATION_READY, handler);
+    PubSub.on(EventType.ANIMATION_READY, handler);
   });
 
 const initialState: WorkflowState = {
@@ -107,6 +107,7 @@ export const useWorkflow = () => {
 
     const clips = useModelsStore.getState().clips;
     const cameraDistance = useSettingsStore.getState().cameraDistance;
+    const cameraAngle = useSettingsStore.getState().cameraAngle;
     const cameraUUID = useCamerasStore.getState().mainCamera;
     const target: [number, number, number] = cameraUUID
       ? (useTargetsStore.getState().targets[cameraUUID] ?? [0, 0, 0])
@@ -131,13 +132,15 @@ export const useWorkflow = () => {
       for (const animName of animNames) {
         if (abortRef.current) break;
 
-        // Skip waiting for "none" animation since model returns early without emitting event
-        const waiters =
-          animName === "none"
-            ? []
-            : allModelUUIDs.map((uuid) =>
-                waitForAnimationReady(uuid, animName),
-              );
+        const waiters: Promise<void>[] = [];
+
+        for (const uuid of allModelUUIDs) {
+          (useModelsStore.getState().clips[uuid] || []).forEach((clip) => {
+            if (clip.clip.name === animName) {
+              waiters.push(waitForAnimationReady(uuid, animName));
+            }
+          });
+        }
 
         for (const uuid of allModelUUIDs) {
           const modelClips = clips[uuid] ?? [];
@@ -151,7 +154,9 @@ export const useWorkflow = () => {
           }
         }
 
-        await Promise.all(waiters);
+        if (waiters.length > 0) {
+          await Promise.all(waiters);
+        }
 
         for (const dir of workflow.directions) {
           if (abortRef.current) break;
@@ -180,7 +185,7 @@ export const useWorkflow = () => {
           }
 
           const position = computePosition(
-            dir.phi,
+            cameraAngle ?? dir.phi,
             dir.theta,
             cameraDistance,
             target,
