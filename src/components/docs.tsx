@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import Fuse from "fuse.js";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
+import remarkGfm from "remark-gfm";
 import "highlight.js/styles/github-dark.css";
 
 type DocsModalState = {
@@ -146,7 +147,7 @@ export function DocsModalProvider() {
 
             <div className="flex-1 overflow-y-auto p-4 prose dark:prose-invert max-w-none">
               {selected ? (
-                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
                   {selected.content}
                 </ReactMarkdown>
               ) : (
