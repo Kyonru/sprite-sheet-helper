@@ -9,6 +9,7 @@ import {
   computePosition,
   type WorkflowDefinition,
 } from "@/constants/workflows";
+import { useEntitiesStore } from "@/store/next/entities";
 
 export interface WorkflowStep {
   animationName: string;
@@ -103,6 +104,7 @@ export const useWorkflow = () => {
   );
 
   const runWorkflow = useCallback(async (workflow: WorkflowDefinition) => {
+    useEntitiesStore.getState().unselectEntity();
     abortRef.current = false;
 
     const clips = useModelsStore.getState().clips;

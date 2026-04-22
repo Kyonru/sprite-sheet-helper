@@ -12,6 +12,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import "highlight.js/styles/github-dark.css";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { AlertTriangleIcon } from "lucide-react";
 
 type DocsModalState = {
   open: boolean;
@@ -130,6 +132,15 @@ export function DocsModalProvider() {
             className="mt-2"
           />
 
+          <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-50">
+            <AlertTriangleIcon />
+            <AlertTitle>Work in progress</AlertTitle>
+            <AlertDescription>
+              This documentation is still a work in progress. Links may not work
+              as expected. Pages might be missing or outdated or contain errors.
+            </AlertDescription>
+          </Alert>
+
           <div className="flex flex-1 overflow-hidden mt-4 border rounded-md w-full">
             <div className="w-1/3 border-r overflow-y-auto">
               {results.map((doc) => (
@@ -147,7 +158,10 @@ export function DocsModalProvider() {
 
             <div className="flex-1 overflow-y-auto p-4 prose dark:prose-invert max-w-none">
               {selected ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                >
                   {selected.content}
                 </ReactMarkdown>
               ) : (
