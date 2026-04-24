@@ -33,6 +33,7 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
   const poseDataRef = useRef<PoseBoneData | null>(null);
 
   const [boneRemap, setBoneRemap] = useState<BoneRemap>({ ...MIXAMO_DEFAULT_REMAP });
+  const [rootMotion, setRootMotion] = useState(false);
 
   const [recording, setRecording] = useState(false);
   const [frameCount, setFrameCount] = useState(0);
@@ -172,6 +173,7 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
               landmarksRef={worldLandmarksRef}
               remap={boneRemap}
               poseDataRef={poseDataRef}
+              rootMotion={rootMotion}
             />
           </div>
         </div>
@@ -181,6 +183,21 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
       <p className="text-sm text-muted-foreground text-center">
         {frameCount} frames recorded{frameCount > 0 && ` · ${elapsed.toFixed(1)}s`}
       </p>
+
+      {/* Root motion toggle */}
+      <button
+        type="button"
+        onClick={() => setRootMotion((v) => !v)}
+        className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors w-full justify-start ${
+          rootMotion
+            ? "bg-primary/10 border-primary/40 text-primary"
+            : "border-transparent text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        <span className="text-base">↕</span>
+        Root Motion
+        <span className="ml-auto text-xs opacity-60">{rootMotion ? "on — hips height tracked" : "off — stationary"}</span>
+      </button>
 
       {/* Bone remap panel */}
       <Collapsible open={remapOpen} onOpenChange={setRemapOpen}>

@@ -4,17 +4,21 @@ import { OrbitControls, Grid } from "@react-three/drei";
 import * as THREE from "three";
 import { useModelsStore } from "@/store/next/models";
 import { parseModel } from "@/utils/model";
-import { landmarksToJointPositions, type JointPositions, type PoseBoneData, type BoneFrame } from "@/utils/mediapipe-to-bones";
+import {
+  landmarksToJointPositions,
+  type JointPositions,
+  type PoseBoneData,
+  type BoneFrame,
+} from "@/utils/mediapipe-to-bones";
+import { JointSmoother } from "@/utils/animation-smoothing";
 import type { BoneRemap } from "@/utils/bone-remap";
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 import type { ModelComponent } from "@/types/ecs";
 
-// ── Bone application ────────────────────────────────────────────────────────
-
 interface BoneData {
   bone: THREE.Object3D;
   restQuat: THREE.Quaternion; // bind-pose local quaternion (reset each frame)
-  restDir: THREE.Vector3;     // bind-pose direction in parent-local space
+  restDir: THREE.Vector3; // bind-pose direction in parent-local space
 }
 
 /**
@@ -42,7 +46,9 @@ function applyBoneDirection(
   bone.parent.getWorldQuaternion(parentWorldQuat);
 
   // Bring world direction into parent-local space
-  const localDir = dir.clone().applyQuaternion(parentWorldQuat.clone().invert());
+  const localDir = dir
+    .clone()
+    .applyQuaternion(parentWorldQuat.clone().invert());
 
   // Rotation: rest direction → local target direction
   if (restDir.lengthSq() < 1e-8) return;
@@ -51,10 +57,7 @@ function applyBoneDirection(
   bone.updateMatrix();
 }
 
-function applyHips(
-  hipsData: BoneData,
-  j: JointPositions,
-) {
+function applyHips(hipsData: BoneData, j: JointPositions) {
   const { bone } = hipsData;
 
   // Hips position (scale down from meter space to rig space)
@@ -63,8 +66,8 @@ function applyHips(
 
   // With Y-up worldLandmarks and -p.x: rightHip is +X, up is +Y, cross(+X,+Y) = +Z.
   // lookAt(origin, +Z, +Y) makes the matrix's -Z axis point toward +Z → character faces camera.
-  const right   = j.rightHip.clone().sub(j.leftHip).normalize();
-  const up      = j.shoulderCenter.clone().sub(j.hipCenter).normalize();
+  const right = j.rightHip.clone().sub(j.leftHip).normalize();
+  const up = j.shoulderCenter.clone().sub(j.hipCenter).normalize();
   const forward = new THREE.Vector3().crossVectors(right, up).normalize();
 
   const parentWorldQuat = new THREE.Quaternion();
@@ -84,10 +87,34 @@ interface PosedModelProps {
   landmarksRef: React.RefObject<NormalizedLandmark[] | null>;
   remap: BoneRemap;
   poseDataRef?: React.RefObject<PoseBoneData | null>;
+  rootMotion?: boolean;
+  modelScale?: number;
 }
 
-function PosedModel({ object, landmarksRef, remap, poseDataRef }: PosedModelProps) {
+// Minimum landmark visibility to drive a bone; below this we hold the last good rotation.
+const VIS_THRESHOLD = 0.5;
+
+function PosedModel({
+  object,
+  landmarksRef,
+  remap,
+  poseDataRef,
+  rootMotion,
+  modelScale = 1,
+}: PosedModelProps) {
   const boneMapRef = useRef<Map<string, BoneData>>(new Map());
+  const smootherRef = useRef(new JointSmoother(1.0, 0.5));
+  // Holds the last bone quaternion set while visibility was good, per bone name.
+  const holdQuatRef = useRef<Map<string, THREE.Quaternion>>(new Map());
+  // Root motion: hip height at rest (first frame), and the hips bone rest position.
+  const restHipToFloorRef = useRef<number | null>(null);
+  const hipRestPosRef = useRef<THREE.Vector3 | null>(null);
+
+  // Re-calibrate when root motion is toggled
+  useEffect(() => {
+    restHipToFloorRef.current = null;
+    hipRestPosRef.current = null;
+  }, [rootMotion]);
 
   // Build bone map and cache rest data whenever object or remap changes
   useEffect(() => {
@@ -139,14 +166,64 @@ function PosedModel({ object, landmarksRef, remap, poseDataRef }: PosedModelProp
     boneMapRef.current = boneMap;
   }, [object, remap]);
 
-  useFrame(() => {
+  useFrame((_state, delta) => {
     const lm = landmarksRef.current;
     if (!lm || lm.length < 33) return;
 
-    const j = landmarksToJointPositions(lm);
+    const raw = landmarksToJointPositions(lm);
+    const sm = smootherRef.current;
+    const dt = Math.min(delta, 0.1);
+
+    // Smooth all joint positions with One Euro Filter before bone computation.
+    // This reduces jitter from monocular depth estimation and landmark noise.
+    const j: typeof raw = {
+      leftShoulder: sm.smooth("lShoulder", raw.leftShoulder, dt),
+      rightShoulder: sm.smooth("rShoulder", raw.rightShoulder, dt),
+      leftElbow: sm.smooth("lElbow", raw.leftElbow, dt),
+      rightElbow: sm.smooth("rElbow", raw.rightElbow, dt),
+      leftWrist: sm.smooth("lWrist", raw.leftWrist, dt),
+      rightWrist: sm.smooth("rWrist", raw.rightWrist, dt),
+      leftHip: sm.smooth("lHip", raw.leftHip, dt),
+      rightHip: sm.smooth("rHip", raw.rightHip, dt),
+      leftKnee: sm.smooth("lKnee", raw.leftKnee, dt),
+      rightKnee: sm.smooth("rKnee", raw.rightKnee, dt),
+      leftAnkle: sm.smooth("lAnkle", raw.leftAnkle, dt),
+      rightAnkle: sm.smooth("rAnkle", raw.rightAnkle, dt),
+      leftHeel: sm.smooth("lHeel", raw.leftHeel, dt),
+      rightHeel: sm.smooth("rHeel", raw.rightHeel, dt),
+      leftFootIndex: sm.smooth("lFootIdx", raw.leftFootIndex, dt),
+      rightFootIndex: sm.smooth("rFootIdx", raw.rightFootIndex, dt),
+      nose: sm.smooth("nose", raw.nose, dt),
+      hipCenter: sm.smooth("hipCenter", raw.hipCenter, dt),
+      shoulderCenter: sm.smooth("shoulderCtr", raw.shoulderCenter, dt),
+    };
+
     const bm = boneMapRef.current;
+    const hold = holdQuatRef.current;
+    const vis = (idx: number) => (lm[idx].visibility ?? 1) >= VIS_THRESHOLD;
 
     const get = (key: keyof BoneRemap) => bm.get(remap[key]);
+
+    // Helper: apply bone and record last-good quaternion; or restore it if occluded.
+    const drive = (
+      key: keyof BoneRemap,
+      visOk: boolean,
+      from: THREE.Vector3,
+      to: THREE.Vector3,
+    ) => {
+      const bd = get(key);
+      if (!bd) return;
+      if (visOk) {
+        bd.bone.quaternion.copy(bd.restQuat);
+        applyBoneDirection(bd, from, to);
+        hold.set(remap[key], bd.bone.quaternion.clone());
+      } else {
+        const saved = hold.get(remap[key]);
+        if (saved) bd.bone.quaternion.copy(saved);
+        else bd.bone.quaternion.copy(bd.restQuat);
+      }
+      bd.bone.updateMatrix();
+    };
 
     // 1. Reset ALL bones to rest pose so we don't accumulate rotations
     bm.forEach(({ bone, restQuat }) => {
@@ -155,71 +232,123 @@ function PosedModel({ object, landmarksRef, remap, poseDataRef }: PosedModelProp
     });
 
     // 2. Apply from root → leaves (order matters: parent must be set before child)
-    const hipsData = get("hips");
-    if (hipsData) applyHips(hipsData, j);
+    // MediaPipe landmark indices for visibility checks
+    const L_SHOULDER = 11,
+      R_SHOULDER = 12,
+      L_ELBOW = 13,
+      R_ELBOW = 14;
+    const L_WRIST = 15,
+      R_WRIST = 16,
+      L_HIP = 23,
+      R_HIP = 24;
+    const L_KNEE = 25,
+      R_KNEE = 26,
+      L_ANKLE = 27,
+      R_ANKLE = 28;
+    const L_FOOT = 31,
+      R_FOOT = 32,
+      NOSE = 0;
 
-    // Spine chain — all driven by hip→shoulder direction, split across 3 bones
+    const hipsData = get("hips");
+    if (hipsData) {
+      applyHips(hipsData, j);
+
+      if (rootMotion) {
+        // Hip height above foot level — changes when crouching, jumping, sitting.
+        // In our Y-up space: hipCenter ≈ 0 (origin), ankles are negative (below).
+        const hipToFloor =
+          j.hipCenter.y - (j.leftAnkle.y + j.rightAnkle.y) * 0.5;
+
+        if (restHipToFloorRef.current === null) {
+          restHipToFloorRef.current = hipToFloor;
+          hipRestPosRef.current = hipsData.bone.position.clone();
+        }
+
+        // landmark meters → local bone units: world_delta = local * modelScale, so local = landmark / modelScale
+        const deltaY = (hipToFloor - restHipToFloorRef.current) / modelScale;
+        hipsData.bone.position.copy(hipRestPosRef.current!);
+        hipsData.bone.position.y += deltaY;
+        hipsData.bone.updateMatrix();
+      }
+    }
+
+    // Spine chain — always visible (derived from hips+shoulders)
     const spineOrigin = j.hipCenter.clone();
     const spineEnd = j.shoulderCenter.clone();
     const spineMid = spineOrigin.clone().lerp(spineEnd, 0.5);
 
     const spineData = get("spine");
     if (spineData) applyBoneDirection(spineData, spineOrigin, spineMid);
-
     const spine1Data = get("spine1");
     if (spine1Data) applyBoneDirection(spine1Data, spineOrigin, spineMid);
-
     const spine2Data = get("spine2");
     if (spine2Data) applyBoneDirection(spine2Data, spineMid, spineEnd);
 
     // Shoulders (clavicles)
-    const lShoulderData = get("leftShoulder");
-    if (lShoulderData) applyBoneDirection(lShoulderData, j.shoulderCenter, j.leftShoulder);
-
-    const rShoulderData = get("rightShoulder");
-    if (rShoulderData) applyBoneDirection(rShoulderData, j.shoulderCenter, j.rightShoulder);
+    drive("leftShoulder", vis(L_SHOULDER), j.shoulderCenter, j.leftShoulder);
+    drive("rightShoulder", vis(R_SHOULDER), j.shoulderCenter, j.rightShoulder);
 
     // Arms
-    const lArmData = get("leftArm");
-    if (lArmData) applyBoneDirection(lArmData, j.leftShoulder, j.leftElbow);
-
-    const rArmData = get("rightArm");
-    if (rArmData) applyBoneDirection(rArmData, j.rightShoulder, j.rightElbow);
+    drive(
+      "leftArm",
+      vis(L_SHOULDER) && vis(L_ELBOW),
+      j.leftShoulder,
+      j.leftElbow,
+    );
+    drive(
+      "rightArm",
+      vis(R_SHOULDER) && vis(R_ELBOW),
+      j.rightShoulder,
+      j.rightElbow,
+    );
 
     // Forearms
-    const lForeData = get("leftForeArm");
-    if (lForeData) applyBoneDirection(lForeData, j.leftElbow, j.leftWrist);
-
-    const rForeData = get("rightForeArm");
-    if (rForeData) applyBoneDirection(rForeData, j.rightElbow, j.rightWrist);
+    drive(
+      "leftForeArm",
+      vis(L_ELBOW) && vis(L_WRIST),
+      j.leftElbow,
+      j.leftWrist,
+    );
+    drive(
+      "rightForeArm",
+      vis(R_ELBOW) && vis(R_WRIST),
+      j.rightElbow,
+      j.rightWrist,
+    );
 
     // Legs
-    const lUpLegData = get("leftUpLeg");
-    if (lUpLegData) applyBoneDirection(lUpLegData, j.leftHip, j.leftKnee);
-
-    const rUpLegData = get("rightUpLeg");
-    if (rUpLegData) applyBoneDirection(rUpLegData, j.rightHip, j.rightKnee);
-
-    const lLegData = get("leftLeg");
-    if (lLegData) applyBoneDirection(lLegData, j.leftKnee, j.leftAnkle);
-
-    const rLegData = get("rightLeg");
-    if (rLegData) applyBoneDirection(rLegData, j.rightKnee, j.rightAnkle);
+    drive("leftUpLeg", vis(L_HIP) && vis(L_KNEE), j.leftHip, j.leftKnee);
+    drive("rightUpLeg", vis(R_HIP) && vis(R_KNEE), j.rightHip, j.rightKnee);
+    drive("leftLeg", vis(L_KNEE) && vis(L_ANKLE), j.leftKnee, j.leftAnkle);
+    drive("rightLeg", vis(R_KNEE) && vis(R_ANKLE), j.rightKnee, j.rightAnkle);
 
     // Feet
-    const lFootData = get("leftFoot");
-    if (lFootData) applyBoneDirection(lFootData, j.leftAnkle, j.leftFootIndex);
+    drive(
+      "leftFoot",
+      vis(L_ANKLE) && vis(L_FOOT),
+      j.leftAnkle,
+      j.leftFootIndex,
+    );
+    drive(
+      "rightFoot",
+      vis(R_ANKLE) && vis(R_FOOT),
+      j.rightAnkle,
+      j.rightFootIndex,
+    );
 
-    const rFootData = get("rightFoot");
-    if (rFootData) applyBoneDirection(rFootData, j.rightAnkle, j.rightFootIndex);
-
-    // Neck: shoulder center → nose as proxy
-    const neckData = get("neck");
-    if (neckData) applyBoneDirection(neckData, j.shoulderCenter, j.nose);
-
-    // Head: same direction as neck for now
-    const headData = get("head");
-    if (headData) applyBoneDirection(headData, j.shoulderCenter, j.nose);
+    // Neck / head (nose as proxy)
+    drive(
+      "neck",
+      vis(NOSE) && vis(L_SHOULDER) && vis(R_SHOULDER),
+      j.shoulderCenter,
+      j.nose,
+    );
+    drive(
+      "head",
+      vis(NOSE) && vis(L_SHOULDER) && vis(R_SHOULDER),
+      j.shoulderCenter,
+      j.nose,
+    );
 
     // Force scene to update matrices for next bone in chain
     object.updateMatrixWorld(true);
@@ -232,14 +361,25 @@ function PosedModel({ object, landmarksRef, remap, poseDataRef }: PosedModelProp
         if (key === "hips") continue;
         const bd = bm.get(remap[key]);
         if (bd) {
-          bones.push({ boneKey: key, boneName: remap[key], quaternion: bd.bone.quaternion.clone() });
+          bones.push({
+            boneKey: key,
+            boneName: remap[key],
+            quaternion: bd.bone.quaternion.clone(),
+          });
         }
       }
       poseDataRef.current = {
         hips: {
           boneName: remap.hips,
-          position: new THREE.Vector3(),
-          quaternion: hipsData ? hipsData.bone.quaternion.clone() : new THREE.Quaternion(),
+          // When root motion is enabled, use the actual (modified) bone position
+          // so the recorded keyframes carry the vertical movement.
+          position:
+            rootMotion && hipsData
+              ? hipsData.bone.position.clone()
+              : new THREE.Vector3(),
+          quaternion: hipsData
+            ? hipsData.bone.quaternion.clone()
+            : new THREE.Quaternion(),
         },
         bones,
       };
@@ -249,23 +389,32 @@ function PosedModel({ object, landmarksRef, remap, poseDataRef }: PosedModelProp
   return <primitive object={object} />;
 }
 
-// ── Public component ─────────────────────────────────────────────────────────
-
 interface Props {
   modelUuid: string;
   landmarksRef: React.RefObject<NormalizedLandmark[] | null>;
   remap: BoneRemap;
   poseDataRef?: React.RefObject<PoseBoneData | null>;
+  rootMotion?: boolean;
 }
 
-export function ModelPreview({ modelUuid, landmarksRef, remap, poseDataRef }: Props) {
+export function ModelPreview({
+  modelUuid,
+  landmarksRef,
+  remap,
+  poseDataRef,
+  rootMotion,
+}: Props) {
   const model = useModelsStore((s) => s.models[modelUuid]);
   const [object, setObject] = useState<THREE.Object3D | null>(null);
+  const [modelScale, setModelScale] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!model?.file) return;
-    const format = model.file.name.split(".").pop()?.toLowerCase() as ModelComponent["format"];
+    const format = model.file.name
+      .split(".")
+      .pop()
+      ?.toLowerCase() as ModelComponent["format"];
     if (!format) return;
 
     setObject(null);
@@ -276,12 +425,16 @@ export function ModelPreview({ modelUuid, landmarksRef, remap, poseDataRef }: Pr
         // Normalise scale so model fits nicely in the preview
         const box = new THREE.Box3().setFromObject(parsed.object);
         const size = box.getSize(new THREE.Vector3()).length();
+        const scale = size > 0 ? 2 / size : 1;
         if (size > 0) {
-          parsed.object.scale.setScalar(2 / size);
+          parsed.object.scale.setScalar(scale);
           // Centre at origin
-          const centre = box.getCenter(new THREE.Vector3()).multiplyScalar(2 / size);
+          const centre = box
+            .getCenter(new THREE.Vector3())
+            .multiplyScalar(scale);
           parsed.object.position.sub(centre);
         }
+        setModelScale(scale);
         setObject(parsed.object);
       })
       .catch((e) => setError((e as Error).message));
@@ -307,7 +460,14 @@ export function ModelPreview({ modelUuid, landmarksRef, remap, poseDataRef }: Pr
     <Canvas camera={{ position: [0, 1, 4], fov: 45 }} shadows={false}>
       <ambientLight intensity={1.4} />
       <directionalLight position={[2, 4, 3]} intensity={1} />
-      <PosedModel object={object} landmarksRef={landmarksRef} remap={remap} poseDataRef={poseDataRef} />
+      <PosedModel
+        object={object}
+        landmarksRef={landmarksRef}
+        remap={remap}
+        poseDataRef={poseDataRef}
+        rootMotion={rootMotion}
+        modelScale={modelScale}
+      />
       <Grid
         args={[10, 10]}
         position={[0, -1, 0]}

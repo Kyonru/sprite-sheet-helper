@@ -59,8 +59,6 @@ export function CameraAnimationCaptureProvider() {
     save: "Save Animation",
   };
 
-  //
-
   return createPortal(
     <div className="fixed inset-0 z-999 backdrop-blur-xs overflow-auto">
       <Dialog open={true} onOpenChange={close}>
