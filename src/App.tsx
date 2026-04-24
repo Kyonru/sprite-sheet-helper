@@ -26,6 +26,7 @@ import { useSettingsStore } from "./store/next/settings";
 import { DocsModalProvider } from "./components/docs";
 import { AboutModalProvider } from "./components/about-modal";
 import { ShaderEditorProvider } from "./components/custom-shader-modal";
+import { CameraAnimationCaptureProvider } from "./components/camera-animation-capture";
 import { initShortcutRegistry } from "./lib/shortcut-registry";
 import { useKeyboardShortcuts } from "./hooks/next/use-keyboard-shortcuts";
 import { EventType, PubSub } from "./lib/events";
@@ -105,6 +106,7 @@ function App() {
       <DocsModalProvider />
       <AboutModalProvider />
       <ShaderEditorProvider />
+      <CameraAnimationCaptureProvider />
       <Toaster richColors />
     </ThemeProvider>
   );

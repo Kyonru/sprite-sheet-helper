@@ -5,12 +5,14 @@ import {
   useControls,
   useCreateStore,
   useStoreContext,
+  button,
 } from "leva";
 import type { Schema } from "leva/plugin";
 import { useEffect, useMemo } from "react";
 import { LEVA_THEME } from "@/constants/theming";
 import { useModel, useModelsStore, type LoopType } from "@/store/next/models";
 import * as THREE from "three";
+import { openCameraCapture } from "@/components/camera-animation-capture";
 
 const ANIMATION_LOOP_OPTIONS: Record<string, LoopType> = {
   "Loop Once": THREE.LoopOnce,
@@ -134,6 +136,13 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     currentTime,
     setCurrentTime,
   ]);
+
+  // Camera capture button — always visible for loaded models
+  useControls(
+    () => ({ "Add via Camera": button(() => openCameraCapture(uuid)) }) satisfies Schema,
+    { store },
+    [uuid],
+  );
 
   // Function form + key forces Leva to remount when entity/type changes
   const [, set] = useControls(() => inputs satisfies Schema, { store }, [

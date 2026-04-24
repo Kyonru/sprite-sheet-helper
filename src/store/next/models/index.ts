@@ -78,6 +78,7 @@ interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
   setCurrentTime: (uuid: string, time: number) => void;
   setFrameStep: (uuid: string, step: number) => void;
   setFreeze: (uuid: string, freeze: boolean) => void;
+  addClip: (uuid: string, clip: THREE.AnimationClip) => void;
 }
 
 const initialState: ModelsState = {
@@ -219,6 +220,17 @@ export const useModelsStore = create<ModelsStore>()(
           set((state) => ({
             freeze: { ...state.freeze, [uuid]: freeze },
           })),
+
+        addClip: (uuid, clip) => {
+          const mixer = get().mixerRef[uuid];
+          if (!mixer) return;
+          const action = mixer.clipAction(clip);
+          const existing = get().clips[uuid] ?? [];
+          const updated = [...existing, { action, clip }];
+          clipsCache.set(uuid, updated);
+          console.log("addClip", uuid, clip);
+          get().setClips(uuid, updated);
+        },
 
         reset: () => set(initialState),
 
