@@ -1,7 +1,17 @@
-import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
-import type { NormalizedLandmark, PoseLandmarker } from "@mediapipe/tasks-vision";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  type RefObject,
+} from "react";
+import type {
+  NormalizedLandmark,
+  PoseLandmarker,
+} from "@mediapipe/tasks-vision";
 
-const WASM_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
+const WASM_CDN =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
@@ -15,21 +25,50 @@ export interface UseMediPipeResult {
   error: string | null;
 }
 
-export function useMediaPipe(videoRef: RefObject<HTMLVideoElement | null>): UseMediPipeResult {
+export function useMediaPipe(
+  videoRef?: RefObject<HTMLVideoElement | null>,
+  imageRef?: RefObject<HTMLImageElement | null>,
+): UseMediPipeResult {
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
 
-  const [screenLandmarks, setScreenLandmarks] = useState<NormalizedLandmark[] | null>(null);
-  const [worldLandmarks, setWorldLandmarks] = useState<NormalizedLandmark[] | null>(null);
+  const [screenLandmarks, setScreenLandmarks] = useState<
+    NormalizedLandmark[] | null
+  >(null);
+  const [worldLandmarks, setWorldLandmarks] = useState<
+    NormalizedLandmark[] | null
+  >(null);
   const [fps, setFps] = useState(0);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const detect = useCallback(() => {
-    const video = videoRef.current;
+  const detect = useCallback(async () => {
     const landmarker = landmarkerRef.current;
-    if (!video || !landmarker || video.readyState < 2) {
+    if (!landmarker) return;
+
+    if (imageRef?.current) {
+      const image = imageRef.current;
+      if (!image.complete) {
+        rafRef.current = requestAnimationFrame(detect);
+        return;
+      }
+
+      const result =
+        (landmarker as any).detectForImage?.(image) ??
+        (landmarker as any).detect?.(image);
+
+      if (result.landmarks?.[0]) setScreenLandmarks(result.landmarks[0]);
+      if (result.worldLandmarks?.[0])
+        setWorldLandmarks(result.worldLandmarks[0]);
+      setFps(0);
+
+      rafRef.current = requestAnimationFrame(detect);
+      return;
+    }
+
+    const video = videoRef?.current;
+    if (!video || video.readyState < 2) {
       rafRef.current = requestAnimationFrame(detect);
       return;
     }
@@ -37,9 +76,7 @@ export function useMediaPipe(videoRef: RefObject<HTMLVideoElement | null>): UseM
     const now = performance.now();
     const result = landmarker.detectForVideo(video, now);
 
-    // Normalized landmarks for screen-space overlay (x,y in [0,1])
     if (result.landmarks?.[0]) setScreenLandmarks(result.landmarks[0]);
-    // World landmarks for 3D bone math (x,y,z in meters, Y-up, origin at hips)
     if (result.worldLandmarks?.[0]) setWorldLandmarks(result.worldLandmarks[0]);
 
     const delta = now - lastTimeRef.current;
@@ -47,18 +84,19 @@ export function useMediaPipe(videoRef: RefObject<HTMLVideoElement | null>): UseM
     lastTimeRef.current = now;
 
     rafRef.current = requestAnimationFrame(detect);
-  }, [videoRef]);
+  }, [videoRef, imageRef]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
       try {
-        const { PoseLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
+        const { PoseLandmarker, FilesetResolver } =
+          await import("@mediapipe/tasks-vision");
         const vision = await FilesetResolver.forVisionTasks(WASM_CDN);
         const landmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
-          runningMode: "VIDEO",
+          runningMode: imageRef ? "IMAGE" : "VIDEO",
           numPoses: 1,
           minPoseDetectionConfidence: 0.5,
           minPosePresenceConfidence: 0.5,
@@ -87,7 +125,7 @@ export function useMediaPipe(videoRef: RefObject<HTMLVideoElement | null>): UseM
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
     };
-  }, [detect]);
+  }, [detect, imageRef]);
 
   return { screenLandmarks, worldLandmarks, fps, isReady, error };
 }

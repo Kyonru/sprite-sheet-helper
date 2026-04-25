@@ -8,11 +8,13 @@ import {
 } from "@/components/ui/dialog";
 import { DisclaimerStep } from "./disclaimer-step";
 import { CaptureStep } from "./capture-step";
+import { ReviewStep } from "./review-step";
 import { SaveStep } from "./save-step";
 import type { PoseFrame } from "@/utils/pose-to-animation";
+import { MIXAMO_DEFAULT_REMAP, type BoneRemap } from "@/utils/bone-remap";
 import { cn } from "@/lib/utils";
 
-type Step = "disclaimer" | "capture" | "save";
+type Step = "disclaimer" | "capture" | "review" | "save";
 
 type CaptureState = {
   open: boolean;
@@ -37,12 +39,14 @@ export function CameraAnimationCaptureProvider() {
   });
   const [step, setStep] = useState<Step>("disclaimer");
   const [frames, setFrames] = useState<PoseFrame[]>([]);
+  const [remap, setRemap] = useState<BoneRemap>({ ...MIXAMO_DEFAULT_REMAP });
 
   useEffect(() => {
     _listener = (next) => {
       setState(next);
       setStep("disclaimer");
       setFrames([]);
+      setRemap({ ...MIXAMO_DEFAULT_REMAP });
     };
     return () => {
       _listener = null;
@@ -56,6 +60,7 @@ export function CameraAnimationCaptureProvider() {
   const stepTitles: Record<Step, string> = {
     disclaimer: "Camera Animation Capture",
     capture: "Record Movement",
+    review: "Review Captured Poses",
     save: "Save Animation",
   };
 
@@ -65,7 +70,8 @@ export function CameraAnimationCaptureProvider() {
         <DialogContent
           className={cn([
             "z-999 items-baseline justify-center overflow-auto",
-            step === "capture" && "sm:max-w-dvw max-w-dvw w-[90dvw] h-[90vh]",
+            (step === "capture" || step === "review") &&
+              "sm:max-w-dvw max-w-dvw w-[90dvw] h-[90vh]",
           ])}
         >
           <DialogHeader>
@@ -82,11 +88,25 @@ export function CameraAnimationCaptureProvider() {
           {step === "capture" && (
             <CaptureStep
               modelUuid={state.modelUuid}
-              onFramesReady={(f) => {
+              onFramesReady={(f, r) => {
                 setFrames(f);
-                setStep("save");
+                setRemap(r);
+                setStep("review");
               }}
               onCancel={close}
+            />
+          )}
+
+          {step === "review" && (
+            <ReviewStep
+              frames={frames}
+              remap={remap}
+              modelUuid={state.modelUuid}
+              onConfirm={(edited: PoseFrame[]) => {
+                setFrames(edited);
+                setStep("save");
+              }}
+              onBack={() => setStep("capture")}
             />
           )}
 
@@ -95,7 +115,7 @@ export function CameraAnimationCaptureProvider() {
               frames={frames}
               modelUuid={state.modelUuid}
               onDone={close}
-              onBack={() => setStep("capture")}
+              onBack={() => setStep("review")}
             />
           )}
         </DialogContent>

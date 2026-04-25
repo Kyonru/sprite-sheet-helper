@@ -139,7 +139,10 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
 
   // Camera capture button — always visible for loaded models
   useControls(
-    () => ({ "Add via Camera": button(() => openCameraCapture(uuid)) }) satisfies Schema,
+    () =>
+      ({
+        "Add from image": button(() => openCameraCapture(uuid)),
+      }) satisfies Schema,
     { store },
     [uuid],
   );

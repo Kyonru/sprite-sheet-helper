@@ -48,7 +48,8 @@ export interface JointPositions {
 
 function toLH(p: NormalizedLandmark): THREE.Vector3 {
   // worldLandmarks: X = camera-right (negate so character's left = -X when facing +Z),
-  // Y = image-down (negate for Three.js Y-up), Z = positive toward camera (keep as-is).
+  // Y = image-down (negate for Three.js Y-up), Z dropped: keeping Z positive-toward-camera
+  // causes a forward lean (chest is always closer to camera than hips).
   return new THREE.Vector3(-p.x, -p.y, p.z);
 }
 

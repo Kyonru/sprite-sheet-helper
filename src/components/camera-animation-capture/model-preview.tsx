@@ -87,6 +87,7 @@ interface PosedModelProps {
   landmarksRef: React.RefObject<NormalizedLandmark[] | null>;
   remap: BoneRemap;
   poseDataRef?: React.RefObject<PoseBoneData | null>;
+  staticPoseRef?: React.RefObject<PoseBoneData | null>;
   rootMotion?: boolean;
   modelScale?: number;
 }
@@ -99,6 +100,7 @@ function PosedModel({
   landmarksRef,
   remap,
   poseDataRef,
+  staticPoseRef,
   rootMotion,
   modelScale = 1,
 }: PosedModelProps) {
@@ -167,6 +169,22 @@ function PosedModel({
   }, [object, remap]);
 
   useFrame((_state, delta) => {
+    const bm = boneMapRef.current;
+
+    // Static playback mode — apply stored bone quaternions directly and skip live detection
+    const staticPose = staticPoseRef?.current;
+    if (staticPose) {
+      bm.forEach(({ bone, restQuat }) => { bone.quaternion.copy(restQuat); bone.updateMatrix(); });
+      const hd = bm.get(staticPose.hips.boneName);
+      if (hd) { hd.bone.quaternion.copy(staticPose.hips.quaternion); hd.bone.updateMatrix(); }
+      for (const f of staticPose.bones) {
+        const bd = bm.get(f.boneName);
+        if (bd) { bd.bone.quaternion.copy(f.quaternion); bd.bone.updateMatrix(); }
+      }
+      object.updateMatrixWorld(true);
+      return;
+    }
+
     const lm = landmarksRef.current;
     if (!lm || lm.length < 33) return;
 
@@ -198,7 +216,6 @@ function PosedModel({
       shoulderCenter: sm.smooth("shoulderCtr", raw.shoulderCenter, dt),
     };
 
-    const bm = boneMapRef.current;
     const hold = holdQuatRef.current;
     const vis = (idx: number) => (lm[idx].visibility ?? 1) >= VIS_THRESHOLD;
 
@@ -394,6 +411,7 @@ interface Props {
   landmarksRef: React.RefObject<NormalizedLandmark[] | null>;
   remap: BoneRemap;
   poseDataRef?: React.RefObject<PoseBoneData | null>;
+  staticPoseRef?: React.RefObject<PoseBoneData | null>;
   rootMotion?: boolean;
 }
 
@@ -402,6 +420,7 @@ export function ModelPreview({
   landmarksRef,
   remap,
   poseDataRef,
+  staticPoseRef,
   rootMotion,
 }: Props) {
   const model = useModelsStore((s) => s.models[modelUuid]);
@@ -465,6 +484,7 @@ export function ModelPreview({
         landmarksRef={landmarksRef}
         remap={remap}
         poseDataRef={poseDataRef}
+        staticPoseRef={staticPoseRef}
         rootMotion={rootMotion}
         modelScale={modelScale}
       />
