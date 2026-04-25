@@ -25,6 +25,12 @@ Select an animation clip to configure it:
 | Trim Start / End | Cut frames from the beginning or end of the clip        |
 | Duration         | Total duration of the clip in seconds                   |
 
+## Creating Animations from Camera or Photo
+
+You can generate animation clips directly from your webcam or a photo using the built-in pose capture tool. Click **Add from image** in the Animation panel to open the capture flow. After recording, a review step lets you trim frames, fix tilt or facing direction, mirror left and right limbs, and adjust individual bones before saving.
+
+See [Camera Animation Capture](camera-capture) for the full workflow.
+
 ## Exporting Animations
 
 When you export, all frames from the selected animation are captured in sequence. The export panel shows the total frame count based on your FPS setting and animation duration.

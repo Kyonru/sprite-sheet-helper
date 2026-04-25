@@ -44,6 +44,18 @@ Download the appropriate file for your OS and run it directly — no setup requi
 - Timeline editor with play/pause, frame stepping, and per-clip trim/speed/loop settings
 - Per-frame capture synced to animation playback
 
+### Camera animation capture
+
+Record animation clips directly from a webcam or a photo — no 3D animation software needed.
+
+- **Live recording** — pose detection runs in-browser via MediaPipe; record at up to 30 FPS
+- **Photo mode** — upload a single image to capture a static pose
+- **Review step** — scrub through every captured frame before saving:
+  - Trim start/end and delete individual frames
+  - Global corrections: tilt (X), turn (Y), lean (Z), mirror L↔R, flip 180°
+  - Per-bone overrides: X/Y/Z euler sliders per bone per frame, with "apply to all frames" option
+- Captured clips are saved to the model and available for export alongside embedded animations
+
 ### Export formats
 
 | Format | Output |

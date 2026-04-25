@@ -1,7 +1,7 @@
 {
   "name": "spritesheet-helper",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "packageManager": "npm@11.7.0",
   "funding": "https://github.com/sponsors/Kyonru",
@@ -59,7 +59,6 @@
     "@react-three/drei": "^10.0.8",
     "@react-three/fiber": "^9.1.2",
     "@react-three/postprocessing": "^3.0.4",
-    "@redux-devtools/extension": "^3.3.0",
     "@scena/react-ruler": "^0.19.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.7",

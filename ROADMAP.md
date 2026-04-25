@@ -8,151 +8,116 @@ A universal spritesheet pipeline:
 
 ---
 
-## v0.3 — Adoption Engine (High Priority)
+## ✅ Shipped in v0.3.0
 
-### Goals
+- CLI for batch processing with CI/CD integration
+- Workflow presets (topdown-8dir/4dir, isometric, platformer)
+- Engine-native exporters (Bevy, Godot, Unity, Phaser, pygame, raylib, LÖVE 2D, Turbo)
+- Camera animation capture (live webcam + photo, in-browser MediaPipe)
+- Pose review step with trim, global corrections, and per-bone adjustments
+- In-app documentation with full-text search
 
-- Make the tool usable in real workflows
-- Enable migration between engines/tools
+---
 
-### Features
+## v0.4 — Import & Interoperability
 
-#### Import Pipeline
+> Accept spritesheets and animated assets as input, not just 3D models. Enable round-tripping between engines and tools.
 
-- Import Aseprite (.ase / .aseprite)
+### Import Pipeline
+
+- Import Aseprite (`.ase` / `.aseprite`)
 - Import TexturePacker / Libresprite JSON
-- Import existing spritesheets (.png + JSON)
-- Import GIF/WebP and auto-slice frames
+- Import existing spritesheets (`.png` + JSON) and re-export to other formats
+- Import animated GIF / WebP and auto-slice into frames
 
-#### Export Improvements
+### Export Improvements
 
 - Improve engine-native exporters (Unity, Defold, Bevy, MonoGame, LibGDX)
-- Export to aseprite (.ase / .aseprite)
-- Standardize output formats
-
-#### CLI / API Mode
-
-- CLI for batch processing
-- Allow integration into CI/CD pipelines
+- Export to Aseprite (`.ase` / `.aseprite`)
+- Standardize metadata output formats across all exporters
 
 ---
 
-## v0.4 — Production Readiness
+## v0.5 — Atlas & Rendering Quality
 
-### Goals
+> Make exported atlases production-ready for shipped games.
 
-- Make the tool viable for shipped games
-- Optimize runtime performance and memory
+### Atlas Intelligence
 
-### Features
+- Bin-packing layout algorithm (replaces fixed grid — cuts wasted space)
+- Multi-atlas support (multiple texture pages for large projects)
+- Max atlas size constraint setting (1024, 2048, 4096)
 
-#### Atlas Intelligence
-
-- Bin-packing algorithm (replace fixed grid)
-- Multi-atlas support (multiple texture pages)
-- Max atlas size constraints (1024, 2048, etc.)
-
-#### Rendering Safety
+### Rendering Safety
 
 - Padding / bleeding control between frames
-
-#### Resolution Support
-
-- Scale export (1x, 2x, 4x)
+- Scale export (1×, 2×, 4×) for different screen densities
 
 ---
 
-## v0.5 — UX & Animation Improvements
+## v0.6 — Animation & UX
 
-### Goals
+> Improve animation workflow and preview accuracy.
 
-- Improve usability and preview accuracy
-
-### Features
-
-#### Animation System
+### Animation System
 
 - Per-animation FPS override instead of one global setting
-- Loop vs one-shot flag per animation, passed through to exportersLoop vs one-shot flags
-- Improved preview playback (play, pause, scrub)
+- Loop vs one-shot flag per animation, passed through to exporters
+- Onion skinning in the preview
+- Keyframe animation for scene properties (lights, camera, transforms)
 
-#### Preview Improvements
+### Preview & Editor
 
-- Better preview window usage
-- Free/resizable preview panels
+- Free / resizable preview panels
+- Drag-and-drop model loading
+- Improved scrubbing and playback controls
 
 ---
 
-## v0.6 — Differentiators
+## v0.7 — Differentiators
 
-### Goals
+> Add features that make the tool stand out.
 
-- Add features that make the tool stand out
-
-### Features
-
-#### Conversion Pipeline
+### Conversion Pipeline
 
 - Re-export between formats (Aseprite → Unity → Bevy, etc.)
 
-#### Frame Utilities
+### Frame Utilities
 
-- Flip / rotate frames (non-destructive)
+- Flip / rotate frames non-destructively
 
-##### Visual Variants
+### Visual Variants
 
-- Color palette swapping
+- Color palette swapping for character variants and skins
+
+### Shader System
+
+- Granular shader control / shader graph
 
 ---
 
-## v0.7 — Stable Release
+## v0.8 — Stable Release
 
-### Goals
-
-- Stable, documented, production-ready tool
-
-### Features
-
-#### Documentation
+> Stable, documented, production-ready tool.
 
 - Full documentation website
-- Tutorials and guides
-
-#### Tooling
-
 - Update checker
-- Improved performance
 - Export history tracking
-
-#### Platform
-
 - Desktop polish (native menubar, UX improvements)
+- Performance optimizations
 
 ---
 
 ## Backlog (Low Priority / High Complexity)
 
-### Not Core (Avoid Early)
+### Advanced Editing
 
-#### Advanced Editing
+- Sprite pixel editing (out of scope for now)
 
-- Sprite pixel editing (out of scope)
+### Timeline System
 
-#### Shader System
-
-- Shader graph / shader control
-
-#### Timeline System
-
-- Full animation timeline
-- Keyframe editing for all properties
-- Onion skinning in the preview
-- Flux programmed useFrame animations
-
-#### 3D / Advanced Animation
-
-- Mixamo / armature animation
-- Camera-based animation workflows
+- Full animation timeline with keyframe editing for all properties
+- Flux programmed `useFrame` animations
 
 ---
 

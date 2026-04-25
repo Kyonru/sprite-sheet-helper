@@ -1,66 +1,97 @@
 # Things to fix or improve
 
-## Features
+## ✅ Completed
 
-### Sprite Sheet mode
+- [x] Camera animation capture — live webcam recording with MediaPipe pose detection
+- [x] Photo upload mode — capture a single static pose from an image
+- [x] Pose review step — scrub, trim, delete frames before saving
+- [x] Global corrections — X/Y/Z rotation, mirror L↔R, flip 180°
+- [x] Per-bone adjustments — euler sliders per bone per frame, apply to all frames
+- [x] CLI / headless mode (`npm run cli`) with full option set
+- [x] Workflow presets — `topdown-8dir`, `topdown-4dir`, `isometric`, `platformer`
+- [x] Engine-native exporters — Bevy, Godot, Unity, Phaser 3, pygame, raylib, LÖVE 2D, Turbo
+- [x] In-app documentation with full-text search
+- [x] Camera capture documentation page
+- [x] Post-processing effects (Pixelation, Bloom, Outline, Glitch, DoF, ASCII, Dither, Palette, SSAO, etc.)
+- [x] Lighting controls — Ambient, Directional, Point, Spot
+- [x] Transform controls — reposition, rotate, scale objects
+- [x] Camera presets — Top-Down, Isometric, ¾ RPG, Dimetric, Side-Scroller
+- [x] Project files (`.sshProj`) — save/load full scene state
+- [x] Animated GIF export
+- [x] FBX format support
+- [x] Desktop app via Tauri (macOS, Windows, Linux)
 
-- Being able to modify sprite pixels
-- Being able to import aseprite file (.ase)
-- Being able to import sprite sheets from other formats (.png, .gif, .zip)
-- Shader support for sprite mode
-- Padding/bleeding control between frames (prevents texture bleeding at runtime)
-- Scale export (1x, 2x, 4x) for different screen densities
-- Flip / rotate frames non-destructively
-- Color palette swapping — great for character variants/skins
+---
 
-### Shader graph
-
-- Have granular control over how shaders are applied
-
-### Timeline
-
-- Add timeline
-- Add timeline controls
-- Add timeline preview
-- Add timeline export
-- Add animation keyframes for all properties
-
-### Animation
-
-- Improve Preview animations directly in the tool before exporting, with playback controls (play, pause, scrub)
-- Per-animation FPS override instead of one global setting
-- Loop vs one-shot flag per animation, passed through to exporters
-- Onion skinning in the preview
-- Flux programmed useFrame animations
-- Camera mixamo.com armature animation using vision camera
-- Import existing spritesheets + JSON (TexturePacker, Aseprite, Libresprite) and re-export to other formats — huge if devs are switching engines
-- Import animated GIF/WebP and auto-slice into frames
-- Import Aseprite files directly (.ase/.aseprite are common)
-
-### Atlas intelligence
-
-- Bin-packing algorithm for the atlas layout instead of a fixed grid — cuts wasted space dramatically
-- Multiple atlas pages when frames don't fit in one texture (needed for large projects)
-- Max atlas size constraint setting (1024×1024, 2048×2048, etc.)
-
-### Models
-
-- Drag and drop models
-
-### Desktop
-
-- Top menu should be hidden on desktop, use native menubar instead
-
-## Bugs
+## 🔧 Bugs
 
 - Fix carousel when items < 6
 
-## Improvements
+---
 
-- Performance
-- Export images changes history
-- Free preview windows (instead of fixed at the button since it doesn't use all the space anyway).
-- Tutorial
-- Documentation pages
+## 🚀 High Priority
+
+### Import & Interoperability
+
+- Import existing spritesheets + JSON (TexturePacker, Aseprite, Libresprite) and re-export to other formats
+- Import Aseprite files directly (`.ase` / `.aseprite`)
+- Import animated GIF / WebP and auto-slice into frames
+- Improve engine-native exporters (Unity, Defold, Bevy, MonoGame, LibGDX)
+
+### Atlas Quality
+
+- Bin-packing layout algorithm — cuts wasted atlas space dramatically
+- Max atlas size constraint (1024, 2048, 4096)
+- Padding / bleeding control between frames (prevents texture bleeding at runtime)
+
+### Animation
+
+- Per-animation FPS override instead of one global setting
+- Loop vs one-shot flag per animation, passed through to exporters
+
+---
+
+## 📋 Medium Priority
+
+### Preview & Editor
+
+- Free / resizable preview panels (instead of fixed position)
+- Drag and drop model loading
+- Improved scrubbing and playback controls
+- Onion skinning in the preview
+
+### Export
+
+- Scale export (1×, 2×, 4×) for different screen densities
+- Multiple atlas pages for large projects
+- Export to Aseprite (`.ase` / `.aseprite`)
+
+### Desktop
+
+- Native menubar (hide top menu on desktop, use OS menubar)
 - Check for updates
-- CLI or API mode so it can be piped into a build system
+
+---
+
+## 🌟 Low Priority / Complex
+
+### Frame Utilities
+
+- Flip / rotate frames non-destructively
+- Color palette swapping — great for character variants and skins
+
+### Shader System
+
+- Granular shader control / shader graph
+
+### Animation Authoring
+
+- Keyframe animation for scene properties (lights, camera, transforms)
+- Flux programmed `useFrame` animations
+- Full animation timeline with keyframe editing for all properties
+
+### Misc
+
+- Export history tracking
+- Performance optimizations
+- Sprite pixel editing (out of scope for now)
