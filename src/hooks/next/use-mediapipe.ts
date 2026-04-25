@@ -55,7 +55,9 @@ export function useMediaPipe(
       }
 
       const result =
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (landmarker as any).detectForImage?.(image) ??
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (landmarker as any).detect?.(image);
 
       if (result.landmarks?.[0]) setScreenLandmarks(result.landmarks[0]);

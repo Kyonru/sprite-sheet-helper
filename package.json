@@ -21,7 +21,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "knip": "knip",
-    "merge-animations": "node scripts/merge-animations.js"
+    "merge-animations": "node scripts/merge-animations.js",
+    "prepare": "husky"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
@@ -118,6 +119,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
+    "husky": "^9.1.7",
     "knip": "^6.3.1",
     "puppeteer": "^24.41.0",
     "tw-animate-css": "^1.3.0",
