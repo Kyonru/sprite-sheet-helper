@@ -141,7 +141,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   useControls(
     () =>
       ({
-        "Add from image": button(() => openCameraCapture(uuid)),
+        "Create frame capture": button(() => openCameraCapture(uuid)),
       }) satisfies Schema,
     { store },
     [uuid],
