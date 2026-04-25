@@ -21,11 +21,12 @@ This tutorial walks you through the full workflow from an empty scene to an expo
 
 Download the sample project below and extract it to a folder on your machine.
 
-> **[Download sample project](#LINK_SAMPLE_PROJECT)**
+> **[Download sample project](/docs/tutorial.zip)**
 
 The archive contains:
+
 - `tutorial.sshProj` — a pre-configured project file with a model already set up
-- `character.glb` — the 3D character model used in this tutorial
+- `character_2.glb` — the 3D character model used in this tutorial
 
 Open the project in Sprite Sheet Helper via `File > Open Project` and select `tutorial.sshProj`.
 
@@ -36,7 +37,7 @@ Open the project in Sprite Sheet Helper via `File > Open Project` and select `tu
 The project comes with a model loaded, but let's practice importing one from scratch.
 
 1. Go to `File > Import Model`.
-2. Navigate to the extracted folder and select `character.glb`.
+2. Navigate to the extracted folder and select `character_2.glb`.
 3. The model appears in the center viewport and the left panel lists it in the scene tree.
 
 ---
