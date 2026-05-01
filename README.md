@@ -6,6 +6,9 @@ Built with **Vite + React + Tauri** for a lightweight, native desktop experience
 
 ---
 
+https://github.com/user-attachments/assets/cc9d06c4-2281-4131-a87c-5a95b9defe4e
+
+
 ## 📦 Download
 
 Prebuilt desktop binaries are available on the [Releases page](https://github.com/Kyonru/sprite-sheet-helper/releases).
@@ -336,3 +339,4 @@ git push origin feature/your-feature-name
 Please keep commits clear and scoped. Bug fixes, performance improvements, and new features are all appreciated.
 
 ---
+
