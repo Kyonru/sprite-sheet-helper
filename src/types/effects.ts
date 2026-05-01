@@ -39,7 +39,8 @@ export type EffectType =
   | "bokeh"
   | "ssao"
   | "smaa"
-  | "fxaa";
+  | "fxaa"
+  | "smear";
 
 export type EffectComponent = { type: EffectType; enabled: boolean } & (
   | { type: "pixelation"; granularity: number }
@@ -241,4 +242,5 @@ export type EffectComponent = { type: EffectType; enabled: boolean } & (
       aperture: number;
       maxBlur: number;
     }
+  | { type: "smear"; damp: number; tint: string; legacy: boolean }
 );

@@ -231,6 +231,12 @@ const EFFECT_DEFAULTS: EffectDefaults = {
     aperture: 0.015,
     maxBlur: 1.0,
   },
+  smear: {
+    enabled: true,
+    damp: 0.85,
+    tint: "#ffffff",
+    legacy: false,
+  },
 };
 
 export interface EffectsState {

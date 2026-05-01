@@ -26,6 +26,7 @@ import { useSceneStore } from "./store";
 import { PaletteEffect } from "./custom-effects.tsx/palette";
 import { DitherEffect } from "./custom-effects.tsx/dither";
 import { CustomShaderEffect } from "./custom-effects.tsx/custom-shader";
+import { SmearEffect } from "./custom-effects.tsx/smear";
 
 import { useRefsStore } from "@/store/next/refs";
 import { useMemo } from "react";
@@ -273,6 +274,16 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
 
     case "grid":
       return <Grid {...effect} />;
+
+    case "smear":
+      return (
+        <SmearEffect
+          enabled
+          damp={effect.damp}
+          tint={effect.tint}
+          legacy={effect.legacy}
+        />
+      );
 
     default:
       return null;

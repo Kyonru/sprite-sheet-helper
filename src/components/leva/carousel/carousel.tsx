@@ -246,6 +246,7 @@ export const LevaCarousel = () => {
   const updateLabel = useImagesStore((state) => state.updateLabel);
   const updateWidth = useImagesStore((state) => state.updateWidth);
   const updateHeight = useImagesStore((state) => state.updateHeight);
+  const updateFps = useImagesStore((state) => state.updateFps);
   const setSelectedRow = useImagesStore((state) => state.setSelectedRow);
   const images = useImagesStore((state) => state.images);
 
@@ -394,7 +395,7 @@ export const LevaCarousel = () => {
                                       }
                                     />
                                   </Field>
-                                  <div className="grid grid-cols-2 gap-4">
+                                  <div className="grid grid-cols-3 gap-4">
                                     <Field>
                                       <Label htmlFor="width-1">Width</Label>
                                       <Input
@@ -419,6 +420,20 @@ export const LevaCarousel = () => {
                                             row.uuid,
                                             +e.target.value,
                                           )
+                                        }
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <Label htmlFor="fps-1">FPS</Label>
+                                      <Input
+                                        id="fps-1"
+                                        name="fps"
+                                        defaultValue={row.fps}
+                                        type="number"
+                                        min={1}
+                                        max={240}
+                                        onChange={(e) =>
+                                          updateFps(row.uuid, +e.target.value)
                                         }
                                       />
                                     </Field>

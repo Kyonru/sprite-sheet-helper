@@ -68,6 +68,7 @@ export const EFFECTS: { key: EffectType; name: string }[] = [
   { key: "fxaa", name: "FXAA" },
   { key: "gammaCorrection", name: "Gamma Correction" },
   { key: "bokeh", name: "Bokeh" },
+  { key: "smear", name: "Smear / Motion Blur" },
 ];
 
 export const LIGHTS: {

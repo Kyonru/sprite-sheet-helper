@@ -32,6 +32,7 @@ interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
   updateLabel: (uuid: string, label: string) => void;
   updateWidth: (uuid: string, width: number) => void;
   updateHeight: (uuid: string, height: number) => void;
+  updateFps: (uuid: string, fps: number) => void;
   setSelectedRow: (index: number) => void;
   addImageToRow: (
     index: number,
@@ -119,6 +120,13 @@ export const useImagesStore = create<ImagesStore>()(
         set((state) => ({
           images: state.images.map((row) =>
             row.uuid === uuid ? { ...row, frameHeight: height } : row,
+          ),
+        })),
+
+      updateFps: (uuid, fps) =>
+        set((state) => ({
+          images: state.images.map((row) =>
+            row.uuid === uuid ? { ...row, fps } : row,
           ),
         })),
 

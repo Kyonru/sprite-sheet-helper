@@ -111,6 +111,16 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
             setEffect(uuid, { [key]: newValue } as never);
           },
         };
+      } else if (key === "damp") {
+        i[key] = {
+          value: value,
+          min: 0,
+          max: 0.99,
+          step: 0.01,
+          onChange: (newValue: unknown) => {
+            setEffect(uuid, { [key]: newValue } as never);
+          },
+        };
       } else {
         i[key] = {
           value,
