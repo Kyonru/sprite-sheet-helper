@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Desktop + PWA tool for generating sprite sheets and exporting renders from 3D scenes. Stack: **Vite + React + TypeScript + Tauri**. Currently at v0.3.0 (unreleased).
+Desktop + PWA tool for generating sprite sheets and exporting renders from 3D scenes. Stack: **Vite + React + TypeScript + Tauri**.
 
 ## Architecture
 

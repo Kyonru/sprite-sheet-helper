@@ -5,7 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.3.0] — Unreleased
+## [0.3.1]
+
+### Smear Effect
+
+Add option to include smear postprocessing with 2 type of implementations
+
+## [0.3.0]
 
 ### Headline: Camera Animation Capture
 
