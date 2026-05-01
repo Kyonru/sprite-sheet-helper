@@ -2,8 +2,6 @@
 title: Projects
 ---
 
-# Projects
-
 A **project file** (`.sshProj`) saves your entire scene state so you can pick up exactly where you left off.
 
 ## What Gets Saved

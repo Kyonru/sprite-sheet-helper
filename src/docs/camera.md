@@ -2,8 +2,6 @@
 title: Camera & Presets
 ---
 
-# Camera & Presets
-
 The Camera tab gives you quick access to preset viewing angles commonly used in 2D game art, plus manual controls for fine-tuning.
 
 ## Camera Presets

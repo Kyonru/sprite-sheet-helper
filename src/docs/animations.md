@@ -2,8 +2,6 @@
 title: Animations
 ---
 
-# Animations
-
 If your 3D model contains embedded animation clips, you can play, trim, and configure them before exporting.
 
 ## Loading Animations

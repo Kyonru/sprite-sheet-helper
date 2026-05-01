@@ -2,8 +2,6 @@
 title: Exporting
 ---
 
-# Exporting
-
 The Export panel (right side of the screen) lets you configure and export your sprite sheet in a variety of formats.
 
 ## Basic Export Steps

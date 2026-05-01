@@ -2,8 +2,6 @@
 title: Lighting
 ---
 
-# Lighting
-
 Lighting directly affects how your sprites look. Sprite Sheet Helper supports four light types that you can combine to achieve the look you want.
 
 ## Light Types

@@ -2,8 +2,6 @@
 title: Camera Animation Capture
 ---
 
-# Camera Animation Capture
-
 You can record live poses from your webcam or from a static photo and bake them into animation clips on your model. All pose detection runs entirely in the browser — no video is uploaded anywhere.
 
 The captured clip appears in the Animation panel alongside any embedded clips and can be exported like any other animation.
@@ -18,9 +16,9 @@ In the **Animation** panel, click **Add from image**. A modal opens and walks yo
 
 Choose an input source at the top of the Capture step:
 
-| Mode | Best for |
-| --- | --- |
-| **Camera** | Recording continuous movement from your webcam |
+| Mode             | Best for                                          |
+| ---------------- | ------------------------------------------------- |
+| **Camera**       | Recording continuous movement from your webcam    |
 | **Photo Upload** | Capturing a single static pose from an image file |
 
 ### Camera mode
@@ -56,24 +54,24 @@ Drag the scrubber to step through frames one by one. The 3D model updates instan
 
 ### Trim & delete
 
-| Control | Effect |
-| --- | --- |
+| Control      | Effect                                    |
+| ------------ | ----------------------------------------- |
 | ⊢ Trim start | Discard all frames before the current one |
-| Delete frame | Remove the current frame only |
-| Trim end ⊣ | Discard all frames after the current one |
+| Delete frame | Remove the current frame only             |
+| Trim end ⊣   | Discard all frames after the current one  |
 
 ### Global Corrections
 
 Expand the **Corrections** panel to apply the same transform to every frame at once:
 
-| Control | Effect |
-| --- | --- |
-| X slider | Tilt the whole pose forward or backward |
-| Y slider | Rotate the character left or right |
-| Z slider | Lean the pose left or right |
-| ⇄ Mirror L↔R | Swap left and right limbs and reflect their rotations |
-| ↺ Flip 180° | Add 180° on the Y axis — use when the clip was captured from behind |
-| Reset | Return all sliders to zero and turn off mirror |
+| Control      | Effect                                                              |
+| ------------ | ------------------------------------------------------------------- |
+| X slider     | Tilt the whole pose forward or backward                             |
+| Y slider     | Rotate the character left or right                                  |
+| Z slider     | Lean the pose left or right                                         |
+| ⇄ Mirror L↔R | Swap left and right limbs and reflect their rotations               |
+| ↺ Flip 180°  | Add 180° on the Y axis — use when the clip was captured from behind |
+| Reset        | Return all sliders to zero and turn off mirror                      |
 
 Global corrections are non-destructive during review and are only baked into the frame data when you click **Save →**.
 
@@ -81,13 +79,13 @@ Global corrections are non-destructive during review and are only baked into the
 
 Expand the **Bone Adjustments** panel to rotate individual bones on the current frame:
 
-1. Click a bone name (e.g. *L Upper Arm*) to expand it.
+1. Click a bone name (e.g. _L Upper Arm_) to expand it.
 2. Drag the **X / Y / Z** sliders to adjust that bone's rotation in parent-local space.
 3. A `●` dot appears on any bone that has an active override on the current frame.
 
-| Control | Effect |
-| --- | --- |
-| Reset bone | Remove the override for this bone on this frame |
+| Control             | Effect                                                       |
+| ------------------- | ------------------------------------------------------------ |
+| Reset bone          | Remove the override for this bone on this frame              |
 | Apply to all frames | Copy this bone's current override to every frame in the clip |
 
 Bone overrides are applied after global corrections, so you can mirror or flip the whole pose first and then fine-tune individual limbs on top.

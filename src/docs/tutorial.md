@@ -2,8 +2,6 @@
 title: Tutorial
 ---
 
-# Tutorial
-
 This tutorial walks you through the full workflow from an empty scene to an exported LÖVE 2D sprite sheet. You'll import a model, configure animations and lighting, set up sequences, run a workflow, and export — all using a sample project provided below.
 
 ## What You'll Learn

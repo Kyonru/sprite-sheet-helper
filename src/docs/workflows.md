@@ -2,8 +2,6 @@
 title: Workflows
 ---
 
-# Workflows
-
 Workflows automate multi-angle sprite sheet generation. Instead of manually rotating the camera and exporting for each direction, a workflow does it all in one pass — capturing every animation at every required camera angle and labeling each sequence automatically.
 
 ## Available Workflows

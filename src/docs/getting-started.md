@@ -2,8 +2,6 @@
 title: Getting Started
 ---
 
-# Getting Started
-
 Sprite Sheet Helper lets you load 3D models, set up your scene, and export sprite sheets for use in game engines and frameworks.
 
 ## Quick Start

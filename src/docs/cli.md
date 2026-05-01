@@ -2,8 +2,6 @@
 title: CLI & Headless Mode
 ---
 
-# CLI & Headless Mode
-
 Sprite Sheet Helper ships with a headless CLI that runs the full exporter without opening the UI. It starts a local preview server, drives the app with a headless browser, and writes the output files to disk — making it easy to drop sprite generation into an existing asset pipeline or build script.
 
 ## How It Works
