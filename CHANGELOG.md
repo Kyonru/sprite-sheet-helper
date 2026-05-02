@@ -7,9 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.3.1]
 
-### Smear Effect
+### Added
 
-Add option to include smear postprocessing with 2 type of implementations
+- Add option to include smear postprocessing with 2 type of implementations
+- Improve tutorial and documentation
+- remove camera option from tauri builds
 
 ## [0.3.0]
 
