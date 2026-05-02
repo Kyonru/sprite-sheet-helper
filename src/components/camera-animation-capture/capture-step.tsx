@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { importFile } from "@/utils/assets";
 import { useMediaPipe } from "@/hooks/next/use-mediapipe";
 import type { PoseBoneData } from "@/utils/mediapipe-to-bones";
 import { PoseSmoother } from "@/utils/animation-smoothing";
@@ -16,11 +15,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { isWeb } from "@/utils/platform";
+import { cn } from "@/lib/utils";
 
 const VIDEO_W = 480;
 const VIDEO_H = 360;
 
-type InputMode = "camera" | "photo";
+type InputMode = "camera" | "photo" | "video";
 
 interface Props {
   modelUuid: string;
@@ -36,16 +37,16 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
   const smootherRef = useRef(new PoseSmoother(0.4));
   const framesRef = useRef<PoseFrame[]>([]);
 
-  // Landmarks ref for the R3F preview (no re-renders)
   const worldLandmarksRef = useRef<
     import("@mediapipe/tasks-vision").NormalizedLandmark[] | null
   >(null);
-  // Actual bone local quaternions written by ModelPreview each frame — used for recording
   const poseDataRef = useRef<PoseBoneData | null>(null);
 
   const [inputMode, setInputMode] = useState<InputMode>("photo");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [boneRemap, setBoneRemap] = useState<BoneRemap>({
     ...MIXAMO_DEFAULT_REMAP,
   });
@@ -72,16 +73,15 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     isReady,
     error: mpError,
   } = useMediaPipe(
-    inputMode === "camera" ? videoRef : undefined,
+    inputMode === "camera" || inputMode === "video" ? videoRef : undefined,
     inputMode === "photo" ? imageRef : undefined,
   );
 
-  // Keep landmark ref in sync for the R3F preview loop (no re-render needed)
   useEffect(() => {
     worldLandmarksRef.current = worldLandmarks;
   }, [worldLandmarks]);
 
-  // Start webcam only in camera mode
+  // Webcam setup
   useEffect(() => {
     if (inputMode !== "camera") {
       stopCamera();
@@ -108,9 +108,23 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     };
   }, [inputMode, stopCamera]);
 
+  // Video file playback
   useEffect(() => {
-    if (inputMode !== "photo") return;
-    setRecording(false);
+    const el = videoRef.current;
+    if (!el) return;
+    if (inputMode !== "video") {
+      el.src = "";
+      return;
+    }
+    if (!videoUrl) return;
+    el.srcObject = null;
+    el.src = videoUrl;
+    el.loop = true;
+    el.play();
+  }, [inputMode, videoUrl]);
+
+  useEffect(() => {
+    if (inputMode === "photo") setRecording(false);
   }, [inputMode]);
 
   useEffect(() => {
@@ -118,17 +132,26 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
       setPhotoUrl(null);
       return;
     }
-
-    const objectUrl = URL.createObjectURL(photoFile);
-    setPhotoUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
+    const url = URL.createObjectURL(photoFile);
+    setPhotoUrl(url);
+    return () => URL.revokeObjectURL(url);
   }, [photoFile]);
 
-  // Capture frames while recording — reads actual bone quaternions from the live preview
+  useEffect(() => {
+    if (!videoFile) {
+      setVideoUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(videoFile);
+    setVideoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [videoFile]);
+
+  // Capture frames while recording (camera and video modes)
   useEffect(() => {
     if (
       !recording ||
-      inputMode !== "camera" ||
+      (inputMode !== "camera" && inputMode !== "video") ||
       !worldLandmarks ||
       !poseDataRef.current
     )
@@ -176,15 +199,19 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     setRecording(false);
   }, []);
 
-  const handlePhotoSelect = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0] ?? null;
+  const handlePhotoSelect = useCallback(() => {
+    importFile(["png", "jpg", "jpeg", "webp", "gif"], (file) => {
       setPhotoFile(file);
       handleClear();
-      if (inputMode === "photo") stopCamera();
-    },
-    [handleClear, inputMode, stopCamera],
-  );
+    });
+  }, [handleClear]);
+
+  const handleVideoSelect = useCallback(() => {
+    importFile(["mp4", "webm"], (file) => {
+      setVideoFile(file);
+      handleClear();
+    });
+  }, [handleClear]);
 
   const handleCapturePhoto = useCallback(() => {
     if (!worldLandmarks || !poseDataRef.current || !photoUrl) return;
@@ -215,39 +242,45 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     onFramesReady([...framesRef.current], boneRemap);
   }, [onFramesReady, boneRemap]);
 
-  useEffect(() => {
-    if (inputMode == "photo") {
-      stopCamera();
-    }
-  }, [inputMode, stopCamera]);
-
   const inputError =
     inputMode === "photo" && !photoUrl
       ? "Upload a photo to capture a pose."
-      : null;
+      : inputMode === "video" && !videoUrl
+        ? "Upload a video to record frames."
+        : null;
   const error =
     inputMode === "camera" ? (camError ?? mpError) : (inputError ?? mpError);
+
+  const isVideoMode = inputMode === "camera" || inputMode === "video";
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2 justify-center">
-        <Button
-          size="sm"
-          variant={inputMode === "camera" ? "secondary" : "outline"}
-          onClick={() => setInputMode("camera")}
-        >
-          Camera
-        </Button>
+        {isWeb() && (
+          <Button
+            size="sm"
+            variant={inputMode === "camera" ? "secondary" : "outline"}
+            onClick={() => setInputMode("camera")}
+          >
+            Camera
+          </Button>
+        )}
         <Button
           size="sm"
           variant={inputMode === "photo" ? "secondary" : "outline"}
           onClick={() => setInputMode("photo")}
         >
-          Photo Upload
+          Photo
+        </Button>
+        <Button
+          size="sm"
+          variant={inputMode === "video" ? "secondary" : "outline"}
+          onClick={() => setInputMode("video")}
+        >
+          Video
         </Button>
       </div>
 
-      {/* Side-by-side: webcam/photo + model preview */}
       <div className="flex gap-3 flex-wrap justify-center">
         <div className="flex flex-col gap-1">
           <p className="text-xs text-muted-foreground text-center">Input</p>
@@ -255,11 +288,19 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
             className="relative rounded-md overflow-hidden bg-black"
             style={{ width: VIDEO_W, height: VIDEO_H }}
           >
-            {inputMode === "camera" ? (
+            {isVideoMode ? (
               <video
                 ref={videoRef}
-                className="w-full h-full object-cover"
-                style={{ transform: "scaleX(-1)" }}
+                className={cn({
+                  "w-full h-full": true,
+                  "object-cover": inputMode === "camera",
+                  "object-contain": inputMode === "video",
+                })}
+                style={
+                  inputMode === "camera"
+                    ? { transform: "scaleX(-1)" }
+                    : undefined
+                }
                 muted
                 playsInline
               />
@@ -310,15 +351,36 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
 
           {inputMode === "photo" && (
             <div className="flex gap-2 mt-2">
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoSelect}
-              />
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handlePhotoSelect}
+              >
+                {photoUrl ? "Change Photo" : "Upload Photo"}
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => setPhotoFile(null)}
                 disabled={!photoUrl}
+              >
+                Clear
+              </Button>
+            </div>
+          )}
+
+          {inputMode === "video" && (
+            <div className="flex gap-2 mt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleVideoSelect}
+              >
+                {videoUrl ? "Change Video" : "Upload Video"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setVideoFile(null)}
+                disabled={!videoUrl}
               >
                 Clear
               </Button>
@@ -409,7 +471,12 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
             Stop
           </Button>
         ) : (
-          <Button onClick={handleStart} disabled={!isReady || !!error}>
+          <Button
+            onClick={handleStart}
+            disabled={
+              !isReady || !!error || (inputMode === "video" && !videoUrl)
+            }
+          >
             {isReady ? "Record" : "Initializing…"}
           </Button>
         )}

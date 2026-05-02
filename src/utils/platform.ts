@@ -1,5 +1,5 @@
 export function isWeb() {
-  if ("__TAURI__" in window) {
+  if ("__TAURI__" in window || "__TAURI_INTERNALS__" in window) {
     return false;
   }
 
