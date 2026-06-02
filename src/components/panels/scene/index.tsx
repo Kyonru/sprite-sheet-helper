@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
+import { ResizablePanel } from "@/components/ui/resizable";
+import { GripHorizontalIcon, RotateCcwIcon } from "lucide-react";
 import { useEntitiesStore } from "@/store/next/entities";
 import { useCamerasStore } from "@/store/next/cameras";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -43,6 +40,38 @@ type SharedCameraState = React.RefObject<{
   quaternion: THREE.Quaternion;
   target: THREE.Vector3;
 }>;
+
+type FloatingPreviewPosition = {
+  x: number;
+  y: number;
+};
+
+type FloatingPreviewDrag = {
+  origin: FloatingPreviewPosition;
+  pointerX: number;
+  pointerY: number;
+};
+
+function clampFloatingPreviewPosition(
+  position: FloatingPreviewPosition,
+  container: HTMLElement,
+  panel: HTMLElement,
+): FloatingPreviewPosition {
+  const padding = 8;
+  const maxX = Math.max(
+    padding,
+    container.clientWidth - panel.offsetWidth - padding,
+  );
+  const maxY = Math.max(
+    padding,
+    container.clientHeight - panel.offsetHeight - padding,
+  );
+
+  return {
+    x: Math.min(Math.max(position.x, padding), maxX),
+    y: Math.min(Math.max(position.y, padding), maxY),
+  };
+}
 
 function CameraLabel({
   cameraRef,
@@ -530,6 +559,11 @@ function AssetCreation() {
   const glRef = useRef<THREE.WebGLRenderer>(null);
 
   const [zoom, setZoom] = useState(1);
+  const previewHostRef = useRef<HTMLDivElement>(null);
+  const previewPanelRef = useRef<HTMLDivElement>(null);
+  const previewDragRef = useRef<FloatingPreviewDrag | null>(null);
+  const [previewPosition, setPreviewPosition] =
+    useState<FloatingPreviewPosition | null>(null);
 
   const sharedCameraState = useRef({
     position: new THREE.Vector3(5, 5, 5),
@@ -538,6 +572,80 @@ function AssetCreation() {
   });
 
   const scene = useSharedScene();
+
+  const resetPreviewPosition = () => {
+    setPreviewPosition(null);
+  };
+
+  const handlePreviewDragStart = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    if (event.button !== 0) return;
+
+    const host = previewHostRef.current;
+    const panel = previewPanelRef.current;
+    if (!host || !panel) return;
+
+    const hostRect = host.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const origin = previewPosition ?? {
+      x: panelRect.left - hostRect.left,
+      y: panelRect.top - hostRect.top,
+    };
+
+    previewDragRef.current = {
+      origin,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+    };
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  const handlePreviewDragMove = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    const drag = previewDragRef.current;
+    const host = previewHostRef.current;
+    const panel = previewPanelRef.current;
+    if (!drag || !host || !panel) return;
+
+    setPreviewPosition(
+      clampFloatingPreviewPosition(
+        {
+          x: drag.origin.x + event.clientX - drag.pointerX,
+          y: drag.origin.y + event.clientY - drag.pointerY,
+        },
+        host,
+        panel,
+      ),
+    );
+  };
+
+  const handlePreviewDragEnd = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    previewDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      const host = previewHostRef.current;
+      const panel = previewPanelRef.current;
+      if (!host || !panel) return;
+
+      setPreviewPosition((position) =>
+        position ? clampFloatingPreviewPosition(position, host, panel) : null,
+      );
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     glRef.current?.setClearColor(editorBackgroundColor, 1);
@@ -559,80 +667,118 @@ function AssetCreation() {
 
   return (
     <ResizablePanel>
-      <ResizablePanelGroup orientation="vertical">
-        <ResizablePanel style={{ position: "relative" }}>
-          <EntityContextProvider isPreview={false}>
-            <Canvas
-              scene={scene}
-              onCreated={({ gl, scene }) => {
-                scene.background = null; // don't use scene background
-                gl.setClearColor(editorBackgroundColor, 1);
-                glRef.current = gl;
-              }}
-            >
-              <EditorScene
-                isDragging={isDragging}
-                sharedCameraState={sharedCameraState}
-              />
-            </Canvas>
-          </EntityContextProvider>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
-
-        <ResizablePanel defaultSize="40%" style={{ position: "relative" }}>
-          <div
-            className="flex flex-row items-center"
-            style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}
+      <div
+        ref={previewHostRef}
+        className="relative h-full w-full overflow-hidden"
+      >
+        <EntityContextProvider isPreview={false}>
+          <Canvas
+            scene={scene}
+            onCreated={({ gl, scene }) => {
+              scene.background = null; // don't use scene background
+              gl.setClearColor(editorBackgroundColor, 1);
+              glRef.current = gl;
+            }}
           >
-            <button onClick={() => setShowGizmo(!showGizmo)}>
+            <EditorScene
+              isDragging={isDragging}
+              sharedCameraState={sharedCameraState}
+            />
+          </Canvas>
+        </EntityContextProvider>
+
+        <section
+          ref={previewPanelRef}
+          className="absolute z-20 flex min-h-56 min-w-80 resize flex-col overflow-hidden rounded-md border bg-background/95 shadow-xl backdrop-blur"
+          style={
+            previewPosition
+              ? {
+                  left: previewPosition.x,
+                  top: previewPosition.y,
+                  width: "min(520px, calc(100% - 16px))",
+                  height: "min(360px, calc(100% - 16px))",
+                }
+              : {
+                  right: 16,
+                  bottom: 16,
+                  width: "min(520px, calc(100% - 32px))",
+                  height: "min(360px, calc(100% - 32px))",
+                }
+          }
+        >
+          <div
+            className="flex h-10 shrink-0 cursor-grab select-none items-center gap-2 border-b px-2 active:cursor-grabbing"
+            onPointerDown={handlePreviewDragStart}
+            onPointerMove={handlePreviewDragMove}
+            onPointerUp={handlePreviewDragEnd}
+            onPointerCancel={handlePreviewDragEnd}
+          >
+            <GripHorizontalIcon className="size-4 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              Preview Canvas
+            </span>
+            <button
+              type="button"
+              className="rounded px-2 py-1 text-xs hover:bg-muted"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => setShowGizmo(!showGizmo)}
+            >
               {showGizmo ? "Hide Gizmo" : "Show Gizmo"}
             </button>
-
-            {/* slider zoom from 0.1 to 2.0 */}
-            <input
-              className="ml-5"
-              type="range"
-              min="0.1"
-              max="2"
-              step="0.1"
-              value={zoom}
-              onChange={(e) => setZoom(parseFloat(e.target.value))}
-            />
+            <label
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              Zoom
+              <input
+                className="w-24 accent-primary"
+                type="range"
+                min="0.1"
+                max="2"
+                step="0.1"
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+              />
+            </label>
+            <button
+              type="button"
+              className="grid size-7 place-items-center rounded hover:bg-muted"
+              title="Reset preview position"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={resetPreviewPosition}
+            >
+              <RotateCcwIcon className="size-3.5" />
+            </button>
           </div>
 
-          <div
-            style={{
-              aspectRatio: canvasWidth / canvasHeight,
-              height: "100%",
-            }}
-            className="overflow-hidden overflow-y-scroll justify-center items-center w-full flex"
-          >
-            <EntityContextProvider isPreview={true}>
-              <Canvas
-                scene={scene}
-                style={{
-                  width: canvasWidth * zoom,
-                  height: canvasHeight * zoom,
-                  aspectRatio: canvasWidth / canvasHeight,
-                }}
-                onCreated={({ gl, scene }) => {
-                  scene.background = null;
-                  gl.setClearColor("#000000", 0);
-                }}
-                gl={{ antialias: false, preserveDrawingBuffer: true }}
-                className="rendering-[pixelated]  border-accent-800 border-2"
-              >
-                <PreviewScene
-                  isDragging={isDragging}
-                  showGizmo={showGizmo}
-                  sharedCameraState={sharedCameraState}
-                />
-              </Canvas>
-            </EntityContextProvider>
+          <div className="min-h-0 flex-1 overflow-auto bg-black/20 p-3">
+            <div className="flex min-h-full min-w-full items-center justify-center">
+              <EntityContextProvider isPreview={true}>
+                <Canvas
+                  scene={scene}
+                  style={{
+                    width: canvasWidth * zoom,
+                    height: canvasHeight * zoom,
+                    aspectRatio: canvasWidth / canvasHeight,
+                  }}
+                  onCreated={({ gl, scene }) => {
+                    scene.background = null;
+                    gl.setClearColor("#000000", 0);
+                  }}
+                  gl={{ antialias: false, preserveDrawingBuffer: true }}
+                  className="rendering-[pixelated] border-2 border-accent-800"
+                >
+                  <PreviewScene
+                    isDragging={isDragging}
+                    showGizmo={showGizmo}
+                    sharedCameraState={sharedCameraState}
+                  />
+                </Canvas>
+              </EntityContextProvider>
+            </div>
           </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </section>
+      </div>
     </ResizablePanel>
   );
 }
