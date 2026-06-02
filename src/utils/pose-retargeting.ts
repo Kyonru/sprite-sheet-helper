@@ -130,6 +130,7 @@ export interface RigRetargetBone {
   key: keyof BoneRemap;
   boneName: string;
   bone: THREE.Object3D;
+  restPosition: THREE.Vector3;
   restQuat: THREE.Quaternion;
   restDir: THREE.Vector3;
   childKey?: keyof BoneRemap;
@@ -614,6 +615,7 @@ export function buildRigRetargetMap(
       key,
       boneName,
       bone,
+      restPosition: bone.position.clone(),
       restQuat: bone.quaternion.clone(),
       restDir: computeRestDir(bone, childInfo.child),
       ...childInfo,
@@ -661,6 +663,7 @@ function clonePoseData(pose: PoseBoneData): PoseBoneData {
     bones: pose.bones.map((bone) => ({
       boneKey: bone.boneKey,
       boneName: bone.boneName,
+      position: bone.position?.clone(),
       quaternion: bone.quaternion.clone(),
     })),
   };
@@ -717,6 +720,7 @@ export function applyPoseCalibration(
     if (!offset || offset.boneName !== bone.boneName) return bone;
     return {
       ...bone,
+      position: bone.position?.clone(),
       quaternion: bone.quaternion.clone().multiply(offset.offset),
     };
   });
@@ -757,6 +761,7 @@ export function clampAnatomicalPose(
     if (!limit || !rest) return bone;
     return {
       ...bone,
+      position: bone.position?.clone(),
       quaternion: clampQuaternionTowardRest(bone.quaternion, rest, limit),
     };
   });

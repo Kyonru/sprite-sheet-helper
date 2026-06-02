@@ -87,6 +87,17 @@ describe("pose edit utilities", () => {
     expectQuaternionClose(corrected.hips.quaternion, quat(0, 90, 0));
   });
 
+  it("applies global movement to hips", () => {
+    const corrected = applyPoseCorrection(frame(0).data, {
+      ...DEFAULT_POSE_CORRECTION,
+      moveX: 1,
+      moveY: -2,
+      moveZ: 3,
+    });
+
+    expect(corrected.hips.position.toArray()).toEqual([1, -2, 3]);
+  });
+
   it("mirrors paired limb quaternions", () => {
     const source = frame(0).data;
     const corrected = applyPoseCorrection(source, {
@@ -113,6 +124,16 @@ describe("pose edit utilities", () => {
     const leftArm = edited.bones.find((bone) => bone.boneKey === "leftArm");
 
     expectQuaternionClose(leftArm!.quaternion, quat(0, 45, 0));
+  });
+
+  it("applies per-bone position overrides", () => {
+    const edited = applyPoseBoneOverrides(frame(0).data, {
+      leftArm: { x: 0, y: 45, z: 0, position: { x: 1, y: 2, z: 3 } },
+    });
+    const leftArm = edited.bones.find((bone) => bone.boneKey === "leftArm");
+
+    expectQuaternionClose(leftArm!.quaternion, quat(0, 45, 0));
+    expect(leftArm!.position?.toArray()).toEqual([1, 2, 3]);
   });
 
   it("deletes frames and shifts override indexes", () => {

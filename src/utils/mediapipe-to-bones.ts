@@ -88,6 +88,7 @@ export function landmarksToJointPositions(
 export interface BoneFrame {
   boneKey: keyof BoneRemap;
   boneName: string;
+  position?: THREE.Vector3;
   quaternion: THREE.Quaternion;
 }
 

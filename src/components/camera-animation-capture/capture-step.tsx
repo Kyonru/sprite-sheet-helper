@@ -146,6 +146,7 @@ function clonePoseData(pose: PoseBoneData): PoseBoneData {
     bones: pose.bones.map((bone) => ({
       boneKey: bone.boneKey,
       boneName: bone.boneName,
+      position: bone.position?.clone(),
       quaternion: bone.quaternion.clone(),
     })),
   };
@@ -373,6 +374,9 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
       bones: pose.bones.map((bone) => ({
         boneKey: bone.boneKey,
         boneName: bone.boneName,
+        position: bone.position
+          ? smootherRef.current.smoothVec(`${bone.boneName}.pos`, bone.position)
+          : undefined,
         quaternion: smootherRef.current.smoothQuat(
           bone.boneName,
           bone.quaternion,

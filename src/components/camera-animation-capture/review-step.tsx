@@ -5,7 +5,9 @@ import {
   Clipboard,
   ClipboardPaste,
   FlipHorizontal,
+  Move3D,
   Redo2,
+  Rotate3D,
   RotateCcw,
   Settings2,
   Undo2,
@@ -25,6 +27,7 @@ import {
   copyPoseFrameOverrides,
   deletePoseFrame,
   getPoseBoneEuler,
+  getPoseBonePosition,
   pastePoseFrameOverrides,
   quaternionToEulerDeg,
   resetPoseBoneOverride,
@@ -32,6 +35,7 @@ import {
   setPoseBoneOverride,
   trimPoseFramesAfter,
   trimPoseFramesBefore,
+  vectorToPositionOverride,
   type PoseBoneOverride,
   type PoseEditDraft,
   type PoseFrameOverrides,
@@ -47,28 +51,52 @@ type HistoryState = {
 interface BoneSliderRowProps {
   label: string;
   value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
   onChange: (value: number) => void;
 }
 
-function BoneSliderRow({ label, value, onChange }: BoneSliderRowProps) {
+function BoneSliderRow({
+  label,
+  value,
+  min = -180,
+  max = 180,
+  step = 1,
+  onEditStart,
+  onEditEnd,
+  onChange,
+}: BoneSliderRowProps) {
   return (
     <label className="grid grid-cols-[1.5rem_1fr_3rem] items-center gap-2 text-xs">
       <span className="text-muted-foreground text-right">{label}</span>
       <input
         type="range"
-        min={-180}
-        max={180}
-        step={1}
+        min={min}
+        max={max}
+        step={step}
         value={value}
+        onFocus={onEditStart}
+        onBlur={onEditEnd}
+        onPointerDown={onEditStart}
+        onPointerUp={onEditEnd}
+        onPointerCancel={onEditEnd}
         onChange={(event) => onChange(Number(event.target.value))}
         className="accent-primary"
       />
       <input
         type="number"
-        min={-180}
-        max={180}
-        step={1}
+        min={min}
+        max={max}
+        step={step}
         value={value}
+        onFocus={onEditStart}
+        onBlur={onEditEnd}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onEditEnd?.();
+        }}
         onChange={(event) => onChange(Number(event.target.value))}
         className="h-7 rounded border bg-background px-1 text-right tabular-nums"
       />
@@ -102,11 +130,18 @@ export function ReviewStep({
   });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedBone, setSelectedBone] = useState<string | null>(null);
+  const [transformMode, setTransformMode] = useState<"rotate" | "translate">(
+    "rotate",
+  );
+  const [globalTransformMode, setGlobalTransformMode] = useState<
+    "rotate" | "translate"
+  >("rotate");
   const [copiedPose, setCopiedPose] = useState<PoseFrameOverrides | null>(null);
 
   const landmarksRef =
     useRef<import("@mediapipe/tasks-vision").NormalizedLandmark[] | null>(null);
   const staticPoseRef = useRef<PoseBoneData | null>(null);
+  const historyTransactionRef = useRef<PoseEditDraft | null>(null);
 
   const clampedIndex = Math.min(
     currentIndex,
@@ -133,6 +168,14 @@ export function ReviewStep({
         selectedBoneKey,
       )
     : { x: 0, y: 0, z: 0 };
+  const selectedBonePosition = selectedBoneKey
+    ? getPoseBonePosition(
+        currentFrame,
+        draft.correction,
+        frameOverrides,
+        selectedBoneKey,
+      )
+    : { x: 0, y: 0, z: 0 };
 
   const mappedBoneKeys = useMemo(
     () => new Set(currentBones.map((bone) => bone.boneKey)),
@@ -152,18 +195,43 @@ export function ReviewStep({
     }
   }, [currentBones, selectedBoneKey]);
 
+  const pushHistory = (previous: PoseEditDraft) => {
+    setHistory((state) => ({
+      past: [...state.past, previous].slice(-60),
+      future: [],
+    }));
+  };
+
+  const beginHistoryTransaction = () => {
+    setDraft((current) => {
+      if (!historyTransactionRef.current) {
+        historyTransactionRef.current = current;
+      }
+      return current;
+    });
+  };
+
+  const endHistoryTransaction = () => {
+    setDraft((current) => {
+      const previous = historyTransactionRef.current;
+      historyTransactionRef.current = null;
+      if (previous && previous !== current) pushHistory(previous);
+      return current;
+    });
+  };
+
   const commitDraft = (updater: (current: PoseEditDraft) => PoseEditDraft) => {
     setDraft((current) => {
       const next = updater(current);
-      setHistory((state) => ({
-        past: [...state.past, current].slice(-60),
-        future: [],
-      }));
+      if (next !== current && !historyTransactionRef.current) {
+        pushHistory(current);
+      }
       return next;
     });
   };
 
   const undo = () => {
+    historyTransactionRef.current = null;
     setHistory((state) => {
       const previous = state.past.at(-1);
       if (!previous) return state;
@@ -181,6 +249,7 @@ export function ReviewStep({
   };
 
   const redo = () => {
+    historyTransactionRef.current = null;
     setHistory((state) => {
       const next = state.future[0];
       if (!next) return state;
@@ -213,14 +282,40 @@ export function ReviewStep({
         current.overrides,
         clampedIndex,
         boneKey,
-        euler,
+        {
+          ...euler,
+          position: current.overrides[clampedIndex]?.[boneKey]?.position,
+        },
       ),
     }));
   };
 
+  const setBonePosition = (
+    boneKey: string,
+    position: NonNullable<PoseBoneOverride["position"]>,
+  ) => {
+    commitDraft((current) => {
+      const rotation = getPoseBoneEuler(
+        current.frames[clampedIndex],
+        current.correction,
+        current.overrides[clampedIndex] ?? {},
+        boneKey,
+      );
+      return {
+        ...current,
+        overrides: setPoseBoneOverride(
+          current.overrides,
+          clampedIndex,
+          boneKey,
+          { ...rotation, position },
+        ),
+      };
+    });
+  };
+
   const setBoneAxis = (
     boneKey: string,
-    axis: keyof PoseBoneOverride,
+    axis: "x" | "y" | "z",
     value: number,
   ) => {
     const current = getPoseBoneEuler(
@@ -230,6 +325,20 @@ export function ReviewStep({
       boneKey,
     );
     setBoneEuler(boneKey, { ...current, [axis]: value });
+  };
+
+  const setBonePositionAxis = (
+    boneKey: string,
+    axis: keyof NonNullable<PoseBoneOverride["position"]>,
+    value: number,
+  ) => {
+    const current = getPoseBonePosition(
+      currentFrame,
+      draft.correction,
+      frameOverrides,
+      boneKey,
+    );
+    setBonePosition(boneKey, { ...current, [axis]: value });
   };
 
   const resetBone = (boneKey: string) => {
@@ -265,7 +374,11 @@ export function ReviewStep({
       });
       const overrides: PoseFrameOverrides = {};
       mirrored.bones.forEach((bone) => {
-        overrides[bone.boneKey] = quaternionToEulerDeg(bone.quaternion);
+        const override = quaternionToEulerDeg(bone.quaternion);
+        if (bone.position) {
+          override.position = vectorToPositionOverride(bone.position);
+        }
+        overrides[bone.boneKey] = override;
       });
       return {
         ...current,
@@ -340,9 +453,13 @@ export function ReviewStep({
               landmarksRef={landmarksRef}
               remap={remap}
               staticPoseRef={staticPoseRef}
+              transformMode={transformMode}
               selectedBoneKey={selectedBoneKey}
               onSelectBone={setSelectedBone}
               onBoneEulerChange={setBoneEuler}
+              onBonePositionChange={setBonePosition}
+              onGizmoEditStart={beginHistoryTransaction}
+              onGizmoEditEnd={endHistoryTransaction}
             />
           </div>
 
@@ -479,27 +596,98 @@ export function ReviewStep({
             <div className="flex flex-col gap-2 p-3">
               {selectedBoneKey ? (
                 <>
-                  <BoneSliderRow
-                    label="X"
-                    value={selectedBoneEuler.x}
-                    onChange={(value) =>
-                      setBoneAxis(selectedBoneKey, "x", value)
-                    }
-                  />
-                  <BoneSliderRow
-                    label="Y"
-                    value={selectedBoneEuler.y}
-                    onChange={(value) =>
-                      setBoneAxis(selectedBoneKey, "y", value)
-                    }
-                  />
-                  <BoneSliderRow
-                    label="Z"
-                    value={selectedBoneEuler.z}
-                    onChange={(value) =>
-                      setBoneAxis(selectedBoneKey, "z", value)
-                    }
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={transformMode === "rotate" ? "secondary" : "outline"}
+                      onClick={() => setTransformMode("rotate")}
+                    >
+                      <Rotate3D size={14} />
+                      Rotate
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={
+                        transformMode === "translate" ? "secondary" : "outline"
+                      }
+                      onClick={() => setTransformMode("translate")}
+                    >
+                      <Move3D size={14} />
+                      Move
+                    </Button>
+                  </div>
+                  {transformMode === "rotate" ? (
+                    <>
+                      <BoneSliderRow
+                        label="X"
+                        value={selectedBoneEuler.x}
+                        onEditStart={beginHistoryTransaction}
+                        onEditEnd={endHistoryTransaction}
+                        onChange={(value) =>
+                          setBoneAxis(selectedBoneKey, "x", value)
+                        }
+                      />
+                      <BoneSliderRow
+                        label="Y"
+                        value={selectedBoneEuler.y}
+                        onEditStart={beginHistoryTransaction}
+                        onEditEnd={endHistoryTransaction}
+                        onChange={(value) =>
+                          setBoneAxis(selectedBoneKey, "y", value)
+                        }
+                      />
+                      <BoneSliderRow
+                        label="Z"
+                        value={selectedBoneEuler.z}
+                        onEditStart={beginHistoryTransaction}
+                        onEditEnd={endHistoryTransaction}
+                        onChange={(value) =>
+                          setBoneAxis(selectedBoneKey, "z", value)
+                        }
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <BoneSliderRow
+                        label="X"
+                        min={-100}
+                        max={100}
+                        step={0.1}
+                        value={selectedBonePosition.x}
+                        onEditStart={beginHistoryTransaction}
+                        onEditEnd={endHistoryTransaction}
+                        onChange={(value) =>
+                          setBonePositionAxis(selectedBoneKey, "x", value)
+                        }
+                      />
+                      <BoneSliderRow
+                        label="Y"
+                        min={-100}
+                        max={100}
+                        step={0.1}
+                        value={selectedBonePosition.y}
+                        onEditStart={beginHistoryTransaction}
+                        onEditEnd={endHistoryTransaction}
+                        onChange={(value) =>
+                          setBonePositionAxis(selectedBoneKey, "y", value)
+                        }
+                      />
+                      <BoneSliderRow
+                        label="Z"
+                        min={-100}
+                        max={100}
+                        step={0.1}
+                        value={selectedBonePosition.z}
+                        onEditStart={beginHistoryTransaction}
+                        onEditEnd={endHistoryTransaction}
+                        onChange={(value) =>
+                          setBonePositionAxis(selectedBoneKey, "z", value)
+                        }
+                      />
+                    </>
+                  )}
                   <div className="flex gap-2 pt-1">
                     <Button
                       size="sm"
@@ -599,21 +787,90 @@ export function ReviewStep({
               Global Correction
             </div>
             <div className="flex flex-col gap-2 p-3">
-              <BoneSliderRow
-                label="X"
-                value={draft.correction.rotX}
-                onChange={(value) => updateCorrection({ rotX: value })}
-              />
-              <BoneSliderRow
-                label="Y"
-                value={draft.correction.rotY}
-                onChange={(value) => updateCorrection({ rotY: value })}
-              />
-              <BoneSliderRow
-                label="Z"
-                value={draft.correction.rotZ}
-                onChange={(value) => updateCorrection({ rotZ: value })}
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    globalTransformMode === "rotate" ? "secondary" : "outline"
+                  }
+                  onClick={() => setGlobalTransformMode("rotate")}
+                >
+                  <Rotate3D size={14} />
+                  Rotate
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    globalTransformMode === "translate"
+                      ? "secondary"
+                      : "outline"
+                  }
+                  onClick={() => setGlobalTransformMode("translate")}
+                >
+                  <Move3D size={14} />
+                  Move
+                </Button>
+              </div>
+              {globalTransformMode === "rotate" ? (
+                <>
+                  <BoneSliderRow
+                    label="X"
+                    value={draft.correction.rotX}
+                    onEditStart={beginHistoryTransaction}
+                    onEditEnd={endHistoryTransaction}
+                    onChange={(value) => updateCorrection({ rotX: value })}
+                  />
+                  <BoneSliderRow
+                    label="Y"
+                    value={draft.correction.rotY}
+                    onEditStart={beginHistoryTransaction}
+                    onEditEnd={endHistoryTransaction}
+                    onChange={(value) => updateCorrection({ rotY: value })}
+                  />
+                  <BoneSliderRow
+                    label="Z"
+                    value={draft.correction.rotZ}
+                    onEditStart={beginHistoryTransaction}
+                    onEditEnd={endHistoryTransaction}
+                    onChange={(value) => updateCorrection({ rotZ: value })}
+                  />
+                </>
+              ) : (
+                <>
+                  <BoneSliderRow
+                    label="X"
+                    min={-100}
+                    max={100}
+                    step={0.1}
+                    value={draft.correction.moveX ?? 0}
+                    onEditStart={beginHistoryTransaction}
+                    onEditEnd={endHistoryTransaction}
+                    onChange={(value) => updateCorrection({ moveX: value })}
+                  />
+                  <BoneSliderRow
+                    label="Y"
+                    min={-100}
+                    max={100}
+                    step={0.1}
+                    value={draft.correction.moveY ?? 0}
+                    onEditStart={beginHistoryTransaction}
+                    onEditEnd={endHistoryTransaction}
+                    onChange={(value) => updateCorrection({ moveY: value })}
+                  />
+                  <BoneSliderRow
+                    label="Z"
+                    min={-100}
+                    max={100}
+                    step={0.1}
+                    value={draft.correction.moveZ ?? 0}
+                    onEditStart={beginHistoryTransaction}
+                    onEditEnd={endHistoryTransaction}
+                    onChange={(value) => updateCorrection({ moveZ: value })}
+                  />
+                </>
+              )}
             </div>
           </section>
         </div>

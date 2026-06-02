@@ -101,4 +101,35 @@ describe("buildAnimationClip", () => {
       ]),
     );
   });
+
+  it("creates bone position tracks when pose frames include moved bones", () => {
+    const frames: PoseFrame[] = [0, 0.5].map((time) => ({
+      time,
+      data: {
+        hips: {
+          boneName: "mixamorigHips",
+          position: new THREE.Vector3(0, 0, 0),
+          quaternion: new THREE.Quaternion(),
+        },
+        bones: [
+          {
+            boneKey: "leftArm",
+            boneName: "mixamorigLeftArm",
+            position: new THREE.Vector3(time, 2, 3),
+            quaternion: new THREE.Quaternion(),
+          },
+        ],
+      },
+    }));
+
+    const clip = buildAnimationClip(frames, "Moved Pose");
+    const positionTrack = clip.tracks.find(
+      (track) => track.name === "mixamorigLeftArm.position",
+    );
+
+    expect(positionTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
+    expect(positionTrack?.values).toEqual(
+      new Float32Array([0, 2, 3, 0.5, 2, 3]),
+    );
+  });
 });

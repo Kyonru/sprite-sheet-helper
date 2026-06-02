@@ -9,6 +9,9 @@ export type PoseCorrection = {
   rotX: number;
   rotY: number;
   rotZ: number;
+  moveX?: number;
+  moveY?: number;
+  moveZ?: number;
   mirror: boolean;
 };
 
@@ -16,6 +19,11 @@ export type PoseBoneOverride = {
   x: number;
   y: number;
   z: number;
+  position?: {
+    x: number;
+    y: number;
+    z: number;
+  };
 };
 
 export type PoseFrameOverrides = Record<string, PoseBoneOverride>;
@@ -31,6 +39,9 @@ export const DEFAULT_POSE_CORRECTION: PoseCorrection = {
   rotX: 0,
   rotY: 0,
   rotZ: 0,
+  moveX: 0,
+  moveY: 0,
+  moveZ: 0,
   mirror: false,
 };
 
@@ -101,6 +112,15 @@ export function applyPoseCorrection(
     corrQuat,
     pose.hips.quaternion,
   );
+  const hipsPosition = pose.hips.position
+    .clone()
+    .add(
+      new THREE.Vector3(
+        correction.moveX ?? 0,
+        correction.moveY ?? 0,
+        correction.moveZ ?? 0,
+      ),
+    );
 
   let bones: BoneFrame[] = pose.bones;
   if (correction.mirror) {
@@ -126,7 +146,7 @@ export function applyPoseCorrection(
   }
 
   return {
-    hips: { ...pose.hips, quaternion: hipsQuat },
+    hips: { ...pose.hips, position: hipsPosition, quaternion: hipsQuat },
     bones,
   };
 }
@@ -148,6 +168,22 @@ export function quaternionToEulerDeg(
   };
 }
 
+export function vectorToPositionOverride(
+  vector: THREE.Vector3,
+): NonNullable<PoseBoneOverride["position"]> {
+  return {
+    x: Number(vector.x.toFixed(3)),
+    y: Number(vector.y.toFixed(3)),
+    z: Number(vector.z.toFixed(3)),
+  };
+}
+
+export function positionOverrideToVector(
+  position: NonNullable<PoseBoneOverride["position"]>,
+): THREE.Vector3 {
+  return new THREE.Vector3(position.x, position.y, position.z);
+}
+
 export function applyPoseBoneOverrides(
   pose: PoseBoneData,
   overrides: PoseFrameOverrides,
@@ -160,6 +196,9 @@ export function applyPoseBoneOverrides(
       if (!override) return bone;
       return {
         ...bone,
+        position: override.position
+          ? positionOverrideToVector(override.position)
+          : bone.position?.clone(),
         quaternion: eulerDegToQuaternion(override),
       };
     }),
@@ -327,4 +366,21 @@ export function getPoseBoneEuler(
   const corrected = applyPoseCorrection(frame.data, correction);
   const bone = corrected.bones.find((item) => item.boneKey === boneKey);
   return bone ? quaternionToEulerDeg(bone.quaternion) : { x: 0, y: 0, z: 0 };
+}
+
+export function getPoseBonePosition(
+  frame: PoseFrame | undefined,
+  correction: PoseCorrection,
+  frameOverrides: PoseFrameOverrides,
+  boneKey: string,
+): NonNullable<PoseBoneOverride["position"]> {
+  const existing = frameOverrides[boneKey]?.position;
+  if (existing) return existing;
+  if (!frame) return { x: 0, y: 0, z: 0 };
+
+  const corrected = applyPoseCorrection(frame.data, correction);
+  const bone = corrected.bones.find((item) => item.boneKey === boneKey);
+  return bone?.position
+    ? vectorToPositionOverride(bone.position)
+    : { x: 0, y: 0, z: 0 };
 }

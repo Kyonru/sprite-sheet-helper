@@ -17,6 +17,7 @@ import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 import type { ModelComponent } from "@/types/ecs";
 import {
   quaternionToEulerDeg,
+  vectorToPositionOverride,
   type PoseBoneOverride,
 } from "@/utils/pose-edit";
 import {
@@ -64,6 +65,7 @@ function buildPoseDataFromRig(rigMap: RigRetargetMap, rootMotion?: boolean) {
     bones.push({
       boneKey: key,
       boneName: boneData.boneName,
+      position: boneData.bone.position.clone(),
       quaternion: boneData.bone.quaternion.clone(),
     });
   });
@@ -98,6 +100,7 @@ function applyPoseDataToRig(
   for (const frame of pose.bones) {
     const boneData = rigMap.bones.get(frame.boneKey);
     if (!boneData) continue;
+    if (frame.position) boneData.bone.position.copy(frame.position);
     boneData.bone.quaternion.copy(frame.quaternion);
     boneData.bone.updateMatrix();
   }
@@ -164,7 +167,8 @@ function PosedModel({
     // Static playback mode — apply stored bone quaternions directly and skip live detection
     const staticPose = staticPoseRef?.current;
     if (staticPose) {
-      rigMap.bones.forEach(({ bone, restQuat }) => {
+      rigMap.bones.forEach(({ bone, restPosition, restQuat }) => {
+        bone.position.copy(restPosition);
         bone.quaternion.copy(restQuat);
         bone.updateMatrix();
       });
@@ -239,7 +243,8 @@ function PosedModel({
     };
 
     // 1. Reset ALL bones to rest pose so we don't accumulate rotations
-    rigMap.bones.forEach(({ bone, restQuat }) => {
+    rigMap.bones.forEach(({ bone, restPosition, restQuat }) => {
+      bone.position.copy(restPosition);
       bone.quaternion.copy(restQuat);
       bone.updateMatrix();
     });
@@ -469,17 +474,28 @@ function BoneHandle({
 type PoseEditLayerProps = {
   object: THREE.Object3D;
   remap: BoneRemap;
+  transformMode?: "rotate" | "translate";
   selectedBoneKey?: string | null;
   onSelectBone?: (boneKey: string) => void;
   onBoneEulerChange?: (boneKey: string, euler: PoseBoneOverride) => void;
+  onBonePositionChange?: (
+    boneKey: string,
+    position: NonNullable<PoseBoneOverride["position"]>,
+  ) => void;
+  onGizmoEditStart?: () => void;
+  onGizmoEditEnd?: () => void;
 };
 
 function PoseEditLayer({
   object,
   remap,
+  transformMode = "rotate",
   selectedBoneKey,
   onSelectBone,
   onBoneEulerChange,
+  onBonePositionChange,
+  onGizmoEditStart,
+  onGizmoEditEnd,
 }: PoseEditLayerProps) {
   const boneMap = useMemo(() => buildPreferredNamedObjectMap(object), [object]);
   const entries = useMemo(
@@ -517,15 +533,23 @@ function PoseEditLayer({
       {selectedBone && selectedBoneKey && (
         <TransformControls
           object={selectedBone}
-          mode="rotate"
+          mode={transformMode}
           space="local"
           size={0.65}
-          onObjectChange={() =>
+          onMouseDown={onGizmoEditStart}
+          onMouseUp={onGizmoEditEnd}
+          onObjectChange={() => {
             onBoneEulerChange?.(
               selectedBoneKey,
               quaternionToEulerDeg(selectedBone.quaternion),
-            )
-          }
+            );
+            if (transformMode === "translate") {
+              onBonePositionChange?.(
+                selectedBoneKey,
+                vectorToPositionOverride(selectedBone.position),
+              );
+            }
+          }}
         />
       )}
     </>
@@ -542,9 +566,16 @@ interface Props {
   calibrationRef?: React.RefObject<PoseCalibration | null>;
   calibrationRequestId?: number;
   onCalibrationReady?: (calibration: PoseCalibration) => void;
+  transformMode?: "rotate" | "translate";
   selectedBoneKey?: string | null;
   onSelectBone?: (boneKey: string) => void;
   onBoneEulerChange?: (boneKey: string, euler: PoseBoneOverride) => void;
+  onBonePositionChange?: (
+    boneKey: string,
+    position: NonNullable<PoseBoneOverride["position"]>,
+  ) => void;
+  onGizmoEditStart?: () => void;
+  onGizmoEditEnd?: () => void;
 }
 
 export function ModelPreview({
@@ -557,9 +588,13 @@ export function ModelPreview({
   calibrationRef,
   calibrationRequestId,
   onCalibrationReady,
+  transformMode,
   selectedBoneKey,
   onSelectBone,
   onBoneEulerChange,
+  onBonePositionChange,
+  onGizmoEditStart,
+  onGizmoEditEnd,
 }: Props) {
   const model = useModelsStore((s) => s.models[modelUuid]);
   const [object, setObject] = useState<THREE.Object3D | null>(null);
@@ -633,9 +668,13 @@ export function ModelPreview({
         <PoseEditLayer
           object={object}
           remap={remap}
+          transformMode={transformMode}
           selectedBoneKey={selectedBoneKey}
           onSelectBone={onSelectBone}
           onBoneEulerChange={onBoneEulerChange}
+          onBonePositionChange={onBonePositionChange}
+          onGizmoEditStart={onGizmoEditStart}
+          onGizmoEditEnd={onGizmoEditEnd}
         />
       )}
       <Grid

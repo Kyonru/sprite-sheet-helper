@@ -59,6 +59,24 @@ export function buildAnimationClip(
     });
 
     tracks.push(new THREE.QuaternionKeyframeTrack(`${boneName}.quaternion`, times, values));
+
+    const firstPosition = clipFrames
+      .flatMap((f) => f.data.bones.filter((b) => b.boneKey === boneKey))
+      .find((bone) => bone.position)?.position;
+    if (firstPosition) {
+      const positionValues = clipFrames.flatMap((f) => {
+        const bone = f.data.bones.find((b) => b.boneKey === boneKey);
+        const position = bone?.position ?? firstPosition;
+        return [position.x, position.y, position.z];
+      });
+      tracks.push(
+        new THREE.VectorKeyframeTrack(
+          `${boneName}.position`,
+          times,
+          positionValues,
+        ),
+      );
+    }
   }
 
   return new THREE.AnimationClip(name, duration, tracks);
