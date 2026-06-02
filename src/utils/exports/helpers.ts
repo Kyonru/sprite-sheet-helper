@@ -7,6 +7,43 @@ type BuildSpritesheetAssetsOptions = {
   normalImageName?: string;
 };
 
+export type NormalCoverageStatus = "ready" | "partial" | "missing";
+
+export type NormalCoverage = {
+  totalFrames: number;
+  normalFrames: number;
+  missingFrames: number;
+  status: NormalCoverageStatus;
+};
+
+export function getNormalCoverage(rows: ExportRow[]): NormalCoverage {
+  const totalFrames = rows.reduce((acc, row) => acc + row.images.length, 0);
+  const normalFrames = rows.reduce(
+    (acc, row) =>
+      acc +
+      row.images.filter((_, index) => Boolean(row.normalImages?.[index]))
+        .length,
+    0,
+  );
+  const missingFrames = totalFrames - normalFrames;
+
+  return {
+    totalFrames,
+    normalFrames,
+    missingFrames,
+    status:
+      normalFrames === totalFrames && totalFrames > 0
+        ? "ready"
+        : normalFrames > 0
+          ? "partial"
+          : "missing",
+  };
+}
+
+export function getNormalCoverageForRow(row: ExportRow): NormalCoverage {
+  return getNormalCoverage([row]);
+}
+
 export async function buildZip(
   populate: (zip: JSZip) => Promise<void> | void,
 ): Promise<string> {

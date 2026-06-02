@@ -37,8 +37,15 @@ In the export panel you can control:
 
 - **Frame width / height** — Output size of each frame in pixels.
 - **FPS** — Frames per second used when exporting animated formats (GIF, engine integrations).
+- **Capture normal maps** — Captures a matching camera-space normal frame when recording or adding frames. Turn this on before capturing if you want real normal data.
 - **Padding** — Pixel gap between frames in the sprite sheet grid.
 - **Background** — Transparent or solid color background.
+
+## Normal Map Exports
+
+When **Capture normal maps** is enabled, atlas-style exports include a matching `spritesheet_normal.png` alongside `spritesheet.png`. The normal atlas uses the same frame layout as the color atlas.
+
+Normal maps are captured at frame creation time. Existing color-only frames do not gain real normal data just by turning the option on later; they export as transparent placeholder normal frames until you recapture or add them again with normal capture enabled.
 
 ## Tips
 

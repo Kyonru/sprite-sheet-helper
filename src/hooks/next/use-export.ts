@@ -8,8 +8,22 @@ import { useSettingsStore } from "@/store/next/settings";
 import { useImagesStore } from "@/store/next/images";
 import type { ExportFormat } from "@/types/file";
 import { exporters } from "@/utils/exports";
-import { buildZip } from "@/utils/exports/helpers";
+import { buildZip, getNormalCoverage } from "@/utils/exports/helpers";
 import { downloadFile } from "@/utils/assets";
+import { toast } from "sonner";
+
+const NORMAL_MAP_EXPORT_FORMATS = new Set<ExportFormat>([
+  "spritesheet",
+  "love2d-lua",
+  "love2d-anim8",
+  "turbo",
+  "bevy",
+  "phaser",
+  "godot",
+  "pygame",
+  "raylib",
+  "unity",
+]);
 
 export const useExport = () => {
   const images = useRef<{ name: string; dataURL: string }[]>([]);
@@ -117,6 +131,20 @@ export const useExport = () => {
           frameDelay,
           includeNormalMap: exportNormalMap,
         });
+
+        if (exportNormalMap && NORMAL_MAP_EXPORT_FORMATS.has(exportType)) {
+          const coverage = getNormalCoverage(exportedImages);
+          if (coverage.totalFrames > 0 && coverage.normalFrames === 0) {
+            toast.warning("Normal atlas uses placeholder frames", {
+              description:
+                "No captured frames have normal maps. Turn on Capture normal maps before recording or adding frames, then recapture for real normal data.",
+            });
+          } else if (coverage.missingFrames > 0) {
+            toast.warning("Normal atlas has placeholder frames", {
+              description: `${coverage.missingFrames} of ${coverage.totalFrames} frames are missing captured normals. Recapture those frames with Capture normal maps enabled for complete normal data.`,
+            });
+          }
+        }
 
         const zipData = await buildZip((zip) => {
           for (const file of result.files) {

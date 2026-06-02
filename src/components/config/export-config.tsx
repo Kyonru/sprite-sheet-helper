@@ -140,7 +140,7 @@ export const ExportConfig = () => {
             step: 1,
           },
           exportNormalMap: {
-            label: "Normal map",
+            label: "Capture normal maps",
             value: exportNormalMapDefault,
           },
           preview: carousel(),

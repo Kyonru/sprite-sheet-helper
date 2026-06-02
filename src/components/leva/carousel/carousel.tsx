@@ -46,6 +46,10 @@ import { reorderItems } from "@/components/animation-reorder-modal";
 import { addDataToImageIfNeeded } from "@/utils/images";
 import { Field, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  getNormalCoverageForRow,
+  type NormalCoverageStatus,
+} from "@/utils/exports/helpers";
 
 const { Row } = Components;
 
@@ -158,15 +162,30 @@ const CarrouselRow = ({
   images,
   name,
   label,
+  normalStatus,
   selected,
   onClick,
 }: {
   images: string[];
   name: string;
   label: string;
+  normalStatus: NormalCoverageStatus;
   selected: boolean;
   onClick: () => void;
 }) => {
+  const normalStatusClass =
+    normalStatus === "ready"
+      ? "text-chart-2"
+      : normalStatus === "partial"
+        ? "text-chart-4"
+        : "text-muted-foreground";
+  const normalStatusLabel =
+    normalStatus === "ready"
+      ? "Ready"
+      : normalStatus === "partial"
+        ? "Partial"
+        : "Missing";
+
   return (
     <div
       className={`flex flex-row w-full h-10 gap-2 items-center pl-2 pr-2 rounded-md ${
@@ -178,6 +197,9 @@ const CarrouselRow = ({
       <Label className="w-24 text-ellipsis truncate" htmlFor="option-two">
         {label}
       </Label>
+      <span className={`w-20 shrink-0 text-[10px] ${normalStatusClass}`}>
+        Normals: {normalStatusLabel}
+      </span>
       <div className="relative h-10 flex flex-1 gap-2 overflow-hidden">
         {images?.slice(0, 10).map(
           (imageSrc, i) =>
@@ -331,6 +353,7 @@ export const LevaCarousel = () => {
                 images={row.images}
                 name={row.label || ""}
                 label={row.label}
+                normalStatus={getNormalCoverageForRow(row).status}
                 selected={selectedRow === index}
                 onClick={() => {
                   setSelectedRow(index);

@@ -60,6 +60,7 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 | --port           | number | 4174        | Local preview server port                |
 | --workflow       | string | —           | Workflow preset ID (see workflows below) |
 | --cameraDistance | number | 5           | Camera distance from model origin        |
+| --normalMap      | string | false       | Capture and export a matching normal atlas |
 | --phi            | number | —           | Camera elevation angle in degrees        |
 
 ## Export Formats
@@ -80,6 +81,8 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 | turbo        | spritesheet.json       | Turbo engine format                        |
 
 **Format aliases:** `bevy-rust` → `bevy`, `love2d` → `love2d-lua`, `anim8` → `love2d-anim8`
+
+Use `--normalMap true` before capture to include real camera-space normal data in atlas-style exports. Frames captured without normal maps export as transparent placeholders in `spritesheet_normal.png`.
 
 ## Workflows
 
