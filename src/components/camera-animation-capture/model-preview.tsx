@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Grid, TransformControls } from "@react-three/drei";
@@ -19,7 +19,23 @@ import {
   quaternionToEulerDeg,
   vectorToPositionOverride,
   type PoseBoneOverride,
+  type PoseFrameOverrides,
 } from "@/utils/pose-edit";
+import {
+  IK_POLE_TARGET_EFFECTORS,
+  bakeIkResultToOverrides,
+  buildIkRigFromRemap,
+  createIkDebugSnapshot,
+  createIkPoleTargetsFromPose,
+  createIkTargetsFromPose,
+  getIkAvailability,
+  solveFullBodyIk,
+  type IkAvailability,
+  type IkDebugSnapshot,
+  type IkEditableTargetKey,
+  type IkPoleTargetKey,
+  type IkSolveResult,
+} from "@/utils/pose-ik";
 import {
   applyPoseCalibration,
   applyRetargetedPose,
@@ -471,17 +487,113 @@ function BoneHandle({
   );
 }
 
+function isIkPoleTargetKey(
+  key: IkEditableTargetKey | null | undefined,
+): key is IkPoleTargetKey {
+  return Boolean(key && key in IK_POLE_TARGET_EFFECTORS);
+}
+
+function syncIkTargetObject(
+  map: Map<IkEditableTargetKey, THREE.Mesh>,
+  key: IkEditableTargetKey,
+  position: THREE.Vector3,
+  draggingTarget: IkEditableTargetKey | null,
+) {
+  const object = map.get(key);
+  if (!object) return undefined;
+  if (draggingTarget !== key) {
+    object.position.copy(position);
+    object.updateMatrixWorld(true);
+  }
+  return object;
+}
+
+function isFiniteVector(vector: THREE.Vector3) {
+  return (
+    Number.isFinite(vector.x) &&
+    Number.isFinite(vector.y) &&
+    Number.isFinite(vector.z)
+  );
+}
+
+type IkHandleProps = {
+  targetKey: IkEditableTargetKey;
+  position: THREE.Vector3;
+  label: string;
+  selected: boolean;
+  pole?: boolean;
+  onObjectReady: (key: IkEditableTargetKey, object: THREE.Mesh | null) => void;
+  onSelect: () => void;
+};
+
+function IkHandle({
+  targetKey,
+  position,
+  label,
+  selected,
+  pole,
+  onObjectReady,
+  onSelect,
+}: IkHandleProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    mesh.name = `pose-ik-${targetKey}`;
+    onObjectReady(targetKey, mesh);
+    return () => onObjectReady(targetKey, null);
+  }, [onObjectReady, targetKey]);
+
+  const onClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    onSelect();
+  };
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={position}
+      onClick={onClick}
+      renderOrder={32}
+      userData={{ label }}
+    >
+      {pole ? (
+        <octahedronGeometry args={[selected ? 0.06 : 0.045, 0]} />
+      ) : (
+        <sphereGeometry args={[selected ? 0.075 : 0.055, 20, 20]} />
+      )}
+      <meshBasicMaterial
+        color={selected ? "#f97316" : pole ? "#facc15" : "#a78bfa"}
+        depthTest={false}
+        transparent
+        opacity={selected ? 1 : 0.85}
+      />
+    </mesh>
+  );
+}
+
 type PoseEditLayerProps = {
   object: THREE.Object3D;
   remap: BoneRemap;
+  editMode?: "fk" | "ik";
   transformMode?: "rotate" | "translate";
   selectedBoneKey?: string | null;
+  selectedIkTargetKey?: IkEditableTargetKey | null;
+  frameOverrides?: PoseFrameOverrides;
   onSelectBone?: (boneKey: string) => void;
+  onSelectIkTarget?: (targetKey: IkEditableTargetKey) => void;
   onBoneEulerChange?: (boneKey: string, euler: PoseBoneOverride) => void;
   onBonePositionChange?: (
     boneKey: string,
     position: NonNullable<PoseBoneOverride["position"]>,
   ) => void;
+  onIkSolveChange?: (
+    overrides: PoseFrameOverrides,
+    result: IkSolveResult,
+  ) => void;
+  onIkStatusChange?: (status: IkAvailability) => void;
+  ikDebugRef?: React.MutableRefObject<IkDebugSnapshot | null>;
   onGizmoEditStart?: () => void;
   onGizmoEditEnd?: () => void;
 };
@@ -489,15 +601,30 @@ type PoseEditLayerProps = {
 function PoseEditLayer({
   object,
   remap,
+  editMode = "fk",
   transformMode = "rotate",
   selectedBoneKey,
+  selectedIkTargetKey,
+  frameOverrides = {},
   onSelectBone,
+  onSelectIkTarget,
   onBoneEulerChange,
   onBonePositionChange,
+  onIkSolveChange,
+  onIkStatusChange,
+  ikDebugRef,
   onGizmoEditStart,
   onGizmoEditEnd,
 }: PoseEditLayerProps) {
   const boneMap = useMemo(() => buildPreferredNamedObjectMap(object), [object]);
+  const ikRig = useMemo(() => buildIkRigFromRemap(object, remap), [object, remap]);
+  const ikStatus = useMemo(() => getIkAvailability(ikRig), [ikRig]);
+  const ikTargetObjectsRef = useRef<Map<IkEditableTargetKey, THREE.Mesh>>(
+    new Map(),
+  );
+  const draggingIkTargetRef = useRef<IkEditableTargetKey | null>(null);
+  const lastIkSolveResultRef = useRef<IkSolveResult | null>(null);
+  const [, setIkHandleRevision] = useState(0);
   const entries = useMemo(
     () =>
       (Object.entries(remap) as [keyof BoneRemap, string][])
@@ -517,20 +644,200 @@ function PoseEditLayer({
     selectedBoneKey && remap[selectedBoneKey as keyof BoneRemap]
       ? boneMap.get(remap[selectedBoneKey as keyof BoneRemap])
       : undefined;
+  const selectedIkObject =
+    editMode === "ik" && selectedIkTargetKey
+      ? ikTargetObjectsRef.current.get(selectedIkTargetKey)
+      : undefined;
+  const selectedEffectorKey = isIkPoleTargetKey(selectedIkTargetKey)
+    ? IK_POLE_TARGET_EFFECTORS[selectedIkTargetKey]
+    : selectedIkTargetKey;
+  const selectedIkChainAvailable =
+    editMode === "ik" &&
+    selectedEffectorKey &&
+    ikRig.chains.get(selectedEffectorKey)?.available;
+
+  useEffect(() => {
+    onIkStatusChange?.(ikStatus);
+  }, [ikStatus, onIkStatusChange]);
+
+  const registerIkTargetObject = useCallback(
+    (key: IkEditableTargetKey, targetObject: THREE.Mesh | null) => {
+      if (targetObject) {
+        ikTargetObjectsRef.current.set(key, targetObject);
+      } else {
+        ikTargetObjectsRef.current.delete(key);
+      }
+      setIkHandleRevision((revision) => revision + 1);
+    },
+    [],
+  );
+
+  useFrame(() => {
+    if (editMode !== "ik") return;
+    const draggingTarget = draggingIkTargetRef.current;
+    for (const target of createIkTargetsFromPose(ikRig)) {
+      if (draggingTarget === target.key) continue;
+      syncIkTargetObject(
+        ikTargetObjectsRef.current,
+        target.key,
+        target.position,
+        draggingTarget,
+      );
+    }
+    for (const poleTarget of createIkPoleTargetsFromPose(ikRig)) {
+      if (
+        draggingTarget === poleTarget.key ||
+        poleTarget.effectorKey !== selectedEffectorKey
+      ) {
+        continue;
+      }
+      syncIkTargetObject(
+        ikTargetObjectsRef.current,
+        poleTarget.key,
+        poleTarget.position,
+        draggingTarget,
+      );
+    }
+    if (ikDebugRef) {
+      const targetPositions = new Map<IkEditableTargetKey, THREE.Vector3>();
+      ikTargetObjectsRef.current.forEach((targetObject, key) => {
+        targetPositions.set(key, targetObject.position.clone());
+      });
+      ikDebugRef.current = createIkDebugSnapshot(ikRig, {
+        selectedTargetKey: selectedIkTargetKey ?? null,
+        selectedEffectorKey: selectedEffectorKey ?? null,
+        draggingTargetKey: draggingTarget,
+        targetPositions,
+        lastSolveResult: lastIkSolveResultRef.current,
+      });
+    }
+  });
+
+  const solveSelectedIkTarget = () => {
+    if (!selectedIkTargetKey) return;
+    const effectorKey = isIkPoleTargetKey(selectedIkTargetKey)
+      ? IK_POLE_TARGET_EFFECTORS[selectedIkTargetKey]
+      : selectedIkTargetKey;
+    const chain = ikRig.chains.get(effectorKey);
+    if (!chain?.available) return;
+
+    const targetObject = ikTargetObjectsRef.current.get(effectorKey);
+    if (!targetObject) return;
+    if (!isFiniteVector(targetObject.position)) {
+      const fallbackTarget = createIkTargetsFromPose(ikRig).find(
+        (target) => target.key === effectorKey,
+      );
+      if (!fallbackTarget || !isFiniteVector(fallbackTarget.position)) return;
+      targetObject.position.copy(fallbackTarget.position);
+      targetObject.updateMatrixWorld(true);
+    }
+    const poleTarget =
+      chain.poleKey && ikTargetObjectsRef.current.has(chain.poleKey)
+        ? (() => {
+            const poleObject = ikTargetObjectsRef.current.get(chain.poleKey);
+            if (!poleObject) return undefined;
+            if (!isFiniteVector(poleObject.position)) {
+              const fallbackPole = createIkPoleTargetsFromPose(ikRig).find(
+                (target) => target.key === chain.poleKey,
+              );
+              if (fallbackPole && isFiniteVector(fallbackPole.position)) {
+                poleObject.position.copy(fallbackPole.position);
+                poleObject.updateMatrixWorld(true);
+              }
+            }
+            return {
+              key: chain.poleKey,
+              effectorKey,
+              label: `${chain.label} pole`,
+              position: poleObject.position.clone(),
+            };
+          })()
+        : undefined;
+    const result = solveFullBodyIk(
+      ikRig,
+      [
+        {
+          key: effectorKey,
+          label: chain.label,
+          position: targetObject.position.clone(),
+        },
+      ],
+      {
+        poleTargets: poleTarget ? [poleTarget] : undefined,
+      },
+    );
+    lastIkSolveResultRef.current = result;
+    const clampedTarget = result.clampedTargets[effectorKey];
+    if (clampedTarget) {
+      targetObject.position.copy(clampedTarget);
+      targetObject.updateMatrixWorld(true);
+    }
+    const overrides = bakeIkResultToOverrides(
+      ikRig,
+      result.affectedBoneKeys,
+      frameOverrides,
+    );
+    if (ikDebugRef) {
+      const targetPositions = new Map<IkEditableTargetKey, THREE.Vector3>();
+      ikTargetObjectsRef.current.forEach((targetObject, key) => {
+        targetPositions.set(key, targetObject.position.clone());
+      });
+      ikDebugRef.current = createIkDebugSnapshot(ikRig, {
+        selectedTargetKey: selectedIkTargetKey,
+        selectedEffectorKey: effectorKey,
+        draggingTargetKey: draggingIkTargetRef.current,
+        targetPositions,
+        lastSolveResult: result,
+      });
+    }
+    onIkSolveChange?.(overrides, result);
+  };
 
   return (
     <>
       <PoseSkeletonHelper object={object} />
-      {entries.map(({ key, bone }) => (
-        <BoneHandle
-          key={key}
-          boneKey={key}
-          bone={bone}
-          selected={selectedBoneKey === key}
-          onSelectBone={onSelectBone}
-        />
-      ))}
-      {selectedBone && selectedBoneKey && (
+      {editMode === "fk" &&
+        entries.map(({ key, bone }) => (
+          <BoneHandle
+            key={key}
+            boneKey={key}
+            bone={bone}
+            selected={selectedBoneKey === key}
+            onSelectBone={onSelectBone}
+          />
+        ))}
+      {editMode === "ik" &&
+        createIkTargetsFromPose(ikRig).map((target) => {
+          return (
+            <IkHandle
+              key={target.key}
+              targetKey={target.key}
+              position={target.position}
+              label={target.label}
+              selected={selectedIkTargetKey === target.key}
+              onObjectReady={registerIkTargetObject}
+              onSelect={() => onSelectIkTarget?.(target.key)}
+            />
+          );
+        })}
+      {editMode === "ik" &&
+        createIkPoleTargetsFromPose(ikRig)
+          .filter((target) => target.effectorKey === selectedEffectorKey)
+          .map((target) => {
+            return (
+              <IkHandle
+                key={target.key}
+                targetKey={target.key}
+                position={target.position}
+                label={target.label}
+                selected={selectedIkTargetKey === target.key}
+                pole
+                onObjectReady={registerIkTargetObject}
+                onSelect={() => onSelectIkTarget?.(target.key)}
+              />
+            );
+          })}
+      {editMode === "fk" && selectedBone && selectedBoneKey && (
         <TransformControls
           object={selectedBone}
           mode={transformMode}
@@ -552,6 +859,23 @@ function PoseEditLayer({
           }}
         />
       )}
+      {editMode === "ik" && selectedIkObject && selectedIkChainAvailable && (
+        <TransformControls
+          object={selectedIkObject}
+          mode="translate"
+          space="world"
+          size={0.72}
+          onMouseDown={() => {
+            draggingIkTargetRef.current = selectedIkTargetKey ?? null;
+            onGizmoEditStart?.();
+          }}
+          onMouseUp={() => {
+            draggingIkTargetRef.current = null;
+            onGizmoEditEnd?.();
+          }}
+          onObjectChange={solveSelectedIkTarget}
+        />
+      )}
     </>
   );
 }
@@ -566,14 +890,24 @@ interface Props {
   calibrationRef?: React.RefObject<PoseCalibration | null>;
   calibrationRequestId?: number;
   onCalibrationReady?: (calibration: PoseCalibration) => void;
+  editMode?: "fk" | "ik";
   transformMode?: "rotate" | "translate";
   selectedBoneKey?: string | null;
+  selectedIkTargetKey?: IkEditableTargetKey | null;
+  frameOverrides?: PoseFrameOverrides;
   onSelectBone?: (boneKey: string) => void;
+  onSelectIkTarget?: (targetKey: IkEditableTargetKey) => void;
   onBoneEulerChange?: (boneKey: string, euler: PoseBoneOverride) => void;
   onBonePositionChange?: (
     boneKey: string,
     position: NonNullable<PoseBoneOverride["position"]>,
   ) => void;
+  onIkSolveChange?: (
+    overrides: PoseFrameOverrides,
+    result: IkSolveResult,
+  ) => void;
+  onIkStatusChange?: (status: IkAvailability) => void;
+  ikDebugRef?: React.MutableRefObject<IkDebugSnapshot | null>;
   onGizmoEditStart?: () => void;
   onGizmoEditEnd?: () => void;
 }
@@ -588,11 +922,18 @@ export function ModelPreview({
   calibrationRef,
   calibrationRequestId,
   onCalibrationReady,
+  editMode,
   transformMode,
   selectedBoneKey,
+  selectedIkTargetKey,
+  frameOverrides,
   onSelectBone,
+  onSelectIkTarget,
   onBoneEulerChange,
   onBonePositionChange,
+  onIkSolveChange,
+  onIkStatusChange,
+  ikDebugRef,
   onGizmoEditStart,
   onGizmoEditEnd,
 }: Props) {
@@ -668,11 +1009,18 @@ export function ModelPreview({
         <PoseEditLayer
           object={object}
           remap={remap}
+          editMode={editMode}
           transformMode={transformMode}
           selectedBoneKey={selectedBoneKey}
+          selectedIkTargetKey={selectedIkTargetKey}
+          frameOverrides={frameOverrides}
           onSelectBone={onSelectBone}
+          onSelectIkTarget={onSelectIkTarget}
           onBoneEulerChange={onBoneEulerChange}
           onBonePositionChange={onBonePositionChange}
+          onIkSolveChange={onIkSolveChange}
+          onIkStatusChange={onIkStatusChange}
+          ikDebugRef={ikDebugRef}
           onGizmoEditStart={onGizmoEditStart}
           onGizmoEditEnd={onGizmoEditEnd}
         />

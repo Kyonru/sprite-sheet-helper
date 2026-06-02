@@ -136,6 +136,33 @@ describe("pose edit utilities", () => {
     expect(leftArm!.position?.toArray()).toEqual([1, 2, 3]);
   });
 
+  it("applies per-frame hips overrides", () => {
+    const edited = applyPoseBoneOverrides(frame(0).data, {
+      hips: { x: 0, y: 45, z: 0, position: { x: 1, y: 2, z: 3 } },
+    });
+
+    expectQuaternionClose(edited.hips.quaternion, quat(0, 45, 0));
+    expect(edited.hips.position.toArray()).toEqual([1, 2, 3]);
+  });
+
+  it("ignores non-finite pose overrides", () => {
+    const source = frame(0).data;
+    const edited = applyPoseBoneOverrides(source, {
+      leftArm: { x: Number.NaN, y: Number.NaN, z: 0 },
+      hips: {
+        x: Number.NaN,
+        y: 0,
+        z: 0,
+        position: { x: Number.NaN, y: 2, z: 3 },
+      },
+    });
+    const leftArm = edited.bones.find((bone) => bone.boneKey === "leftArm");
+
+    expectQuaternionClose(leftArm!.quaternion, source.bones[0].quaternion);
+    expectQuaternionClose(edited.hips.quaternion, source.hips.quaternion);
+    expect(edited.hips.position.toArray()).toEqual([0, 0, 0]);
+  });
+
   it("deletes frames and shifts override indexes", () => {
     const next = deletePoseFrame(draft(), 1);
 

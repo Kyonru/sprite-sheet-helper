@@ -55,6 +55,7 @@ export const POSE_MIRROR_PAIRS: [keyof BoneRemap, keyof BoneRemap][] = [
 ];
 
 export const POSE_BONE_LABELS: Partial<Record<keyof BoneRemap, string>> = {
+  hips: "Hips",
   spine: "Spine",
   spine1: "Spine 1",
   spine2: "Spine 2",
@@ -78,7 +79,7 @@ export const POSE_BONE_GROUPS: {
   label: string;
   keys: (keyof BoneRemap)[];
 }[] = [
-  { label: "Torso", keys: ["spine", "spine1", "spine2"] },
+  { label: "Torso", keys: ["hips", "spine", "spine1", "spine2"] },
   { label: "Head", keys: ["neck", "head"] },
   {
     label: "Left Arm",
@@ -184,19 +185,52 @@ export function positionOverrideToVector(
   return new THREE.Vector3(position.x, position.y, position.z);
 }
 
+function isFinitePoseBoneOverride(
+  override: PoseBoneOverride | undefined,
+): override is PoseBoneOverride {
+  return Boolean(
+    override &&
+      Number.isFinite(override.x) &&
+      Number.isFinite(override.y) &&
+      Number.isFinite(override.z),
+  );
+}
+
+function isFinitePositionOverride(
+  position: PoseBoneOverride["position"],
+): position is NonNullable<PoseBoneOverride["position"]> {
+  return Boolean(
+    position &&
+      Number.isFinite(position.x) &&
+      Number.isFinite(position.y) &&
+      Number.isFinite(position.z),
+  );
+}
+
 export function applyPoseBoneOverrides(
   pose: PoseBoneData,
   overrides: PoseFrameOverrides,
 ): PoseBoneData {
   if (Object.keys(overrides).length === 0) return pose;
+  const hipsOverride = overrides.hips;
+  const hips = isFinitePoseBoneOverride(hipsOverride)
+    ? {
+        ...pose.hips,
+        position: isFinitePositionOverride(hipsOverride.position)
+          ? positionOverrideToVector(hipsOverride.position)
+          : pose.hips.position.clone(),
+        quaternion: eulerDegToQuaternion(hipsOverride),
+      }
+    : pose.hips;
   return {
     ...pose,
+    hips,
     bones: pose.bones.map((bone) => {
       const override = overrides[bone.boneKey];
-      if (!override) return bone;
+      if (!isFinitePoseBoneOverride(override)) return bone;
       return {
         ...bone,
-        position: override.position
+        position: isFinitePositionOverride(override.position)
           ? positionOverrideToVector(override.position)
           : bone.position?.clone(),
         quaternion: eulerDegToQuaternion(override),
@@ -360,10 +394,11 @@ export function getPoseBoneEuler(
   boneKey: string,
 ): PoseBoneOverride {
   const existing = frameOverrides[boneKey];
-  if (existing) return existing;
+  if (isFinitePoseBoneOverride(existing)) return existing;
   if (!frame) return { x: 0, y: 0, z: 0 };
 
   const corrected = applyPoseCorrection(frame.data, correction);
+  if (boneKey === "hips") return quaternionToEulerDeg(corrected.hips.quaternion);
   const bone = corrected.bones.find((item) => item.boneKey === boneKey);
   return bone ? quaternionToEulerDeg(bone.quaternion) : { x: 0, y: 0, z: 0 };
 }
@@ -375,10 +410,13 @@ export function getPoseBonePosition(
   boneKey: string,
 ): NonNullable<PoseBoneOverride["position"]> {
   const existing = frameOverrides[boneKey]?.position;
-  if (existing) return existing;
+  if (isFinitePositionOverride(existing)) return existing;
   if (!frame) return { x: 0, y: 0, z: 0 };
 
   const corrected = applyPoseCorrection(frame.data, correction);
+  if (boneKey === "hips") {
+    return vectorToPositionOverride(corrected.hips.position);
+  }
   const bone = corrected.bones.find((item) => item.boneKey === boneKey);
   return bone?.position
     ? vectorToPositionOverride(bone.position)

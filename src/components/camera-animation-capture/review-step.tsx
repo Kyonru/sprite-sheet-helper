@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bone,
@@ -15,6 +15,14 @@ import {
 import type { PoseFrame } from "@/utils/pose-to-animation";
 import type { PoseBoneData } from "@/utils/mediapipe-to-bones";
 import type { BoneRemap } from "@/utils/bone-remap";
+import {
+  type IkAvailability,
+  type IkDebugSnapshot,
+  type IkEditableTargetKey,
+  type IkEffectorKey,
+  type IkPoleTargetKey,
+  type IkSolveResult,
+} from "@/utils/pose-ik";
 import { ModelPreview } from "./model-preview";
 import {
   DEFAULT_POSE_CORRECTION,
@@ -42,6 +50,130 @@ import {
 } from "@/utils/pose-edit";
 
 const PREVIEW_H = 460;
+
+const IK_TARGET_LABELS: Record<IkEffectorKey, string> = {
+  leftElbow: "L Elbow",
+  leftHand: "L Hand",
+  rightElbow: "R Elbow",
+  rightHand: "R Hand",
+  leftFoot: "L Foot",
+  rightFoot: "R Foot",
+  hips: "Hips",
+  torso: "Torso",
+  head: "Head",
+};
+
+const IK_TARGET_ORDER: IkEffectorKey[] = [
+  "leftHand",
+  "leftElbow",
+  "rightHand",
+  "rightElbow",
+  "leftFoot",
+  "rightFoot",
+  "hips",
+  "torso",
+  "head",
+];
+
+const IK_POLE_TO_EFFECTOR: Record<IkPoleTargetKey, IkEffectorKey> = {
+  leftArmPole: "leftHand",
+  rightArmPole: "rightHand",
+  leftLegPole: "leftFoot",
+  rightLegPole: "rightFoot",
+};
+
+function ikTargetToEffector(
+  target: IkEditableTargetKey | null,
+): IkEffectorKey | null {
+  if (!target) return null;
+  return target in IK_POLE_TO_EFFECTOR
+    ? IK_POLE_TO_EFFECTOR[target as IkPoleTargetKey]
+    : (target as IkEffectorKey);
+}
+
+function ikAvailabilityKey(status: IkAvailability) {
+  return [
+    status.available.join(","),
+    Object.entries(status.missing)
+      .map(([key, missing]) => `${key}:${missing?.join("/") ?? ""}`)
+      .sort()
+      .join(","),
+  ].join("|");
+}
+
+function debugNumber(value: number) {
+  return Number.isFinite(value) ? Number(value.toFixed(5)) : value;
+}
+
+function debugVectorLike(vector: { x: number; y: number; z: number }) {
+  return {
+    x: debugNumber(vector.x),
+    y: debugNumber(vector.y),
+    z: debugNumber(vector.z),
+    finite:
+      Number.isFinite(vector.x) &&
+      Number.isFinite(vector.y) &&
+      Number.isFinite(vector.z),
+  };
+}
+
+function debugQuaternionLike(quaternion: {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+}) {
+  return {
+    x: debugNumber(quaternion.x),
+    y: debugNumber(quaternion.y),
+    z: debugNumber(quaternion.z),
+    w: debugNumber(quaternion.w),
+    finite:
+      Number.isFinite(quaternion.x) &&
+      Number.isFinite(quaternion.y) &&
+      Number.isFinite(quaternion.z) &&
+      Number.isFinite(quaternion.w),
+  };
+}
+
+function summarisePoseData(pose: PoseBoneData | null | undefined) {
+  if (!pose) return null;
+  return {
+    hips: {
+      boneName: pose.hips.boneName,
+      position: debugVectorLike(pose.hips.position),
+      quaternion: debugQuaternionLike(pose.hips.quaternion),
+    },
+    boneCount: pose.bones.length,
+    bones: pose.bones.map((bone) => ({
+      boneKey: bone.boneKey,
+      boneName: bone.boneName,
+      position: bone.position ? debugVectorLike(bone.position) : null,
+      quaternion: debugQuaternionLike(bone.quaternion),
+    })),
+  };
+}
+
+function serialiseIkSolveResult(result: IkSolveResult | null) {
+  if (!result) return null;
+  return {
+    affectedBoneKeys: result.affectedBoneKeys,
+    targetDistances: Object.fromEntries(
+      Object.entries(result.targetDistances).map(([key, value]) => [
+        key,
+        value === undefined ? null : debugNumber(value),
+      ]),
+    ),
+    clampedTargets: Object.fromEntries(
+      Object.entries(result.clampedTargets).map(([key, vector]) => [
+        key,
+        vector ? debugVectorLike(vector) : null,
+      ]),
+    ),
+    reached: result.reached,
+    warnings: result.warnings,
+  };
+}
 
 type HistoryState = {
   past: PoseEditDraft[];
@@ -130,18 +262,32 @@ export function ReviewStep({
   });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedBone, setSelectedBone] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState<"fk" | "ik">("fk");
   const [transformMode, setTransformMode] = useState<"rotate" | "translate">(
     "rotate",
   );
   const [globalTransformMode, setGlobalTransformMode] = useState<
     "rotate" | "translate"
   >("rotate");
+  const [selectedIkTarget, setSelectedIkTarget] =
+    useState<IkEditableTargetKey | null>("leftHand");
+  const [ikStatus, setIkStatus] = useState<IkAvailability>({
+    available: [],
+    missing: {},
+  });
+  const [lastIkAffectedKeys, setLastIkAffectedKeys] = useState<string[]>([]);
   const [copiedPose, setCopiedPose] = useState<PoseFrameOverrides | null>(null);
 
   const landmarksRef =
     useRef<import("@mediapipe/tasks-vision").NormalizedLandmark[] | null>(null);
   const staticPoseRef = useRef<PoseBoneData | null>(null);
+  const ikDebugRef = useRef<IkDebugSnapshot | null>(null);
+  const ikDebugBeforeRef = useRef<unknown | null>(null);
+  const lastIkSolveResultRef = useRef<IkSolveResult | null>(null);
   const historyTransactionRef = useRef<PoseEditDraft | null>(null);
+  const [ikDebugCopyStatus, setIkDebugCopyStatus] = useState<string | null>(
+    null,
+  );
 
   const clampedIndex = Math.min(
     currentIndex,
@@ -156,10 +302,17 @@ export function ReviewStep({
     () => currentFrame?.data.bones ?? [],
     [currentFrame],
   );
-  const selectedBoneData =
-    currentBones.find((bone) => bone.boneKey === selectedBone) ??
-    currentBones[0];
-  const selectedBoneKey = selectedBoneData?.boneKey ?? null;
+  const mappedBoneKeys = useMemo(() => {
+    const keys = new Set<string>(currentBones.map((bone) => bone.boneKey));
+    if (currentFrame?.data.hips.boneName) keys.add("hips");
+    return keys;
+  }, [currentBones, currentFrame]);
+  const selectedBoneKey =
+    selectedBone && mappedBoneKeys.has(selectedBone)
+      ? selectedBone
+      : currentFrame?.data.hips.boneName
+        ? "hips"
+        : currentBones[0]?.boneKey ?? null;
   const selectedBoneEuler = selectedBoneKey
     ? getPoseBoneEuler(
         currentFrame,
@@ -177,11 +330,6 @@ export function ReviewStep({
       )
     : { x: 0, y: 0, z: 0 };
 
-  const mappedBoneKeys = useMemo(
-    () => new Set(currentBones.map((bone) => bone.boneKey)),
-    [currentBones],
-  );
-
   useEffect(() => {
     const frame = draft.frames[clampedIndex];
     staticPoseRef.current = frame
@@ -190,10 +338,23 @@ export function ReviewStep({
   }, [draft, clampedIndex, frameOverrides]);
 
   useEffect(() => {
-    if (!selectedBoneKey && currentBones[0]) {
-      setSelectedBone(currentBones[0].boneKey);
+    if (
+      !selectedBoneKey &&
+      (currentFrame?.data.hips.boneName || currentBones[0])
+    ) {
+      setSelectedBone(
+        currentFrame?.data.hips.boneName ? "hips" : currentBones[0].boneKey,
+      );
     }
-  }, [currentBones, selectedBoneKey]);
+  }, [currentBones, currentFrame, selectedBoneKey]);
+
+  useEffect(() => {
+    if (editMode !== "ik" || ikStatus.available.length === 0) return;
+    const selectedEffector = ikTargetToEffector(selectedIkTarget);
+    if (!selectedEffector || !ikStatus.available.includes(selectedEffector)) {
+      setSelectedIkTarget(ikStatus.available[0]);
+    }
+  }, [editMode, ikStatus.available, selectedIkTarget]);
 
   const pushHistory = (previous: PoseEditDraft) => {
     setHistory((state) => ({
@@ -313,6 +474,29 @@ export function ReviewStep({
     });
   };
 
+  const handleIkStatusChange = useCallback((status: IkAvailability) => {
+    setIkStatus((current) =>
+      ikAvailabilityKey(current) === ikAvailabilityKey(status)
+        ? current
+        : status,
+    );
+  }, []);
+
+  const applyIkOverrides = (
+    overrides: PoseFrameOverrides,
+    result: IkSolveResult,
+  ) => {
+    lastIkSolveResultRef.current = result;
+    setLastIkAffectedKeys(result.affectedBoneKeys);
+    commitDraft((current) => ({
+      ...current,
+      overrides: {
+        ...current.overrides,
+        [clampedIndex]: overrides,
+      },
+    }));
+  };
+
   const setBoneAxis = (
     boneKey: string,
     axis: "x" | "y" | "z",
@@ -360,6 +544,26 @@ export function ReviewStep({
     }));
   };
 
+  const applyIkPoseToAllFrames = () => {
+    commitDraft((current) => {
+      const source = current.overrides[clampedIndex] ?? {};
+      const keys =
+        lastIkAffectedKeys.length > 0
+          ? lastIkAffectedKeys
+          : Object.keys(source);
+      if (keys.length === 0) return current;
+      const next = { ...current.overrides };
+      current.frames.forEach((_, index) => {
+        const frameOverrides = { ...(next[index] ?? {}) };
+        keys.forEach((key) => {
+          if (source[key]) frameOverrides[key] = source[key];
+        });
+        next[index] = frameOverrides;
+      });
+      return { ...current, overrides: next };
+    });
+  };
+
   const mirrorCurrentPose = () => {
     if (!currentFrame) return;
     commitDraft((current) => {
@@ -373,6 +577,9 @@ export function ReviewStep({
         mirror: true,
       });
       const overrides: PoseFrameOverrides = {};
+      const hipsOverride = quaternionToEulerDeg(mirrored.hips.quaternion);
+      hipsOverride.position = vectorToPositionOverride(mirrored.hips.position);
+      overrides.hips = hipsOverride;
       mirrored.bones.forEach((bone) => {
         const override = quaternionToEulerDeg(bone.quaternion);
         if (bone.position) {
@@ -435,10 +642,98 @@ export function ReviewStep({
 
   const hasSelectedOverride =
     !!selectedBoneKey && !!frameOverrides[selectedBoneKey];
+  const hasIkOverride =
+    lastIkAffectedKeys.some((key) => Boolean(frameOverrides[key])) ||
+    Object.keys(frameOverrides).length > 0;
+  const missingIkLabels = Object.entries(ikStatus.missing)
+    .filter(([, missing]) => (missing?.length ?? 0) > 0)
+    .map(([key]) => IK_TARGET_LABELS[key as IkEffectorKey] ?? key);
   const overrideCount = Object.keys(frameOverrides).length;
   const totalTime =
     draft.frames.length > 0 ? draft.frames[draft.frames.length - 1].time : 0;
   const currentTime = currentFrame?.time ?? 0;
+
+  const buildIkDebugPayload = (label: "before" | "after") => ({
+    kind: "pose-studio-ik-copy",
+    version: 1,
+    label,
+    capturedAt: new Date().toISOString(),
+    browser: {
+      userAgent:
+        typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+    },
+    ui: {
+      modelUuid,
+      editMode,
+      transformMode,
+      globalTransformMode,
+      selectedBoneKey,
+      selectedIkTarget,
+      selectedIkEffector: ikTargetToEffector(selectedIkTarget),
+      frameIndex: clampedIndex,
+      frameCount: draft.frames.length,
+      currentTime,
+      totalTime,
+      ikStatus,
+      missingIkLabels,
+      lastIkAffectedKeys,
+      historyPastCount: history.past.length,
+      historyFutureCount: history.future.length,
+      historyTransactionActive: Boolean(historyTransactionRef.current),
+    },
+    draft: {
+      correction: draft.correction,
+      currentFrameOverrides: frameOverrides,
+      currentFrameOverrideCount: overrideCount,
+      overrideFrameIndexes: Object.keys(draft.overrides),
+      allOverrides: draft.overrides,
+    },
+    currentFrame: currentFrame
+      ? {
+          time: currentFrame.time,
+          sourcePose: summarisePoseData(currentFrame.data),
+          rebuiltFinalPose: summarisePoseData(
+            buildFinalPose(currentFrame, draft.correction, frameOverrides),
+          ),
+          staticPreviewPose: summarisePoseData(staticPoseRef.current),
+        }
+      : null,
+    lastSolveResult: serialiseIkSolveResult(lastIkSolveResultRef.current),
+    liveIk: ikDebugRef.current,
+  });
+
+  const copyDebugText = async (payload: unknown, status: string) => {
+    const text = JSON.stringify(payload, null, 2);
+    if (!navigator.clipboard?.writeText) {
+      setIkDebugCopyStatus("Clipboard unavailable");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setIkDebugCopyStatus(status);
+    } catch (error) {
+      setIkDebugCopyStatus(
+        error instanceof Error ? error.message : "Copy failed",
+      );
+    }
+  };
+
+  const copyIkDebugBefore = async () => {
+    const payload = buildIkDebugPayload("before");
+    ikDebugBeforeRef.current = payload;
+    await copyDebugText(payload, "Copied IK before");
+  };
+
+  const copyIkDebugAfter = async () => {
+    const payload = {
+      kind: "pose-studio-ik-before-after",
+      version: 1,
+      capturedAt: new Date().toISOString(),
+      before: ikDebugBeforeRef.current,
+      after: buildIkDebugPayload("after"),
+    };
+    await copyDebugText(payload, "Copied IK before/after");
+  };
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
@@ -453,11 +748,18 @@ export function ReviewStep({
               landmarksRef={landmarksRef}
               remap={remap}
               staticPoseRef={staticPoseRef}
+              editMode={editMode}
               transformMode={transformMode}
               selectedBoneKey={selectedBoneKey}
+              selectedIkTargetKey={selectedIkTarget}
+              frameOverrides={frameOverrides}
               onSelectBone={setSelectedBone}
+              onSelectIkTarget={setSelectedIkTarget}
               onBoneEulerChange={setBoneEuler}
               onBonePositionChange={setBonePosition}
+              onIkSolveChange={applyIkOverrides}
+              onIkStatusChange={handleIkStatusChange}
+              ikDebugRef={ikDebugRef}
               onGizmoEditStart={beginHistoryTransaction}
               onGizmoEditEnd={endHistoryTransaction}
             />
@@ -600,113 +902,207 @@ export function ReviewStep({
                     <Button
                       type="button"
                       size="sm"
-                      variant={transformMode === "rotate" ? "secondary" : "outline"}
-                      onClick={() => setTransformMode("rotate")}
+                      variant={editMode === "fk" ? "secondary" : "outline"}
+                      onClick={() => setEditMode("fk")}
                     >
-                      <Rotate3D size={14} />
-                      Rotate
+                      <Bone size={14} />
+                      FK
                     </Button>
                     <Button
                       type="button"
                       size="sm"
-                      variant={
-                        transformMode === "translate" ? "secondary" : "outline"
-                      }
-                      onClick={() => setTransformMode("translate")}
+                      variant={editMode === "ik" ? "secondary" : "outline"}
+                      onClick={() => setEditMode("ik")}
                     >
                       <Move3D size={14} />
-                      Move
+                      IK
                     </Button>
                   </div>
-                  {transformMode === "rotate" ? (
+                  {editMode === "ik" ? (
                     <>
-                      <BoneSliderRow
-                        label="X"
-                        value={selectedBoneEuler.x}
-                        onEditStart={beginHistoryTransaction}
-                        onEditEnd={endHistoryTransaction}
-                        onChange={(value) =>
-                          setBoneAxis(selectedBoneKey, "x", value)
+                      <div className="grid grid-cols-3 gap-1">
+                        {IK_TARGET_ORDER.filter((target) =>
+                          ikStatus.available.includes(target),
+                        ).map((target) => {
+                          const selected =
+                            ikTargetToEffector(selectedIkTarget) === target;
+                          return (
+                            <Button
+                              key={target}
+                              type="button"
+                              size="sm"
+                              variant={selected ? "secondary" : "outline"}
+                              className="h-8 px-2 text-xs"
+                              onClick={() => setSelectedIkTarget(target)}
+                            >
+                              {IK_TARGET_LABELS[target]}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2 rounded border px-2 py-1 text-xs text-muted-foreground">
+                        <span>{ikStatus.available.length} IK targets ready</span>
+                        {missingIkLabels.length > 0 && (
+                          <span className="ml-auto text-amber-400">
+                            Missing: {missingIkLabels.join(", ")}
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={applyIkPoseToAllFrames}
+                        disabled={
+                          !hasIkOverride || draft.frames.length <= 1
                         }
-                      />
-                      <BoneSliderRow
-                        label="Y"
-                        value={selectedBoneEuler.y}
-                        onEditStart={beginHistoryTransaction}
-                        onEditEnd={endHistoryTransaction}
-                        onChange={(value) =>
-                          setBoneAxis(selectedBoneKey, "y", value)
-                        }
-                      />
-                      <BoneSliderRow
-                        label="Z"
-                        value={selectedBoneEuler.z}
-                        onEditStart={beginHistoryTransaction}
-                        onEditEnd={endHistoryTransaction}
-                        onChange={(value) =>
-                          setBoneAxis(selectedBoneKey, "z", value)
-                        }
-                      />
+                      >
+                        Apply IK pose to all frames
+                      </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={copyIkDebugBefore}
+                        >
+                          <Clipboard size={14} />
+                          Copy before
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={copyIkDebugAfter}
+                        >
+                          <ClipboardPaste size={14} />
+                          Copy after
+                        </Button>
+                      </div>
+                      {ikDebugCopyStatus && (
+                        <p className="text-xs text-muted-foreground">
+                          {ikDebugCopyStatus}
+                        </p>
+                      )}
                     </>
                   ) : (
                     <>
-                      <BoneSliderRow
-                        label="X"
-                        min={-100}
-                        max={100}
-                        step={0.1}
-                        value={selectedBonePosition.x}
-                        onEditStart={beginHistoryTransaction}
-                        onEditEnd={endHistoryTransaction}
-                        onChange={(value) =>
-                          setBonePositionAxis(selectedBoneKey, "x", value)
-                        }
-                      />
-                      <BoneSliderRow
-                        label="Y"
-                        min={-100}
-                        max={100}
-                        step={0.1}
-                        value={selectedBonePosition.y}
-                        onEditStart={beginHistoryTransaction}
-                        onEditEnd={endHistoryTransaction}
-                        onChange={(value) =>
-                          setBonePositionAxis(selectedBoneKey, "y", value)
-                        }
-                      />
-                      <BoneSliderRow
-                        label="Z"
-                        min={-100}
-                        max={100}
-                        step={0.1}
-                        value={selectedBonePosition.z}
-                        onEditStart={beginHistoryTransaction}
-                        onEditEnd={endHistoryTransaction}
-                        onChange={(value) =>
-                          setBonePositionAxis(selectedBoneKey, "z", value)
-                        }
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            transformMode === "rotate" ? "secondary" : "outline"
+                          }
+                          onClick={() => setTransformMode("rotate")}
+                        >
+                          <Rotate3D size={14} />
+                          Rotate
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            transformMode === "translate"
+                              ? "secondary"
+                              : "outline"
+                          }
+                          onClick={() => setTransformMode("translate")}
+                        >
+                          <Move3D size={14} />
+                          Move
+                        </Button>
+                      </div>
+                      {transformMode === "rotate" ? (
+                        <>
+                          <BoneSliderRow
+                            label="X"
+                            value={selectedBoneEuler.x}
+                            onEditStart={beginHistoryTransaction}
+                            onEditEnd={endHistoryTransaction}
+                            onChange={(value) =>
+                              setBoneAxis(selectedBoneKey, "x", value)
+                            }
+                          />
+                          <BoneSliderRow
+                            label="Y"
+                            value={selectedBoneEuler.y}
+                            onEditStart={beginHistoryTransaction}
+                            onEditEnd={endHistoryTransaction}
+                            onChange={(value) =>
+                              setBoneAxis(selectedBoneKey, "y", value)
+                            }
+                          />
+                          <BoneSliderRow
+                            label="Z"
+                            value={selectedBoneEuler.z}
+                            onEditStart={beginHistoryTransaction}
+                            onEditEnd={endHistoryTransaction}
+                            onChange={(value) =>
+                              setBoneAxis(selectedBoneKey, "z", value)
+                            }
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <BoneSliderRow
+                            label="X"
+                            min={-100}
+                            max={100}
+                            step={0.1}
+                            value={selectedBonePosition.x}
+                            onEditStart={beginHistoryTransaction}
+                            onEditEnd={endHistoryTransaction}
+                            onChange={(value) =>
+                              setBonePositionAxis(selectedBoneKey, "x", value)
+                            }
+                          />
+                          <BoneSliderRow
+                            label="Y"
+                            min={-100}
+                            max={100}
+                            step={0.1}
+                            value={selectedBonePosition.y}
+                            onEditStart={beginHistoryTransaction}
+                            onEditEnd={endHistoryTransaction}
+                            onChange={(value) =>
+                              setBonePositionAxis(selectedBoneKey, "y", value)
+                            }
+                          />
+                          <BoneSliderRow
+                            label="Z"
+                            min={-100}
+                            max={100}
+                            step={0.1}
+                            value={selectedBonePosition.z}
+                            onEditStart={beginHistoryTransaction}
+                            onEditEnd={endHistoryTransaction}
+                            onChange={(value) =>
+                              setBonePositionAxis(selectedBoneKey, "z", value)
+                            }
+                          />
+                        </>
+                      )}
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => resetBone(selectedBoneKey)}
+                          disabled={!hasSelectedOverride}
+                        >
+                          Reset
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-auto"
+                          onClick={() => applyBoneToAllFrames(selectedBoneKey)}
+                          disabled={
+                            !hasSelectedOverride || draft.frames.length <= 1
+                          }
+                        >
+                          Apply to all
+                        </Button>
+                      </div>
                     </>
                   )}
-                  <div className="flex gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => resetBone(selectedBoneKey)}
-                      disabled={!hasSelectedOverride}
-                    >
-                      Reset
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="ml-auto"
-                      onClick={() => applyBoneToAllFrames(selectedBoneKey)}
-                      disabled={!hasSelectedOverride || draft.frames.length <= 1}
-                    >
-                      Apply to all
-                    </Button>
-                  </div>
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">No mapped bones.</p>
