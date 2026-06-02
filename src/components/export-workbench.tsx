@@ -4,26 +4,40 @@ import {
   Boxes,
   CheckCircle2,
   Clock,
+  Code2,
   Download,
   FileArchive,
+  FileJson,
   Film,
+  Gamepad2,
+  Grid2X2,
   ImageIcon,
   Layers,
+  ListChecks,
+  Package,
   Play,
   Plus,
   RotateCcw,
+  Settings2,
   SquareStack,
   type LucideIcon,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { EventType, PubSub } from "@/lib/events";
@@ -97,6 +111,44 @@ const FORMAT_NOTES: Partial<
   },
 };
 
+const FORMAT_ICONS: Record<ExportFormat, LucideIcon> = {
+  spritesheet: SquareStack,
+  zip: FileArchive,
+  gif: Film,
+  phaser: Gamepad2,
+  bevy: Package,
+  godot: Package,
+  unity: Package,
+  "love2d-lua": Gamepad2,
+  "love2d-anim8": Gamepad2,
+  turbo: Code2,
+  pygame: Code2,
+  raylib: Code2,
+};
+
+type FormatLogo = {
+  light: string;
+  dark?: string;
+};
+
+const FORMAT_LOGOS: Partial<Record<ExportFormat, FormatLogo>> = {
+  phaser: { light: "/phaser.png" },
+  bevy: { light: "/bevy.svg" },
+  godot: { light: "/godot.png" },
+  unity: { light: "/unity.svg", dark: "/unity_dark.svg" },
+  "love2d-lua": { light: "/love.svg" },
+  "love2d-anim8": { light: "/love.svg" },
+  turbo: { light: "/turbo.svg" },
+  pygame: { light: "/pygame.svg" },
+  raylib: { light: "/raylib.png" },
+};
+
+function getFormatLogo(format: ExportFormat, theme: "light" | "dark") {
+  const logo = FORMAT_LOGOS[format];
+  if (!logo) return undefined;
+  return theme === "dark" && logo.dark ? logo.dark : logo.light;
+}
+
 function Stat({
   label,
   value,
@@ -114,6 +166,129 @@ function Stat({
       </div>
       <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
     </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  icon: Icon,
+  logo,
+}: {
+  label: string;
+  value: string | number;
+  icon?: LucideIcon;
+  logo?: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2">
+      <div className="flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+        {logo ? (
+          <img
+            src={logo}
+            alt=""
+            aria-hidden="true"
+            className="size-3.5 shrink-0 object-contain"
+            draggable={false}
+          />
+        ) : (
+          Icon && <Icon size={12} className="shrink-0" />
+        )}
+        {label}
+      </div>
+      <div className="mt-0.5 truncate text-sm font-semibold tabular-nums">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function SectionShell({
+  title,
+  description,
+  icon: Icon,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  icon?: LucideIcon;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-md border bg-background">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b px-3 py-2.5">
+        <div className="flex min-w-0 items-start gap-2">
+          {Icon && (
+            <span className="mt-0.5 rounded-md border bg-muted/30 p-1">
+              <Icon size={14} />
+            </span>
+          )}
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium">{title}</h3>
+            {description && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {description}
+              </p>
+            )}
+          </div>
+        </div>
+        {action}
+      </div>
+      <div className="p-3">{children}</div>
+    </section>
+  );
+}
+
+function OutputFileIcon({ file }: { file: string }) {
+  const Icon = file.endsWith(".json")
+    ? FileJson
+    : file.endsWith(".gif")
+      ? Film
+      : file.endsWith(".png") || file.includes("*.png")
+        ? ImageIcon
+        : FileArchive;
+
+  return <Icon size={13} className="shrink-0" />;
+}
+
+function FormatMark({
+  format,
+  selected,
+  theme,
+  compact = false,
+}: {
+  format: ExportFormat;
+  selected: boolean;
+  theme: "light" | "dark";
+  compact?: boolean;
+}) {
+  const logo = getFormatLogo(format, theme);
+  const Icon = FORMAT_ICONS[format];
+
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-md border",
+        compact ? "size-6" : "size-8",
+        selected
+          ? "border-primary/30 bg-primary/15"
+          : "bg-muted/30 text-muted-foreground",
+      )}
+    >
+      {logo ? (
+        <img
+          src={logo}
+          alt=""
+          aria-hidden="true"
+          className={cn("object-contain", compact ? "size-4" : "size-5")}
+          draggable={false}
+        />
+      ) : (
+        <Icon size={compact ? 14 : 16} />
+      )}
+    </span>
   );
 }
 
@@ -187,6 +362,24 @@ function formatTimestamp(value: string) {
   }).format(new Date(value));
 }
 
+function getPreflightOutputFiles({
+  format,
+  atlasFiles,
+  normalFiles,
+}: {
+  format: ExportFormat;
+  atlasFiles: string[];
+  normalFiles: string[];
+}) {
+  if (format === "gif") return ["animation.gif"];
+  if (format === "zip") return ["frames/*.png"];
+  return [
+    ...(atlasFiles.length > 0 ? atlasFiles : ["spritesheet.png"]),
+    ...normalFiles,
+    "spritesheet.json",
+  ];
+}
+
 export function ExportWorkbench() {
   const rows = useImagesStore((state) => state.images);
   const intervals = useImagesStore((state) => state.intervals);
@@ -198,6 +391,7 @@ export function ExportWorkbench() {
 
   const mode = useSettingsStore((state) => state.mode);
   const setMode = useSettingsStore((state) => state.setMode);
+  const theme = useSettingsStore((state) => state.theme);
   const exportWidth = useSettingsStore((state) => state.exportWidth);
   const exportHeight = useSettingsStore((state) => state.exportHeight);
   const setExportWidth = useSettingsStore((state) => state.setExportWidth);
@@ -254,6 +448,17 @@ export function ExportWorkbench() {
   );
   const selectedExporter = exporters[mode];
   const selectedNote = FORMAT_NOTES[mode];
+  const blockingCount = validation.messages.filter(
+    (message) => message.severity === "error",
+  ).length;
+  const warningCount = validation.messages.filter(
+    (message) => message.severity === "warning",
+  ).length;
+  const preflightStatus = validation.blocking
+    ? "Needs fixes"
+    : warningCount > 0
+      ? "Warnings"
+      : "Ready";
 
   useEffect(() => {
     const onStopExport = () => {
@@ -275,9 +480,21 @@ export function ExportWorkbench() {
     setPreflightOpen(false);
   };
 
-  const outputFiles = validation.plan?.pages.map((page) =>
-    atlasPageFileName("spritesheet.png", page.index),
-  ) ?? ["spritesheet.png"];
+  const atlasFiles =
+    validation.plan?.pages.map((page) =>
+      atlasPageFileName("spritesheet.png", page.index),
+    ) ?? [];
+  const normalFiles =
+    exportNormalMap && validation.plan
+      ? validation.plan.pages.map((page) =>
+          atlasPageFileName("spritesheet_normal.png", page.index),
+        )
+      : [];
+  const outputFiles = getPreflightOutputFiles({
+    format: mode,
+    atlasFiles,
+    normalFiles,
+  });
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -308,9 +525,7 @@ export function ExportWorkbench() {
         </section>
 
         <section className="mt-3 rounded-md border">
-          <div className="border-b px-3 py-2 text-sm font-medium">
-            Capture
-          </div>
+          <div className="border-b px-3 py-2 text-sm font-medium">Capture</div>
           <div className="grid gap-2 p-3">
             <div className="grid grid-cols-2 gap-2">
               <NumberField
@@ -464,66 +679,190 @@ export function ExportWorkbench() {
       </footer>
 
       <Dialog open={preflightOpen} onOpenChange={setPreflightOpen}>
-        <DialogContent className="flex h-[90vh] max-w-[92vw] flex-col overflow-hidden p-0">
-          <DialogHeader className="border-b px-4 py-3">
-            <DialogTitle>Export Preflight</DialogTitle>
+        <DialogContent className="flex h-[min(92vh,900px)] w-[calc(100vw-1rem)] max-w-[1600px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw-1rem)] 2xl:max-w-[1600px] z-999">
+          <DialogHeader className="border-b px-5 py-4 pe-12">
+            <div className="flex flex-wrap items-center gap-2">
+              <DialogTitle className="flex items-center gap-2">
+                <FileArchive size={18} />
+                Export Preflight
+              </DialogTitle>
+              <span
+                className={cn(
+                  "rounded-full border px-2 py-0.5 text-xs font-medium",
+                  validation.blocking
+                    ? "border-destructive/30 bg-destructive/10 text-destructive"
+                    : warningCount > 0
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-700"
+                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
+                )}
+              >
+                {preflightStatus}
+              </span>
+            </div>
+            <DialogDescription>
+              Choose the exporter, check atlas settings, then confirm the files
+              that will be created.
+            </DialogDescription>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              <MiniStat
+                label="Format"
+                value={selectedExporter.label}
+                icon={FORMAT_ICONS[mode]}
+                logo={getFormatLogo(mode, theme)}
+              />
+              <MiniStat
+                label="Frames"
+                value={summary.frameCount}
+                icon={ImageIcon}
+              />
+              <MiniStat
+                label="Sequences"
+                value={summary.animationCount}
+                icon={Film}
+              />
+              <MiniStat
+                label="Atlas"
+                value={
+                  summary.imageWidth > 0
+                    ? `${summary.imageWidth}x${summary.imageHeight}`
+                    : "-"
+                }
+                icon={SquareStack}
+              />
+              <MiniStat
+                label="Checks"
+                value={
+                  blockingCount > 0
+                    ? `${blockingCount} blocking`
+                    : warningCount > 0
+                      ? `${warningCount} warning${warningCount === 1 ? "" : "s"}`
+                      : "Clear"
+                }
+                icon={validation.blocking ? AlertTriangle : CheckCircle2}
+              />
+            </div>
           </DialogHeader>
-          <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,360px)_1fr] overflow-hidden">
-            <aside className="min-h-0 overflow-auto border-r p-3">
-              <Label className="text-xs text-muted-foreground">Format</Label>
-              <div className="mt-2 grid gap-2">
-                {Object.values(exporters).map((exporter) => {
-                  const note = FORMAT_NOTES[exporter.id];
-                  return (
-                    <button
-                      key={exporter.id}
-                      type="button"
-                      onClick={() => setMode(exporter.id)}
-                      className={cn(
-                        "rounded-md border px-3 py-2 text-left transition-colors",
-                        mode === exporter.id
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "hover:bg-muted",
-                      )}
+          <main className="min-h-0 flex-1 overflow-auto bg-muted/20 p-4">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="grid min-w-0 gap-4">
+                <SectionShell
+                  title="Format"
+                  description="Pick the package shape for this export."
+                  icon={Package}
+                  action={
+                    <Select
+                      value={mode}
+                      onValueChange={(value) => setMode(value as ExportFormat)}
                     >
-                      <span className="block text-sm font-medium">
-                        {exporter.label}
-                      </span>
-                      <span className="mt-1 block text-xs text-muted-foreground">
-                        {note?.category ?? "Exporter"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </aside>
-
-            <main className="min-h-0 overflow-auto p-4">
-              <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
-                <section className="rounded-md border">
-                  <div className="border-b px-3 py-2 text-sm font-medium">
-                    Atlas Settings
+                      <SelectTrigger size="sm" className="w-[190px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(exporters).map((exporter) => (
+                          <SelectItem key={exporter.id} value={exporter.id}>
+                            <span className="flex items-center gap-2">
+                              <FormatMark
+                                format={exporter.id}
+                                selected={mode === exporter.id}
+                                theme={theme}
+                                compact
+                              />
+                              {exporter.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  }
+                >
+                  <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
+                    {Object.values(exporters).map((exporter) => {
+                      const note = FORMAT_NOTES[exporter.id];
+                      const selected = mode === exporter.id;
+                      return (
+                        <button
+                          key={exporter.id}
+                          type="button"
+                          onClick={() => setMode(exporter.id)}
+                          className={cn(
+                            "min-h-20 rounded-md border px-3 py-2.5 text-left transition-colors",
+                            selected
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "bg-background hover:bg-muted",
+                          )}
+                        >
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <FormatMark
+                                format={exporter.id}
+                                selected={selected}
+                                theme={theme}
+                              />
+                              <span className="truncate text-sm font-medium">
+                                {exporter.label}
+                              </span>
+                            </span>
+                            {selected && (
+                              <CheckCircle2 size={14} className="shrink-0" />
+                            )}
+                          </span>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            {note?.category ?? "Exporter"}
+                          </span>
+                          <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">
+                            {note?.note ?? "Packages captured frames."}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="grid gap-3 p-3">
-                    <div className="grid grid-cols-2 gap-2">
+                </SectionShell>
+
+                <SectionShell
+                  title="Atlas Settings"
+                  description="Rows keeps legacy layout; packed reduces empty space."
+                  icon={Settings2}
+                >
+                  <div className="grid gap-3">
+                    <div className="grid gap-2 md:grid-cols-2">
                       <Button
                         type="button"
-                        variant={atlasLayout === "rows" ? "secondary" : "outline"}
+                        variant={
+                          atlasLayout === "rows" ? "secondary" : "outline"
+                        }
+                        className="h-auto justify-start px-3 py-2 text-left"
                         onClick={() => setAtlasOptions({ layout: "rows" })}
                       >
-                        Rows / compatible
+                        <Layers size={16} className="shrink-0" />
+                        <span>
+                          <span className="block text-sm">
+                            Rows / compatible
+                          </span>
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            Preserves sequence rows and frame order.
+                          </span>
+                        </span>
                       </Button>
                       <Button
                         type="button"
                         variant={
                           atlasLayout === "packed" ? "secondary" : "outline"
                         }
+                        className="h-auto justify-start px-3 py-2 text-left"
                         onClick={() => setAtlasOptions({ layout: "packed" })}
                       >
-                        Packed / production
+                        <Grid2X2 size={16} className="shrink-0" />
+                        <span>
+                          <span className="block text-sm">
+                            Packed / production
+                          </span>
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            Deterministic packing without frame rotation.
+                          </span>
+                        </span>
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <NumberField
                         label="Padding"
                         value={atlasPadding}
@@ -554,55 +893,80 @@ export function ExportWorkbench() {
                         }
                       />
                     </div>
-                    <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                      Allow multi-page atlas
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/20 px-3 py-2">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <SquareStack
+                          size={15}
+                          className="mt-0.5 shrink-0 text-muted-foreground"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium">
+                            Allow multi-page atlas
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Generic spritesheet supports pages now; engine
+                            exporters block unsafe multi-page output.
+                          </div>
+                        </div>
+                      </div>
                       <Switch
                         checked={allowMultiPage}
                         onCheckedChange={(checked) =>
                           setAtlasOptions({ allowMultiPage: Boolean(checked) })
                         }
                       />
-                    </label>
-                  </div>
-                </section>
-
-                <section className="rounded-md border">
-                  <div className="border-b px-3 py-2 text-sm font-medium">
-                    Selected Exporter
-                  </div>
-                  <div className="grid gap-3 p-3 text-sm">
-                    <div>
-                      <div className="font-medium">{selectedExporter.label}</div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {selectedNote?.note ?? "Packages captured frames."}
-                      </p>
                     </div>
-                    <div className="rounded-md border px-3 py-2 text-xs">
+                  </div>
+                </SectionShell>
+              </div>
+
+              <aside className="grid min-w-0 gap-4 xl:sticky xl:top-0 xl:self-start">
+                <SectionShell title="Output Preview" icon={FileArchive}>
+                  <div className="grid gap-3 text-sm">
+                    <div className="flex items-start gap-2">
+                      <FormatMark format={mode} selected={true} theme={theme} />
+                      <div className="min-w-0">
+                        <div className="font-medium">
+                          {selectedExporter.label}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {selectedNote?.note ?? "Packages captured frames."}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-muted/40 px-3 py-2 text-xs">
                       <div className="flex items-center gap-2 font-medium">
                         <Clock size={13} />
-                        Output preview
+                        Files
                       </div>
-                      <div className="mt-2 grid gap-1 text-muted-foreground">
-                        {outputFiles.slice(0, 4).map((file) => (
-                          <span key={file}>{file}</span>
+                      <div className="mt-2 grid max-h-32 gap-1 overflow-auto text-muted-foreground">
+                        {outputFiles.slice(0, 8).map((file) => (
+                          <span
+                            key={file}
+                            className="flex items-center gap-2 truncate"
+                          >
+                            <OutputFileIcon file={file} />
+                            <span className="truncate">{file}</span>
+                          </span>
                         ))}
-                        {outputFiles.length > 4 && (
-                          <span>+ {outputFiles.length - 4} more pages</span>
+                        {outputFiles.length > 8 && (
+                          <span>+ {outputFiles.length - 8} more files</span>
                         )}
-                        <span>spritesheet.json</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-md border px-2 py-2">
-                        <span className="block text-muted-foreground">
+                      <div className="rounded-md bg-muted/40 px-2 py-2">
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <SquareStack size={12} />
                           Pages
                         </span>
                         <span className="text-lg font-semibold">
                           {summary.pageCount}
                         </span>
                       </div>
-                      <div className="rounded-md border px-2 py-2">
-                        <span className="block text-muted-foreground">
+                      <div className="rounded-md bg-muted/40 px-2 py-2">
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <ImageIcon size={12} />
                           Frames
                         </span>
                         <span className="text-lg font-semibold">
@@ -611,15 +975,15 @@ export function ExportWorkbench() {
                       </div>
                     </div>
                   </div>
-                </section>
+                </SectionShell>
 
-                <section className="xl:col-span-2">
+                <SectionShell title="Validation" icon={ListChecks}>
                   <ValidationMessages messages={validation.messages} />
-                </section>
-              </div>
-            </main>
-          </div>
-          <footer className="flex items-center justify-between border-t px-4 py-3">
+                </SectionShell>
+              </aside>
+            </div>
+          </main>
+          <footer className="flex flex-wrap items-center justify-between gap-3 border-t bg-background px-4 py-3">
             <Button
               variant="outline"
               onClick={() =>
