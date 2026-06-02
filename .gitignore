@@ -23,5 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 out
+.e2e-artifacts
 
 example_model.*

@@ -8,7 +8,7 @@ jobs:
   build-and-test:
     name: Build & smoke test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -65,26 +65,6 @@ jobs:
             echo "---"
           done
 
-      - name: Test workflows
-        run: |
-          workflows=("topdown-8dir" "topdown-4dir" "isometric" "platformer")
-
-          for workflow in "${workflows[@]}"; do
-            echo "Testing workflow: $workflow"
-            output_dir="./workflow-test-$workflow"
-            npm run cli -- example.fbx --workflow "$workflow" --frames 4 --cameraDistance 2.5 --output "$output_dir"
-
-            # Verify output directory has files
-            if [ -z "$(ls -A "$output_dir")" ]; then
-              echo "No files generated for workflow: $workflow"
-              exit 1
-            fi
-
-            echo "Output files for $workflow:"
-            ls "$output_dir"
-            echo "---"
-          done
-
       - name: Upload spritesheet test output
         if: always()
         uses: actions/upload-artifact@v6
@@ -101,10 +81,10 @@ jobs:
           path: ./format-test-*/
           retention-days: 3
 
-      - name: Upload workflow test outputs
+      - name: Upload workflow reproducibility outputs
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: workflow-tests-output
-          path: ./workflow-test-*/
+          name: workflow-reproducibility-output
+          path: ./.e2e-artifacts/workflow-reproducibility/
           retention-days: 3
