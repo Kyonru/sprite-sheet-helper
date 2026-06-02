@@ -453,6 +453,7 @@ type BoneHandleProps = {
   boneKey: string;
   bone: THREE.Object3D;
   selected: boolean;
+  edited?: boolean;
   onSelectBone?: (boneKey: string) => void;
 };
 
@@ -460,6 +461,7 @@ function BoneHandle({
   boneKey,
   bone,
   selected,
+  edited,
   onSelectBone,
 }: BoneHandleProps) {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -478,10 +480,10 @@ function BoneHandle({
     <mesh ref={meshRef} onClick={onClick} renderOrder={30}>
       <sphereGeometry args={[selected ? 0.055 : 0.038, 16, 16]} />
       <meshBasicMaterial
-        color={selected ? "#22c55e" : "#38bdf8"}
+        color={selected ? "#22c55e" : edited ? "#f59e0b" : "#38bdf8"}
         depthTest={false}
         transparent
-        opacity={selected ? 1 : 0.82}
+        opacity={selected || edited ? 1 : 0.82}
       />
     </mesh>
   );
@@ -596,6 +598,10 @@ type PoseEditLayerProps = {
   ikDebugRef?: React.MutableRefObject<IkDebugSnapshot | null>;
   onGizmoEditStart?: () => void;
   onGizmoEditEnd?: () => void;
+  showSkeleton?: boolean;
+  showHandles?: boolean;
+  gizmoEnabled?: boolean;
+  editedBoneKeys?: readonly string[];
 };
 
 function PoseEditLayer({
@@ -615,6 +621,10 @@ function PoseEditLayer({
   ikDebugRef,
   onGizmoEditStart,
   onGizmoEditEnd,
+  showSkeleton = true,
+  showHandles = true,
+  gizmoEnabled = true,
+  editedBoneKeys = [],
 }: PoseEditLayerProps) {
   const boneMap = useMemo(() => buildPreferredNamedObjectMap(object), [object]);
   const ikRig = useMemo(() => buildIkRigFromRemap(object, remap), [object, remap]);
@@ -795,18 +805,21 @@ function PoseEditLayer({
 
   return (
     <>
-      <PoseSkeletonHelper object={object} />
-      {editMode === "fk" &&
+      {showSkeleton && <PoseSkeletonHelper object={object} />}
+      {showHandles &&
+        editMode === "fk" &&
         entries.map(({ key, bone }) => (
           <BoneHandle
             key={key}
             boneKey={key}
             bone={bone}
             selected={selectedBoneKey === key}
+            edited={editedBoneKeys.includes(key)}
             onSelectBone={onSelectBone}
           />
         ))}
-      {editMode === "ik" &&
+      {showHandles &&
+        editMode === "ik" &&
         createIkTargetsFromPose(ikRig).map((target) => {
           return (
             <IkHandle
@@ -820,7 +833,8 @@ function PoseEditLayer({
             />
           );
         })}
-      {editMode === "ik" &&
+      {showHandles &&
+        editMode === "ik" &&
         createIkPoleTargetsFromPose(ikRig)
           .filter((target) => target.effectorKey === selectedEffectorKey)
           .map((target) => {
@@ -837,7 +851,7 @@ function PoseEditLayer({
               />
             );
           })}
-      {editMode === "fk" && selectedBone && selectedBoneKey && (
+      {gizmoEnabled && editMode === "fk" && selectedBone && selectedBoneKey && (
         <TransformControls
           object={selectedBone}
           mode={transformMode}
@@ -859,7 +873,10 @@ function PoseEditLayer({
           }}
         />
       )}
-      {editMode === "ik" && selectedIkObject && selectedIkChainAvailable && (
+      {gizmoEnabled &&
+        editMode === "ik" &&
+        selectedIkObject &&
+        selectedIkChainAvailable && (
         <TransformControls
           object={selectedIkObject}
           mode="translate"
@@ -910,6 +927,10 @@ interface Props {
   ikDebugRef?: React.MutableRefObject<IkDebugSnapshot | null>;
   onGizmoEditStart?: () => void;
   onGizmoEditEnd?: () => void;
+  showSkeleton?: boolean;
+  showHandles?: boolean;
+  gizmoEnabled?: boolean;
+  editedBoneKeys?: readonly string[];
 }
 
 export function ModelPreview({
@@ -936,6 +957,10 @@ export function ModelPreview({
   ikDebugRef,
   onGizmoEditStart,
   onGizmoEditEnd,
+  showSkeleton,
+  showHandles,
+  gizmoEnabled,
+  editedBoneKeys,
 }: Props) {
   const model = useModelsStore((s) => s.models[modelUuid]);
   const [object, setObject] = useState<THREE.Object3D | null>(null);
@@ -1023,6 +1048,10 @@ export function ModelPreview({
           ikDebugRef={ikDebugRef}
           onGizmoEditStart={onGizmoEditStart}
           onGizmoEditEnd={onGizmoEditEnd}
+          showSkeleton={showSkeleton}
+          showHandles={showHandles}
+          gizmoEnabled={gizmoEnabled}
+          editedBoneKeys={editedBoneKeys}
         />
       )}
       <Grid

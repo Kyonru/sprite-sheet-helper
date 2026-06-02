@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 
 // Pairs of landmark indices to draw bones
@@ -22,6 +22,9 @@ interface Props {
   width: number;
   height: number;
   mirror?: boolean;
+  fit?: "stretch" | "contain" | "cover";
+  sourceWidth?: number;
+  sourceHeight?: number;
 }
 
 export function SkeletonOverlay({
@@ -29,8 +32,30 @@ export function SkeletonOverlay({
   width,
   height,
   mirror = true,
+  fit = "stretch",
+  sourceWidth,
+  sourceHeight,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [size, setSize] = useState({ width, height });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const updateSize = () => {
+      const rect = canvas.getBoundingClientRect();
+      setSize({
+        width: Math.max(1, Math.round(rect.width || width)),
+        height: Math.max(1, Math.round(rect.height || height)),
+      });
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [height, width]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -38,10 +63,30 @@ export function SkeletonOverlay({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, width, height);
+    const canvasWidth = size.width;
+    const canvasHeight = size.height;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     if (!landmarks || landmarks.length === 0) return;
 
-    const xFor = (x: number) => (mirror ? 1 - x : x) * width;
+    const mediaWidth = sourceWidth && sourceWidth > 0 ? sourceWidth : width;
+    const mediaHeight = sourceHeight && sourceHeight > 0 ? sourceHeight : height;
+    const scale =
+      fit === "contain"
+        ? Math.min(canvasWidth / mediaWidth, canvasHeight / mediaHeight)
+        : fit === "cover"
+          ? Math.max(canvasWidth / mediaWidth, canvasHeight / mediaHeight)
+          : 1;
+    const drawWidth = fit === "stretch" ? canvasWidth : mediaWidth * scale;
+    const drawHeight = fit === "stretch" ? canvasHeight : mediaHeight * scale;
+    const offsetX = fit === "stretch" ? 0 : (canvasWidth - drawWidth) / 2;
+    const offsetY = fit === "stretch" ? 0 : (canvasHeight - drawHeight) / 2;
+
+    const xFor = (x: number) =>
+      offsetX + (mirror ? 1 - x : x) * drawWidth;
+    const yFor = (y: number) => offsetY + y * drawHeight;
 
     // Draw bones
     ctx.strokeStyle = "#22c55e";
@@ -51,8 +96,8 @@ export function SkeletonOverlay({
       const pb = landmarks[b];
       if (!pa || !pb) continue;
       ctx.beginPath();
-      ctx.moveTo(xFor(pa.x), pa.y * height);
-      ctx.lineTo(xFor(pb.x), pb.y * height);
+      ctx.moveTo(xFor(pa.x), yFor(pa.y));
+      ctx.lineTo(xFor(pb.x), yFor(pb.y));
       ctx.stroke();
     }
 
@@ -62,18 +107,28 @@ export function SkeletonOverlay({
         (lm as NormalizedLandmark & { visibility?: number }).visibility ?? 1;
       if (confidence < 0.3) continue;
       ctx.beginPath();
-      ctx.arc(xFor(lm.x), lm.y * height, 4, 0, Math.PI * 2);
+      ctx.arc(xFor(lm.x), yFor(lm.y), 4, 0, Math.PI * 2);
       ctx.fillStyle = confidence > 0.7 ? "#22c55e" : "#facc15";
       ctx.fill();
     }
-  }, [landmarks, width, height, mirror]);
+  }, [
+    fit,
+    height,
+    landmarks,
+    mirror,
+    size.height,
+    size.width,
+    sourceHeight,
+    sourceWidth,
+    width,
+  ]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={width}
-      height={height}
-      className="absolute inset-0 pointer-events-none"
+      width={size.width}
+      height={size.height}
+      className="absolute inset-0 h-full w-full pointer-events-none"
     />
   );
 }

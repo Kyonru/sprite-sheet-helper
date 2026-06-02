@@ -705,6 +705,17 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
               width={VIDEO_W}
               height={VIDEO_H}
               mirror={inputMode === "camera"}
+              fit={inputMode === "camera" ? "cover" : "contain"}
+              sourceWidth={
+                inputMode === "photo"
+                  ? imageRef.current?.naturalWidth
+                  : videoRef.current?.videoWidth
+              }
+              sourceHeight={
+                inputMode === "photo"
+                  ? imageRef.current?.naturalHeight
+                  : videoRef.current?.videoHeight
+              }
             />
 
             <div className="absolute top-2 left-2 flex gap-2">
