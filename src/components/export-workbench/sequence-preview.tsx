@@ -6,6 +6,7 @@ import {
   Infinity as InfinityIcon,
   Maximize2,
   MoreHorizontal,
+  Pause,
   Pencil,
   Play,
   SlidersHorizontal,
@@ -14,12 +15,6 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  type CarouselApi,
-} from "@/components/ui/carousel";
 import {
   Collapsible,
   CollapsibleContent,
@@ -74,19 +69,22 @@ function FrameThumbnail({
   selected,
   onSelect,
   onRemove,
+  buttonRef,
 }: {
   src: string;
   index: number;
   selected: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  buttonRef?: (node: HTMLButtonElement | null) => void;
 }) {
   return (
-    <div className="group relative size-12 shrink-0">
+    <div className="group relative size-10 shrink-0">
       <button
+        ref={buttonRef}
         type="button"
         className={cn(
-          "size-12 overflow-hidden rounded-md border bg-muted/40 transition-colors",
+          "size-10 overflow-hidden rounded-md border bg-muted/40 transition-colors",
           selected ? "border-primary" : "border-border hover:border-primary/60",
         )}
         onClick={onSelect}
@@ -301,7 +299,6 @@ function SequenceRow({
 }
 
 export function SequencePreview() {
-  const [api, setApi] = useState<CarouselApi>();
   const [loop, setLoop] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [activeFrameIndex, setActiveFrameIndex] = useState(0);
@@ -314,6 +311,7 @@ export function SequencePreview() {
   );
   const [open, setOpen] = useState(() => rows.length > 0);
   const hadRowsRef = useRef(rows.length > 0);
+  const thumbnailRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     if (!hadRowsRef.current && rows.length > 0) {
@@ -341,8 +339,8 @@ export function SequencePreview() {
   useEffect(() => {
     setPlaying(false);
     setActiveFrameIndex(0);
-    api?.scrollTo(0);
-  }, [api, activeRow?.uuid]);
+    thumbnailRefs.current = [];
+  }, [activeRow?.uuid]);
 
   useEffect(() => {
     if (!activeRow) return;
@@ -352,8 +350,12 @@ export function SequencePreview() {
   }, [activeRow]);
 
   useEffect(() => {
-    api?.scrollTo(currentFrameIndex);
-  }, [api, currentFrameIndex]);
+    thumbnailRefs.current[currentFrameIndex]?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: playing ? "auto" : "smooth",
+    });
+  }, [activeRow?.uuid, currentFrameIndex, playing]);
 
   useEffect(() => {
     if (!playing || !activeRow || activeRow.images.length <= 1) return;
@@ -460,7 +462,7 @@ export function SequencePreview() {
                 <div className="mx-auto aspect-square w-full max-w-80">
                   {currentFrame ? (
                     <TransformWrapper
-                      key={`${activeRow?.uuid}-${currentFrameIndex}`}
+                      key={activeRow?.uuid}
                       maxScale={50}
                       wheel={{ step: 0.08 }}
                     >
@@ -509,7 +511,11 @@ export function SequencePreview() {
                               aria-pressed={playing}
                               aria-label="Play sequence"
                             >
-                              <Play size={14} />
+                              {playing ? (
+                                <Pause size={14} />
+                              ) : (
+                                <Play size={14} />
+                              )}
                             </Button>
                             <Button
                               type="button"
@@ -530,16 +536,30 @@ export function SequencePreview() {
                             }}
                             wrapperClass="items-center justify-center"
                           >
-                            <img
-                              className="max-h-full max-w-full object-contain"
+                            <div
+                              className="relative max-h-full max-w-full"
                               style={{
                                 width: activeRow?.frameWidth,
                                 height: activeRow?.frameHeight,
                                 imageRendering: "pixelated",
                               }}
-                              src={addDataToImageIfNeeded(currentFrame)}
-                              alt={`${activeRow?.label ?? "Sequence"} frame ${currentFrameIndex + 1}`}
-                            />
+                            >
+                              {activeRow?.images.map((imageSrc, index) => (
+                                <img
+                                  key={`${activeRow.uuid}-${index}`}
+                                  className={cn(
+                                    "absolute inset-0 size-full object-contain",
+                                    index === currentFrameIndex
+                                      ? "opacity-100"
+                                      : "pointer-events-none opacity-0",
+                                  )}
+                                  style={{ imageRendering: "pixelated" }}
+                                  src={addDataToImageIfNeeded(imageSrc)}
+                                  alt={`${activeRow.label} frame ${index + 1}`}
+                                  draggable={false}
+                                />
+                              ))}
+                            </div>
                           </TransformComponent>
                         </>
                       )}
@@ -552,57 +572,48 @@ export function SequencePreview() {
                 </div>
               </div>
 
-              <Carousel
-                opts={{
-                  dragFree: true,
-                  loop: activeRow?.images.length > 1 && loop,
-                }}
-                setApi={setApi}
-                className="w-full"
-              >
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="size-8 rounded-full"
-                    onClick={selectPreviousFrame}
-                    disabled={(activeRow?.images.length ?? 0) <= 1}
-                    aria-label="Previous frame"
-                  >
-                    <ChevronLeft size={16} />
-                  </Button>
-                  <div className="min-w-0 flex-1">
-                    <CarouselContent className="-ml-2">
-                      {(activeRow?.images ?? []).map((imageSrc, index) => (
-                        <CarouselItem key={index} className="basis-14 pl-2">
-                          <FrameThumbnail
-                            src={imageSrc}
-                            index={index}
-                            selected={index === currentFrameIndex}
-                            onSelect={() => {
-                              setPlaying(false);
-                              setActiveFrameIndex(index);
-                            }}
-                            onRemove={() => removeFrame(index)}
-                          />
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
+              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1">
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="outline"
+                  onClick={selectPreviousFrame}
+                  disabled={(activeRow?.images.length ?? 0) <= 1}
+                  aria-label="Previous frame"
+                >
+                  <ChevronLeft size={14} />
+                </Button>
+                <div className="no-scrollbar min-w-0 overflow-x-auto overflow-y-hidden py-1">
+                  <div className="flex w-max gap-1 px-0.5">
+                    {(activeRow?.images ?? []).map((imageSrc, index) => (
+                      <FrameThumbnail
+                        key={index}
+                        buttonRef={(node) => {
+                          thumbnailRefs.current[index] = node;
+                        }}
+                        src={imageSrc}
+                        index={index}
+                        selected={index === currentFrameIndex}
+                        onSelect={() => {
+                          setPlaying(false);
+                          setActiveFrameIndex(index);
+                        }}
+                        onRemove={() => removeFrame(index)}
+                      />
+                    ))}
                   </div>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="size-8 rounded-full"
-                    onClick={selectNextFrame}
-                    disabled={(activeRow?.images.length ?? 0) <= 1}
-                    aria-label="Next frame"
-                  >
-                    <ChevronRight size={16} />
-                  </Button>
                 </div>
-              </Carousel>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="outline"
+                  onClick={selectNextFrame}
+                  disabled={(activeRow?.images.length ?? 0) <= 1}
+                  aria-label="Next frame"
+                >
+                  <ChevronRight size={14} />
+                </Button>
+              </div>
 
               <div className="text-center text-xs text-muted-foreground">
                 {activeRow
