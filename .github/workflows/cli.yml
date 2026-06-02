@@ -31,6 +31,9 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y libgbm1
 
+      - name: Run CLI e2e tests
+        run: npm run test:e2e:run
+
       - name: Smoke test — spritesheet
         run: npm run cli -- example.fbx --format spritesheet --frames 4 --width 64
           --height 64 --output ./sprite-sheet-test
@@ -38,6 +41,7 @@ jobs:
       - name: Verify spritesheet output
         run: |
           test -f ./sprite-sheet-test/spritesheet.png || (echo "spritesheet.png not found" && exit 1)
+          test ! -f ./sprite-sheet-test/spritesheet_normal.png || (echo "spritesheet_normal.png should not be emitted by default" && exit 1)
           echo "Output files:"
           ls ./sprite-sheet-test/
 

@@ -17,13 +17,10 @@ import {
   type WorkflowDirection,
 } from "@/constants/workflows";
 import { useEntitiesStore } from "@/store/next/entities";
-
-export interface WorkflowStep {
-  modelUuid?: string;
-  animationName: string;
-  directionLabel: string;
-  rowLabel: string;
-}
+import {
+  buildWorkflowSteps,
+  type WorkflowStep,
+} from "@/utils/workflows";
 
 export type WorkflowStatus =
   | "idle"
@@ -140,49 +137,11 @@ const waitForAnimationReady = (
     PubSub.on(EventType.ANIMATION_READY, handler);
   });
 
-function buildWorkflowSteps(workflow: WorkflowDefinition): WorkflowStep[] {
+function buildStepsFromStore(workflow: WorkflowDefinition): WorkflowStep[] {
   const { clips, models } = useModelsStore.getState();
-  const modelUuids = Object.keys(models);
-  const clipEntries = Object.entries(clips).filter(
-    ([, modelClips]) => modelClips.length > 0,
-  );
-
-  if (clipEntries.length === 0) {
-    return workflow.directions.map((dir) => ({
-      animationName: "none",
-      directionLabel: dir.label,
-      rowLabel: `none_${dir.label}`,
-    }));
-  }
-
-  const rawSteps = clipEntries.flatMap(([modelUuid, modelClips]) => {
-    const animationNames = [...new Set(modelClips.map((c) => c.clip.name))];
-    return animationNames.flatMap((animationName) =>
-      workflow.directions.map((dir) => ({
-        modelUuid,
-        animationName,
-        directionLabel: dir.label,
-      })),
-    );
-  });
-
-  const labelCounts = rawSteps.reduce<Record<string, number>>((acc, step) => {
-    const label = `${step.animationName}_${step.directionLabel}`;
-    acc[label] = (acc[label] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  return rawSteps.map((step) => {
-    const baseLabel = `${step.animationName}_${step.directionLabel}`;
-    const needsModelPrefix = labelCounts[baseLabel] > 1 || modelUuids.length > 1;
-    const modelPrefix = needsModelPrefix
-      ? `${step.modelUuid?.slice(0, 8) ?? "scene"}_`
-      : "";
-
-    return {
-      ...step,
-      rowLabel: `${modelPrefix}${baseLabel}`,
-    };
+  return buildWorkflowSteps(workflow, {
+    clips,
+    modelUuids: Object.keys(models),
   });
 }
 
@@ -263,7 +222,7 @@ export const useWorkflow = () => {
   }, []);
 
   const buildSteps = useCallback(
-    (workflow: WorkflowDefinition): WorkflowStep[] => buildWorkflowSteps(workflow),
+    (workflow: WorkflowDefinition): WorkflowStep[] => buildStepsFromStore(workflow),
     [],
   );
 
@@ -271,7 +230,7 @@ export const useWorkflow = () => {
     useEntitiesStore.getState().unselectEntity();
     abortRef.current = false;
 
-    const steps = buildWorkflowSteps(workflow);
+    const steps = buildStepsFromStore(workflow);
     const workflowRunId = Date.now().toString();
     workflowRunIdRef.current = workflowRunId;
 

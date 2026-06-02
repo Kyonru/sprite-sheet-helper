@@ -84,16 +84,9 @@ export async function buildSpritesheetAssets(
           return transparentFrame;
         }),
       }))
-    : exportedImages
-        .filter(
-          (row) =>
-            row.normalImages !== undefined &&
-            row.normalImages.length === row.images.length,
-        )
-        .map((row) => ({ ...row, images: row.normalImages ?? [] }));
+    : [];
   const hasNormalImages =
-    normalRows.length === exportedImages.length &&
-    (options.includeNormalMap || normalRows.length > 0);
+    options.includeNormalMap && normalRows.length === exportedImages.length;
   const json = createSpritesheetJSON(exportedImages);
   if (hasNormalImages) {
     json.meta.normalImage = options.normalImageName ?? "spritesheet_normal.png";

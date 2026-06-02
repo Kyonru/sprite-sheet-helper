@@ -7,10 +7,14 @@ import { dirname, resolve as pathResolve } from "path";
 const ROOT = pathResolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 export async function startServer(port: number): Promise<ChildProcess> {
-  const proc = spawn("npx", ["vite", "preview", "--port", String(port), "--host"], {
-    cwd: ROOT,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const proc = spawn(
+    "npx",
+    ["vite", "preview", "--port", String(port), "--host", "127.0.0.1"],
+    {
+      cwd: ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
 
   await waitForReady(port, proc);
   return proc;

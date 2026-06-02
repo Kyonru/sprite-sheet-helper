@@ -63,6 +63,11 @@ const initialState: ImagesState = {
   images: [],
 };
 
+function removeSparseIndex<T>(items: T[] | undefined, index: number) {
+  if (!items) return undefined;
+  return items.slice(0, index).concat(items.slice(index + 1));
+}
+
 interface ImagesStore extends ImagesState, ImagesActions {}
 
 export const useImagesStore = create<ImagesStore>()(
@@ -112,9 +117,7 @@ export const useImagesStore = create<ImagesStore>()(
               ? {
                   ...row,
                   images: row.images.filter((_, j) => j !== imageIndex),
-                  normalImages: row.normalImages?.filter(
-                    (_, j) => j !== imageIndex,
-                  ),
+                  normalImages: removeSparseIndex(row.normalImages, imageIndex),
                 }
               : row,
           ),
@@ -190,15 +193,7 @@ export const useImagesStore = create<ImagesStore>()(
 
           return {
             images: state.images.map((row, i) =>
-              i === index
-                ? {
-                    ...row,
-                    images: [...row.images, image],
-                    normalImages: normalImage
-                      ? [...(row.normalImages ?? []), normalImage]
-                      : row.normalImages,
-                  }
-                : row,
+              i === index ? appendFrameToRow(row, image, normalImage) : row,
             ),
             selectedRow: index,
           };
@@ -246,3 +241,29 @@ export const useImagesStore = create<ImagesStore>()(
     { name: "Images", enabled: import.meta.env.DEV },
   ),
 );
+
+function appendFrameToRow(
+  row: ExportRow,
+  image: string,
+  normalImage: string | undefined,
+): ExportRow {
+  const normalImages = row.normalImages
+    ? [...row.normalImages]
+    : normalImage
+      ? new Array<string>(row.images.length)
+      : undefined;
+
+  if (normalImages) {
+    if (normalImage) {
+      normalImages[row.images.length] = normalImage;
+    } else {
+      normalImages.length = row.images.length + 1;
+    }
+  }
+
+  return {
+    ...row,
+    images: [...row.images, image],
+    normalImages,
+  };
+}

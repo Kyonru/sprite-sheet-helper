@@ -82,14 +82,17 @@ export async function captureWorkflow(
   );
 
   const timeoutMs = Math.max(60000, Math.round((frames * 1000) / fps) + 900000);
+  let timeout: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(
+    timeout = setTimeout(
       () => reject(new Error(`Workflow timed out after ${timeoutMs}ms`)),
       timeoutMs,
     );
   });
 
-  const result = await Promise.race([workflowPromise, timeoutPromise]);
+  const result = await Promise.race([workflowPromise, timeoutPromise]).finally(
+    () => clearTimeout(timeout),
+  );
 
   if (result.status !== "done") {
     throw new Error(
