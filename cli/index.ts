@@ -34,6 +34,7 @@ interface CliArgs {
   workflow?: string;
   cameraDistance?: number;
   cameraAngle?: number;
+  normalMap: boolean;
 }
 
 function parseCliArgs(): CliArgs {
@@ -49,6 +50,7 @@ function parseCliArgs(): CliArgs {
       port: { type: "string", default: "4174" },
       workflow: { type: "string", default: undefined },
       cameraDistance: { type: "string", default: "5" },
+      normalMap: { type: "string", default: "false" },
       phi: { type: "string", default: undefined },
     },
     allowPositionals: true,
@@ -102,6 +104,7 @@ function parseCliArgs(): CliArgs {
     workflow: values.workflow,
     cameraDistance: parseFloat(values.cameraDistance ?? "5"),
     cameraAngle: values.phi ? parseFloat(values.phi) : undefined,
+    normalMap: values.normalMap === "true",
   };
 }
 
@@ -152,6 +155,7 @@ async function main() {
         height: args.height,
         workflow: args.workflow,
         cameraDistance: args.cameraDistance,
+        normalMap: args.normalMap,
       });
     } else {
       console.log(`[sprite-sheet-helper] Capturing frames...`);
@@ -162,6 +166,7 @@ async function main() {
         width: args.width,
         height: args.height,
         cameraDistance: args.cameraDistance,
+        normalMap: args.normalMap,
       });
     }
 

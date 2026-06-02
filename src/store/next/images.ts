@@ -22,13 +22,18 @@ interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
     name: string,
     label: string,
     images: string[],
+    normalImages: string[] | undefined,
     frameWidth: number,
     frameHeight: number,
     fps: number,
   ) => void;
   removeImagesRow: (index: number) => void;
   removeImageFromRow: (index: number, imageIndex: number) => void;
-  updateImagesRow: (index: number, images: string[]) => void;
+  updateImagesRow: (
+    index: number,
+    images: string[],
+    normalImages?: string[],
+  ) => void;
   updateLabel: (uuid: string, label: string) => void;
   updateWidth: (uuid: string, width: number) => void;
   updateHeight: (uuid: string, height: number) => void;
@@ -37,6 +42,7 @@ interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
   addImageToRow: (
     index: number,
     image: string,
+    normalImage: string | undefined,
     frameWidth: number,
     frameHeight: number,
     fps: number,
@@ -70,11 +76,27 @@ export const useImagesStore = create<ImagesStore>()(
       setPreview: (preview) => set({ preview }),
       setImages: (images) => set({ images }),
 
-      addImagesRow: (uuid, label, images, frameWidth, frameHeight, fps) =>
+      addImagesRow: (
+        uuid,
+        label,
+        images,
+        normalImages,
+        frameWidth,
+        frameHeight,
+        fps,
+      ) =>
         set((state) => ({
           images: [
             ...state.images,
-            { uuid, label, images, frameWidth, frameHeight, fps },
+            {
+              uuid,
+              label,
+              images,
+              normalImages,
+              frameWidth,
+              frameHeight,
+              fps,
+            },
           ],
         })),
 
@@ -90,15 +112,18 @@ export const useImagesStore = create<ImagesStore>()(
               ? {
                   ...row,
                   images: row.images.filter((_, j) => j !== imageIndex),
+                  normalImages: row.normalImages?.filter(
+                    (_, j) => j !== imageIndex,
+                  ),
                 }
               : row,
           ),
         })),
 
-      updateImagesRow: (index, images) =>
+      updateImagesRow: (index, images, normalImages) =>
         set((state) => ({
           images: state.images.map((row, i) =>
-            i === index ? { ...row, images } : row,
+            i === index ? { ...row, images, normalImages } : row,
           ),
         })),
 
@@ -132,7 +157,7 @@ export const useImagesStore = create<ImagesStore>()(
 
       setSelectedRow: (index) => set({ selectedRow: index }),
 
-      addImageToRow: (index, image, frameWidth, frameHeight, fps) =>
+      addImageToRow: (index, image, normalImage, frameWidth, frameHeight, fps) =>
         set((state) => {
           const existingRow = state.images[index];
 
@@ -141,6 +166,7 @@ export const useImagesStore = create<ImagesStore>()(
               uuid: Date.now().toString(),
               label: "Animation",
               images: [image],
+              normalImages: normalImage ? [normalImage] : undefined,
               frameWidth,
               frameHeight,
               fps,
@@ -164,7 +190,15 @@ export const useImagesStore = create<ImagesStore>()(
 
           return {
             images: state.images.map((row, i) =>
-              i === index ? { ...row, images: [...row.images, image] } : row,
+              i === index
+                ? {
+                    ...row,
+                    images: [...row.images, image],
+                    normalImages: normalImage
+                      ? [...(row.normalImages ?? []), normalImage]
+                      : row.normalImages,
+                  }
+                : row,
             ),
             selectedRow: index,
           };

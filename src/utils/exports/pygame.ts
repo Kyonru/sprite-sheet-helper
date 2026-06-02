@@ -1,6 +1,6 @@
 import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
-import { buildSpritesheetAssets } from "./helpers";
+import { buildSpritesheetAssets, createNormalMapFile } from "./helpers";
 
 export const createPygamePy = (
   json: SpritesheetJSON,
@@ -115,13 +115,15 @@ export const pygameExporter: Exporter<"pygame"> = {
   id: "pygame",
   label: "Pygame",
 
-  async run({ exportedImages }) {
-    const { json, base64PNG } = await buildSpritesheetAssets(exportedImages);
+  async run({ exportedImages, includeNormalMap }) {
+    const { json, base64PNG, normalBase64PNG } =
+      await buildSpritesheetAssets(exportedImages, { includeNormalMap });
 
     return {
       filename: "pygame.zip",
       files: [
         { name: "spritesheet.png", content: base64PNG, base64: true },
+        ...createNormalMapFile(normalBase64PNG),
         { name: "spritesheet.py", content: createPygamePy(json) },
         { name: "main.py", content: createPygameExample(json) },
       ],

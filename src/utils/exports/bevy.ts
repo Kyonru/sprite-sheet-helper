@@ -1,6 +1,6 @@
 import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
-import { buildSpritesheetAssets } from "./helpers";
+import { buildSpritesheetAssets, createNormalMapFile } from "./helpers";
 import { toPascal, toSnake } from "../strings";
 
 const toFloat = (n: number) => (Number.isInteger(n) ? `${n}.0` : `${n}`);
@@ -257,13 +257,21 @@ export const bevyExporter: Exporter<"bevy"> = {
   id: "bevy",
   label: "Bevy",
 
-  async run({ exportedImages }) {
-    const { json, base64PNG } = await buildSpritesheetAssets(exportedImages);
+  async run({ exportedImages, includeNormalMap }) {
+    const { json, base64PNG, normalBase64PNG } =
+      await buildSpritesheetAssets(exportedImages, {
+        includeNormalMap,
+        normalImageName: "assets/spritesheet_normal.png",
+      });
 
     return {
       filename: "bevy.zip",
       files: [
         { name: "assets/spritesheet.png", content: base64PNG, base64: true },
+        ...createNormalMapFile(
+          normalBase64PNG,
+          "assets/spritesheet_normal.png",
+        ),
         { name: "src/spritesheet.rs", content: createBevySpritesheetRs(json) },
         { name: "src/main.rs", content: createBevyMainRs(json) },
         { name: "Cargo.toml.snippet", content: createBevyCargoToml() },

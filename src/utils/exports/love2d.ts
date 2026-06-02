@@ -1,6 +1,6 @@
 import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
-import { buildSpritesheetAssets } from "./helpers";
+import { buildSpritesheetAssets, createNormalMapFile } from "./helpers";
 
 export const createVanillaLua = (
   json: SpritesheetJSON,
@@ -158,13 +158,15 @@ export const love2dVanillaExporter: Exporter<"love2d-lua"> = {
   id: "love2d-lua",
   label: "Love2D (Lua)",
 
-  async run({ exportedImages }) {
-    const { json, base64PNG } = await buildSpritesheetAssets(exportedImages);
+  async run({ exportedImages, includeNormalMap }) {
+    const { json, base64PNG, normalBase64PNG } =
+      await buildSpritesheetAssets(exportedImages, { includeNormalMap });
 
     return {
       filename: "lua.zip",
       files: [
         { name: "spritesheet.png", content: base64PNG, base64: true },
+        ...createNormalMapFile(normalBase64PNG),
         { name: "spritesheet.json", content: JSON.stringify(json, null, 2) },
         { name: "spritesheet.lua", content: createVanillaLua(json) },
         { name: "main.lua", content: createLuaExample(json) },
@@ -177,13 +179,15 @@ export const love2dAnim8Exporter: Exporter<"love2d-anim8"> = {
   id: "love2d-anim8",
   label: "Love2D (Anim8)",
 
-  async run({ exportedImages }) {
-    const { json, base64PNG } = await buildSpritesheetAssets(exportedImages);
+  async run({ exportedImages, includeNormalMap }) {
+    const { json, base64PNG, normalBase64PNG } =
+      await buildSpritesheetAssets(exportedImages, { includeNormalMap });
 
     return {
       filename: "anim8.zip",
       files: [
         { name: "spritesheet.png", content: base64PNG, base64: true },
+        ...createNormalMapFile(normalBase64PNG),
         { name: "spritesheet.json", content: JSON.stringify(json, null, 2) },
         { name: "spritesheet.lua", content: createAnim8Lua(json) },
         { name: "main.lua", content: createLuaExample(json) },

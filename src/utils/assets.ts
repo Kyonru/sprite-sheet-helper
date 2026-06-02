@@ -158,6 +158,7 @@ export interface SpritesheetJSON {
     animationCount: number;
     spacing: number;
     margin: number;
+    normalImage?: string;
   };
   animations: {
     name: string;

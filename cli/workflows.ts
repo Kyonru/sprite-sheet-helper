@@ -7,13 +7,21 @@ interface WorkflowOptions extends CaptureOptions {
 
 export async function captureWorkflow(
   page: Page,
-  { fps, width, height, workflow: workflowId, cameraDistance }: WorkflowOptions,
+  {
+    fps,
+    width,
+    height,
+    workflow: workflowId,
+    cameraDistance,
+    normalMap,
+  }: WorkflowOptions,
 ): Promise<void> {
   await page.evaluate(
-    (w: number, h: number, f: number, cam?: number) => {
+    (w: number, h: number, f: number, cam?: number, n?: boolean) => {
       const { settings, images } = window.__SSH_BRIDGE__.stores;
       settings.getState().setExportWidth(w);
       settings.getState().setExportHeight(h);
+      settings.getState().setExportNormalMap(!!n);
 
       if (cam !== undefined) {
         settings.getState().setCameraDistance(cam);
@@ -24,6 +32,7 @@ export async function captureWorkflow(
     height,
     fps,
     cameraDistance,
+    normalMap,
   );
 
   await page.evaluate(

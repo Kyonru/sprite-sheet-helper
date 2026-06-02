@@ -5,4 +5,5 @@ export interface CaptureOptions {
   width: number;
   height: number;
   cameraDistance?: number;
+  normalMap?: boolean;
 }

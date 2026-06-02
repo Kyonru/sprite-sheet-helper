@@ -20,6 +20,12 @@ export const ExportConfig = () => {
   const setIterations = useImagesStore((state) => state.setIterations);
   const exportModeDefault = useSettingsStore((state) => state.mode);
   const setExportMode = useSettingsStore((state) => state.setMode);
+  const exportNormalMapDefault = useSettingsStore(
+    (state) => state.exportNormalMap,
+  );
+  const setExportNormalMap = useSettingsStore(
+    (state) => state.setExportNormalMap,
+  );
 
   const heightDefault = useSettingsStore((state) => state.height);
   const widthDefault = useSettingsStore((state) => state.width);
@@ -38,6 +44,7 @@ export const ExportConfig = () => {
       width,
       previewHeight,
       previewWidth,
+      exportNormalMap,
     },
     set,
   ] = useControls(
@@ -132,6 +139,10 @@ export const ExportConfig = () => {
             max: 1000,
             step: 1,
           },
+          exportNormalMap: {
+            label: "Normal map",
+            value: exportNormalMapDefault,
+          },
           preview: carousel(),
         },
         {
@@ -170,6 +181,10 @@ export const ExportConfig = () => {
   useEffect(() => {
     setExportMode(mode as ExportFormat);
   }, [mode, setExportMode]);
+
+  useEffect(() => {
+    setExportNormalMap(exportNormalMap);
+  }, [exportNormalMap, setExportNormalMap]);
 
   useEffect(() => {
     setHeight(previewHeight);

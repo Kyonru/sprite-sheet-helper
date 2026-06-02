@@ -19,6 +19,7 @@ export interface ExportRow {
   uuid: string;
   label: string;
   images: string[];
+  normalImages?: string[];
   frameWidth: number;
   frameHeight: number;
   fps: number;
@@ -27,6 +28,7 @@ export interface ExportRow {
 export type ExportContext = {
   exportedImages: ExportRow[];
   frameDelay: number;
+  includeNormalMap: boolean;
 };
 
 export type ExportFile = {

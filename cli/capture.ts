@@ -5,18 +5,20 @@ const TWO_PI = Math.PI * 2;
 
 export async function captureFrames(
   page: Page,
-  { modelUuid, frames, fps, width, height }: CaptureOptions,
+  { modelUuid, frames, fps, width, height, normalMap }: CaptureOptions,
 ): Promise<void> {
   await page.evaluate(
-    (w: number, h: number, f: number) => {
+    (w: number, h: number, f: number, n?: boolean) => {
       const { settings, images } = window.__SSH_BRIDGE__.stores;
       settings.getState().setExportWidth(w);
       settings.getState().setExportHeight(h);
+      settings.getState().setExportNormalMap(!!n);
       images.getState().setIntervals(Math.round(1000 / f));
     },
     width,
     height,
     fps,
+    normalMap,
   );
 
   await page.evaluate(

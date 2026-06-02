@@ -372,6 +372,9 @@ export const LevaCarousel = () => {
                               updateImagesRow(
                                 index,
                                 items.map((i) => i.src),
+                                row.normalImages
+                                  ? items.map((i) => row.normalImages![i.id])
+                                  : undefined,
                               ),
                             onRenderItem: (item) => (
                               <img

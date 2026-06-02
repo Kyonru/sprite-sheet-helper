@@ -13,13 +13,16 @@ import { downloadFile } from "@/utils/assets";
 
 export const useExport = () => {
   const images = useRef<{ name: string; dataURL: string }[]>([]);
+  const normalImages = useRef<{ name: string; dataURL: string }[]>([]);
   const intervalRef = useRef<NodeJS.Timeout>(null);
+  const normalMaterialRef = useRef<THREE.MeshNormalMaterial | null>(null);
 
   const intervals = useImagesStore((state) => state.intervals);
   const iterations = useImagesStore((state) => state.iterations);
   const frameDelay = useImagesStore((state) => state.fps);
 
   const exportFormat = useSettingsStore((state) => state.mode);
+  const exportNormalMap = useSettingsStore((state) => state.exportNormalMap);
 
   const { exportHeight, exportWidth } = useSettingsStore();
   const addImages = useImagesStore((state) => state.addImagesRow);
@@ -30,7 +33,7 @@ export const useExport = () => {
   const lastIndex = useRef(0);
 
   const composer = useSceneStore((state) => state.composer);
-  const { gl } = useThree();
+  const { gl, scene, camera } = useThree();
 
   const captureScreenshotData = useCallback(() => {
     if (!gl || !composer) return;
@@ -38,34 +41,68 @@ export const useExport = () => {
     const originalSize = gl.getSize(new THREE.Vector2());
     const originalPixelRatio = gl.getPixelRatio();
     const originalTarget = gl.getRenderTarget();
+    const originalClearColor = gl.getClearColor(new THREE.Color());
+    const originalClearAlpha = gl.getClearAlpha();
+    const originalBackground = scene.background;
+    const originalOverrideMaterial = scene.overrideMaterial;
 
-    const target = new THREE.WebGLRenderTarget(exportWidth, exportHeight, {
-      minFilter: THREE.NearestFilter,
-      magFilter: THREE.NearestFilter,
-      format: THREE.RGBAFormat,
-      type: THREE.UnsignedByteType,
-    });
+    try {
+      if (exportWidth && exportHeight) {
+        gl.setSize(exportWidth, exportHeight, true);
+      }
+      gl.setPixelRatio(1);
+      gl.setRenderTarget(null);
 
-    if (exportWidth && exportHeight) {
-      gl.setSize(exportWidth, exportHeight, true);
+      composer.render();
+
+      const base64Data = gl.domElement
+        .toDataURL("image/png")
+        .split("base64,")[1];
+      images.current.push({
+        name: `image${images.current.length}.png`,
+        dataURL: base64Data,
+      });
+
+      if (exportNormalMap) {
+        if (!normalMaterialRef.current) {
+          normalMaterialRef.current = new THREE.MeshNormalMaterial({
+            transparent: true,
+          });
+        }
+
+        scene.background = null;
+        scene.overrideMaterial = normalMaterialRef.current;
+        gl.setClearColor("#000000", 0);
+        gl.clear(true, true, true);
+        gl.render(scene, camera);
+
+        const normalBase64Data = gl.domElement
+          .toDataURL("image/png")
+          .split("base64,")[1];
+        normalImages.current.push({
+          name: `normal${normalImages.current.length}.png`,
+          dataURL: normalBase64Data,
+        });
+      }
+    } finally {
+      scene.background = originalBackground;
+      scene.overrideMaterial = originalOverrideMaterial;
+      gl.setClearColor(originalClearColor, originalClearAlpha);
+      gl.setPixelRatio(originalPixelRatio);
+      gl.setSize(originalSize.x, originalSize.y);
+      gl.setRenderTarget(originalTarget);
+
+      composer.render();
     }
-    gl.setRenderTarget(target);
-
-    gl.setPixelRatio(1);
-    composer.render();
-
-    const base64Data = gl.domElement.toDataURL("image/png").split("base64,")[1];
-    images.current.push({
-      name: `image${images.current.length}.png`,
-      dataURL: base64Data,
-    });
-
-    gl.setPixelRatio(originalPixelRatio);
-    gl.setSize(originalSize.x, originalSize.y);
-    gl.setRenderTarget(originalTarget);
-
-    composer.render();
-  }, [gl, exportWidth, composer, exportHeight]);
+  }, [
+    gl,
+    scene,
+    camera,
+    exportWidth,
+    composer,
+    exportHeight,
+    exportNormalMap,
+  ]);
 
   const exportSpriteSheet = useCallback(
     async (format?: ExportFormat) => {
@@ -78,6 +115,7 @@ export const useExport = () => {
         const result = await exporter.run({
           exportedImages,
           frameDelay,
+          includeNormalMap: exportNormalMap,
         });
 
         const zipData = await buildZip((zip) => {
@@ -95,7 +133,7 @@ export const useExport = () => {
         PubSub.emit(EventType.STOP_EXPORT);
       }
     },
-    [exportedImages, exportFormat, frameDelay],
+    [exportedImages, exportFormat, frameDelay, exportNormalMap],
   );
 
   const takeScreenshotSequence = useCallback(
@@ -104,6 +142,7 @@ export const useExport = () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
 
       images.current = [];
+      normalImages.current = [];
 
       intervalRef.current = scheduleInterval(
         captureScreenshotData,
@@ -118,6 +157,9 @@ export const useExport = () => {
             Date.now().toString(),
             payload?.label ?? `animation_${lastIndex.current + 1}`,
             images.current.map((img) => img.dataURL),
+            exportNormalMap
+              ? normalImages.current.map((img) => img.dataURL)
+              : undefined,
             exportWidth,
             exportHeight,
             Math.round(1000 / intervals),
@@ -134,6 +176,7 @@ export const useExport = () => {
       captureScreenshotData,
       exportWidth,
       exportHeight,
+      exportNormalMap,
     ],
   );
 
@@ -141,6 +184,7 @@ export const useExport = () => {
     if (!gl) return;
 
     images.current = [];
+    normalImages.current = [];
 
     captureScreenshotData();
 
@@ -151,11 +195,13 @@ export const useExport = () => {
     addImageToRow(
       selectedRow || 0,
       images.current[0].dataURL,
+      exportNormalMap ? normalImages.current[0]?.dataURL : undefined,
       width,
       height,
       Math.round(1000 / intervals),
     );
     images.current = [];
+    normalImages.current = [];
   }, [
     gl,
     intervals,
@@ -164,6 +210,7 @@ export const useExport = () => {
     exportHeight,
     addImageToRow,
     captureScreenshotData,
+    exportNormalMap,
   ]);
 
   useEffect(() => {
@@ -199,4 +246,10 @@ export const useExport = () => {
       PubSub.off(EventType.START_EXPORT, exportSpriteSheet);
     };
   }, [exportSpriteSheet]);
+
+  useEffect(() => {
+    return () => {
+      normalMaterialRef.current?.dispose();
+    };
+  }, []);
 };
