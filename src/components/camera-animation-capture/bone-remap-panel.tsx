@@ -17,14 +17,22 @@ interface Props {
   modelUuid: string;
   remap: BoneRemap;
   onChange: (remap: BoneRemap) => void;
+  availableBones?: string[];
 }
 
-export function BoneRemapPanel({ modelUuid, remap, onChange }: Props) {
+export function BoneRemapPanel({
+  modelUuid,
+  remap,
+  onChange,
+  availableBones: externalAvailableBones,
+}: Props) {
   const model = useModelsStore((s) => s.models[modelUuid]);
-  const [availableBones, setAvailableBones] = useState<string[]>([]);
+  const [discoveredBones, setDiscoveredBones] = useState<string[]>([]);
+  const availableBones = externalAvailableBones ?? discoveredBones;
 
   // Discover all bone names from the model once
   useEffect(() => {
+    if (externalAvailableBones) return;
     if (!model?.file) return;
     const format = model.file.name.split(".").pop()?.toLowerCase() as ModelComponent["format"];
     if (!format) return;
@@ -34,9 +42,9 @@ export function BoneRemapPanel({ modelUuid, remap, onChange }: Props) {
       parsed.object.traverse((child) => {
         if (child.name) names.push(child.name);
       });
-      setAvailableBones(names.sort());
+      setDiscoveredBones(names.sort());
     });
-  }, [model?.file]);
+  }, [externalAvailableBones, model?.file]);
 
   const keys = useMemo(() => Object.keys(BODY_PART_LABELS) as (keyof BoneRemap)[], []);
 

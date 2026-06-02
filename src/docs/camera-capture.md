@@ -1,107 +1,78 @@
 ---
-title: Camera Animation Capture
+title: Pose Studio
 ---
 
-You can record live poses from your webcam or from a static photo and bake them into animation clips on your model. All pose detection runs entirely in the browser — no video is uploaded anywhere.
+Pose Studio turns webcam, video, or photo poses into animation clips for the selected model. Pose detection runs locally in the browser; no video or image is uploaded.
 
-The captured clip appears in the Animation panel alongside any embedded clips and can be exported like any other animation.
+Saved clips appear in the Animation panel alongside embedded clips and can be exported like any other animation.
 
-## Opening the Capture Flow
+## Opening Pose Studio
 
-In the **Animation** panel, click **Add from image**. A modal opens and walks you through four steps: Disclaimer → Capture → Review → Save.
+Use the **Pose** menu in the main toolbar, or select a loaded model and click **Create Pose / Motion Clip** in the Animation panel.
 
 ---
 
 ## Step 1 — Capture
 
-Choose an input source at the top of the Capture step:
+Choose an input source:
 
-| Mode             | Best for                                          |
-| ---------------- | ------------------------------------------------- |
-| **Camera**       | Recording continuous movement from your webcam    |
-| **Photo Upload** | Capturing a single static pose from an image file |
+| Mode       | Best for                                       |
+| ---------- | ---------------------------------------------- |
+| **Photo**  | Creating a single posture from a still image   |
+| **Video**  | Recording motion from an uploaded video file   |
+| **Camera** | Recording continuous movement from your webcam |
 
-### Camera mode
-
-1. Click **Record**. A `● REC` badge and elapsed time appear over the video feed.
-2. Perform the motion in front of the camera.
-3. Click **Stop** when done. The frame counter shows how many frames were recorded.
-4. Click **Next →**.
-
-### Photo mode
-
-1. Click the file input and choose an image that shows a full or half body.
-2. Pose detection runs automatically. When the green skeleton overlay appears, click **Capture Pose**.
-3. Click **Next →**.
+The status row shows whether the model is ready, whether a pose is detected, and how many mapped bones match the selected model.
 
 ### Root Motion
 
-Toggle **Root Motion** before recording if the character moves vertically during the clip (e.g. jumping, crouching). When off, the hips bone stays at the origin — correct for most in-place looping animations.
+Turn on **Root Motion** before recording when vertical hip motion matters, such as crouching or jumping. Leave it off for most in-place loops.
 
 ### Bone Mapping
 
-If your model uses non-standard bone names, expand **Bone Mapping** and enter the correct names, or click **Auto-detect** to match names by pattern. The mapping is used when baking the recorded rotations into the rig.
+Pose Studio auto-detects a mapping from model bone names when it opens. If a model uses unusual names, expand **Bone Mapping**, adjust fields manually, or run **Auto-detect** again.
 
 ---
 
-## Step 2 — Review & Correct
+## Step 2 — Edit
 
-The review step lets you scrub through every captured frame, clean up the clip, and fix pose problems before saving.
+Use the timeline to scrub through captured frames. The model preview updates to the selected frame.
 
-### Timeline
+### Direct Bone Editing
 
-Drag the scrubber to step through frames one by one. The 3D model updates instantly to show the pose at each frame.
+Mapped bones show handles in the preview. Select a handle or a bone name, then rotate the selected bone with the on-canvas rotate control. The X/Y/Z values in the selected-bone panel stay in sync.
 
-### Trim & delete
+### Guided Controls
+
+The side panel groups bones by body area. Each selected bone supports:
+
+| Control          | Effect                                      |
+| ---------------- | ------------------------------------------- |
+| X / Y / Z        | Rotate the bone in parent-local space       |
+| Reset            | Clear this bone's override on the frame     |
+| Apply to all     | Copy this bone override to every frame      |
+
+Pose actions include mirror current, mirror all, copy pose, paste pose, flip 180, reset current, reset all edits, undo, and redo.
+
+### Trim & Delete
 
 | Control      | Effect                                    |
 | ------------ | ----------------------------------------- |
-| ⊢ Trim start | Discard all frames before the current one |
+| Trim start   | Discard all frames before the current one |
 | Delete frame | Remove the current frame only             |
-| Trim end ⊣   | Discard all frames after the current one  |
-
-### Global Corrections
-
-Expand the **Corrections** panel to apply the same transform to every frame at once:
-
-| Control      | Effect                                                              |
-| ------------ | ------------------------------------------------------------------- |
-| X slider     | Tilt the whole pose forward or backward                             |
-| Y slider     | Rotate the character left or right                                  |
-| Z slider     | Lean the pose left or right                                         |
-| ⇄ Mirror L↔R | Swap left and right limbs and reflect their rotations               |
-| ↺ Flip 180°  | Add 180° on the Y axis — use when the clip was captured from behind |
-| Reset        | Return all sliders to zero and turn off mirror                      |
-
-Global corrections are non-destructive during review and are only baked into the frame data when you click **Save →**.
-
-### Bone Adjustments
-
-Expand the **Bone Adjustments** panel to rotate individual bones on the current frame:
-
-1. Click a bone name (e.g. _L Upper Arm_) to expand it.
-2. Drag the **X / Y / Z** sliders to adjust that bone's rotation in parent-local space.
-3. A `●` dot appears on any bone that has an active override on the current frame.
-
-| Control             | Effect                                                       |
-| ------------------- | ------------------------------------------------------------ |
-| Reset bone          | Remove the override for this bone on this frame              |
-| Apply to all frames | Copy this bone's current override to every frame in the clip |
-
-Bone overrides are applied after global corrections, so you can mirror or flip the whole pose first and then fine-tune individual limbs on top.
+| Trim end     | Discard all frames after the current one  |
 
 ---
 
 ## Step 3 — Save
 
-Enter a name for the clip and click **Save**. The animation is added to your model and set as the active clip. You can then adjust its speed, loop mode, and trim range in the Animation panel.
+Enter a clip name and click **Save to Model**. The new clip is added to the model and becomes the active animation.
 
 ---
 
 ## Tips
 
 - Stand 2–3 metres from the camera with your full body visible for the most accurate tracking.
-- Wear clothes that contrast with the background — the pose model works best when your silhouette is clearly defined.
-- Record in even, front-facing light; strong light from behind will reduce tracking quality.
-- If a limb passes behind your body, the tracker holds its last known rotation rather than guessing. Use the review step to trim or delete those frames.
-- For looping animations, record a few extra frames at the start and end, then trim to a clean loop in the review step.
+- For photo poses, use clear silhouettes and front-facing light.
+- For looping animations, record a few extra frames at the start and end, then trim to a clean loop in the edit step.
+- If a limb is occluded during recording, Pose Studio holds its last reliable rotation; use the edit step to correct those frames.

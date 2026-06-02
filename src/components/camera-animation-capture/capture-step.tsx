@@ -1,15 +1,30 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { importFile } from "@/utils/assets";
 import { useMediaPipe } from "@/hooks/next/use-mediapipe";
 import type { PoseBoneData } from "@/utils/mediapipe-to-bones";
 import { PoseSmoother } from "@/utils/animation-smoothing";
 import type { PoseFrame } from "@/utils/pose-to-animation";
-import { MIXAMO_DEFAULT_REMAP, type BoneRemap } from "@/utils/bone-remap";
+import {
+  BODY_PART_LABELS,
+  MIXAMO_DEFAULT_REMAP,
+  autoDetectRemap,
+  type BoneRemap,
+} from "@/utils/bone-remap";
 import { SkeletonOverlay } from "./skeleton-overlay";
 import { ModelPreview } from "./model-preview";
 import { BoneRemapPanel } from "./bone-remap-panel";
-import { Loader2, Settings2 } from "lucide-react";
+import {
+  AlertCircle,
+  Camera,
+  CheckCircle2,
+  Image,
+  Loader2,
+  Settings2,
+  ShieldCheck,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -17,11 +32,76 @@ import {
 } from "@/components/ui/collapsible";
 import { isWeb } from "@/utils/platform";
 import { cn } from "@/lib/utils";
+import { useModelsStore } from "@/store/next/models";
+import { parseModel } from "@/utils/model";
+import type { ModelComponent } from "@/types/ecs";
 
 const VIDEO_W = 480;
 const VIDEO_H = 360;
 
 type InputMode = "camera" | "photo" | "video";
+
+type InputModeOptionProps = {
+  active: boolean;
+  title: string;
+  detail: string;
+  icon: LucideIcon;
+  onClick: () => void;
+};
+
+function InputModeOption({
+  active,
+  title,
+  detail,
+  icon: Icon,
+  onClick,
+}: InputModeOptionProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex min-w-40 flex-1 items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors",
+        active
+          ? "border-primary/50 bg-primary/10 text-primary"
+          : "border-border hover:bg-muted",
+      )}
+    >
+      <Icon className="h-5 w-5 shrink-0" />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {detail}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function StatusPill({
+  ok,
+  label,
+  value,
+}: {
+  ok: boolean;
+  label: string;
+  value: string;
+}) {
+  const Icon = ok ? CheckCircle2 : AlertCircle;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
+        ok
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+          : "border-amber-500/30 bg-amber-500/10 text-amber-700",
+      )}
+    >
+      <Icon size={12} />
+      {label}: {value}
+    </span>
+  );
+}
 
 interface Props {
   modelUuid: string;
@@ -30,12 +110,14 @@ interface Props {
 }
 
 export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
+  const model = useModelsStore((state) => state.models[modelUuid]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const startTimeRef = useRef<number>(0);
   const smootherRef = useRef(new PoseSmoother(0.4));
   const framesRef = useRef<PoseFrame[]>([]);
+  const autoDetectedRef = useRef(false);
 
   const worldLandmarksRef = useRef<
     import("@mediapipe/tasks-vision").NormalizedLandmark[] | null
@@ -50,6 +132,8 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
   const [boneRemap, setBoneRemap] = useState<BoneRemap>({
     ...MIXAMO_DEFAULT_REMAP,
   });
+  const [availableBones, setAvailableBones] = useState<string[]>([]);
+  const [boneLoadError, setBoneLoadError] = useState<string | null>(null);
   const [rootMotion, setRootMotion] = useState(false);
 
   const [recording, setRecording] = useState(false);
@@ -80,6 +164,42 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
   useEffect(() => {
     worldLandmarksRef.current = worldLandmarks;
   }, [worldLandmarks]);
+
+  useEffect(() => {
+    autoDetectedRef.current = false;
+    setAvailableBones([]);
+    setBoneLoadError(null);
+
+    if (!model?.file) return;
+    const format = model.file.name
+      .split(".")
+      .pop()
+      ?.toLowerCase() as ModelComponent["format"];
+    if (!format) return;
+
+    let cancelled = false;
+    parseModel(model.file, format)
+      .then((parsed) => {
+        if (cancelled) return;
+        const names: string[] = [];
+        parsed.object.traverse((child) => {
+          if (child.name) names.push(child.name);
+        });
+        const sorted = names.sort();
+        setAvailableBones(sorted);
+        if (!autoDetectedRef.current && sorted.length > 0) {
+          setBoneRemap(autoDetectRemap(sorted));
+          autoDetectedRef.current = true;
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setBoneLoadError((error as Error).message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [model?.file]);
 
   // Webcam setup
   useEffect(() => {
@@ -252,33 +372,72 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     inputMode === "camera" ? (camError ?? mpError) : (inputError ?? mpError);
 
   const isVideoMode = inputMode === "camera" || inputMode === "video";
+  const mappedBoneCount = useMemo(
+    () =>
+      Object.values(boneRemap).filter((boneName) =>
+        availableBones.includes(boneName),
+      ).length,
+    [availableBones, boneRemap],
+  );
+  const expectedBoneCount = Object.keys(BODY_PART_LABELS).length;
+  const poseDetected = Boolean(screenLandmarks && worldLandmarks);
+  const modelReady = model?.loadState === "loaded";
+  const mappingReady = mappedBoneCount > 0;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2 justify-center">
+      <div className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
+        <StatusPill
+          ok={modelReady}
+          label="Model"
+          value={modelReady ? "ready" : "not ready"}
+        />
+        <StatusPill
+          ok={poseDetected}
+          label="Pose"
+          value={poseDetected ? "detected" : "waiting"}
+        />
+        <StatusPill
+          ok={mappingReady}
+          label="Mapping"
+          value={
+            mappingReady
+              ? `${mappedBoneCount}/${expectedBoneCount}`
+              : boneLoadError
+                ? "error"
+                : "loading"
+          }
+        />
+        <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <ShieldCheck size={13} />
+          Local browser detection
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
         {isWeb() && (
-          <Button
-            size="sm"
-            variant={inputMode === "camera" ? "secondary" : "outline"}
+          <InputModeOption
+            active={inputMode === "camera"}
+            icon={Camera}
+            title="Camera"
+            detail="Record live motion"
             onClick={() => setInputMode("camera")}
-          >
-            Camera
-          </Button>
+          />
         )}
-        <Button
-          size="sm"
-          variant={inputMode === "photo" ? "secondary" : "outline"}
+        <InputModeOption
+          active={inputMode === "photo"}
+          icon={Image}
+          title="Photo"
+          detail="Capture one pose"
           onClick={() => setInputMode("photo")}
-        >
-          Photo
-        </Button>
-        <Button
-          size="sm"
-          variant={inputMode === "video" ? "secondary" : "outline"}
+        />
+        <InputModeOption
+          active={inputMode === "video"}
+          icon={Video}
+          title="Video"
+          detail="Record from a file"
           onClick={() => setInputMode("video")}
-        >
-          Video
-        </Button>
+        />
       </div>
 
       <div className="flex gap-3 flex-wrap justify-center">
@@ -444,7 +603,11 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
             modelUuid={modelUuid}
             remap={boneRemap}
             onChange={setBoneRemap}
+            availableBones={availableBones}
           />
+          {boneLoadError && (
+            <p className="mt-2 text-xs text-destructive">{boneLoadError}</p>
+          )}
         </CollapsibleContent>
       </Collapsible>
 

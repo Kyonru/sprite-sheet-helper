@@ -25,7 +25,7 @@ Select an animation clip to configure it:
 
 ## Creating Animations from Camera or Photo
 
-You can generate animation clips directly from your webcam or a photo using the built-in pose capture tool. Click **Add from image** in the Animation panel to open the capture flow. After recording, a review step lets you trim frames, fix tilt or facing direction, mirror left and right limbs, and adjust individual bones before saving.
+You can generate animation clips directly from your webcam, a video, or a photo using **Pose Studio**. Open it from the top **Pose** menu or click **Create Pose / Motion Clip** in the Animation panel. After capture, the edit step lets you trim frames, fix tilt or facing direction, mirror poses, select bones in the preview, rotate them directly, and fine-tune values before saving.
 
 See [Camera Animation Capture](camera-capture) for the full workflow.
 

@@ -15,7 +15,9 @@ export const MenuOption = ({
 }>) => {
   return (
     <Tooltip key="bottom">
-      <TooltipTrigger className={className}>{children}</TooltipTrigger>
+      <TooltipTrigger asChild>
+        <span className={className}>{children}</span>
+      </TooltipTrigger>
       <TooltipContent side="bottom">
         <p>{title}</p>
       </TooltipContent>

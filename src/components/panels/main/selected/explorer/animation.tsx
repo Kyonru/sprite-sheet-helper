@@ -12,7 +12,7 @@ import { useEffect, useMemo } from "react";
 import { LEVA_THEME } from "@/constants/theming";
 import { useModel, useModelsStore, type LoopType } from "@/store/next/models";
 import * as THREE from "three";
-import { openCameraCapture } from "@/components/camera-animation-capture";
+import { openPoseStudio } from "@/components/camera-animation-capture";
 
 const ANIMATION_LOOP_OPTIONS: Record<string, LoopType> = {
   "Loop Once": THREE.LoopOnce,
@@ -141,7 +141,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   useControls(
     () =>
       ({
-        "Create frame capture": button(() => openCameraCapture(uuid)),
+        "Create Pose / Motion Clip": button(() => openPoseStudio(uuid)),
       }) satisfies Schema,
     { store },
     [uuid],

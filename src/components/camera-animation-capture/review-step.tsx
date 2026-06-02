@@ -1,170 +1,80 @@
-import { useEffect, useRef, useState } from "react";
-import * as THREE from "three";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Settings2, Bone } from "lucide-react";
+  Bone,
+  Clipboard,
+  ClipboardPaste,
+  FlipHorizontal,
+  Redo2,
+  RotateCcw,
+  Settings2,
+  Undo2,
+} from "lucide-react";
 import type { PoseFrame } from "@/utils/pose-to-animation";
-import type { PoseBoneData, BoneFrame } from "@/utils/mediapipe-to-bones";
+import type { PoseBoneData } from "@/utils/mediapipe-to-bones";
 import type { BoneRemap } from "@/utils/bone-remap";
 import { ModelPreview } from "./model-preview";
+import {
+  DEFAULT_POSE_CORRECTION,
+  POSE_BONE_GROUPS,
+  POSE_BONE_LABELS,
+  applyPoseBoneOverrideToAllFrames,
+  applyPoseCorrection,
+  buildFinalPose,
+  buildFinalPoseFrames,
+  copyPoseFrameOverrides,
+  deletePoseFrame,
+  getPoseBoneEuler,
+  pastePoseFrameOverrides,
+  quaternionToEulerDeg,
+  resetPoseBoneOverride,
+  resetPoseFrameOverrides,
+  setPoseBoneOverride,
+  trimPoseFramesAfter,
+  trimPoseFramesBefore,
+  type PoseBoneOverride,
+  type PoseEditDraft,
+  type PoseFrameOverrides,
+} from "@/utils/pose-edit";
 
-const VIDEO_W = 480;
-const VIDEO_H = 360;
-const DEG2RAD = Math.PI / 180;
+const PREVIEW_H = 460;
 
-// ── Mirror helpers ────────────────────────────────────────────────────────────
-
-const MIRROR_PAIRS: [keyof BoneRemap, keyof BoneRemap][] = [
-  ["leftShoulder", "rightShoulder"],
-  ["leftArm", "rightArm"],
-  ["leftForeArm", "rightForeArm"],
-  ["leftUpLeg", "rightUpLeg"],
-  ["leftLeg", "rightLeg"],
-  ["leftFoot", "rightFoot"],
-];
-
-function mirrorQuat(q: THREE.Quaternion): THREE.Quaternion {
-  return new THREE.Quaternion(-q.x, q.y, -q.z, q.w).normalize();
-}
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface Correction {
-  rotX: number;
-  rotY: number;
-  rotZ: number;
-  mirror: boolean;
-}
-
-/** Absolute euler angles in degrees, stored per boneKey per frame index. */
-type EulerOverride = { x: number; y: number; z: number };
-/** All overrides for a single frame: boneKey → euler. */
-type FrameOverrides = Record<string, EulerOverride>;
-/** All overrides across all frames: frameIndex → FrameOverrides. */
-type AllOverrides = Record<number, FrameOverrides>;
-
-// ── Pure transform helpers ────────────────────────────────────────────────────
-
-function applyCorrection(pose: PoseBoneData, c: Correction): PoseBoneData {
-  const corrQuat = new THREE.Quaternion().setFromEuler(
-    new THREE.Euler(c.rotX * DEG2RAD, c.rotY * DEG2RAD, c.rotZ * DEG2RAD, "YXZ"),
-  );
-  const hipsQuat = new THREE.Quaternion().multiplyQuaternions(
-    corrQuat,
-    pose.hips.quaternion,
-  );
-
-  let bones: BoneFrame[] = pose.bones;
-  if (c.mirror) {
-    const byKey = new Map<string, BoneFrame>(pose.bones.map((b) => [b.boneKey, b]));
-    const result = new Map(byKey);
-    for (const [lk, rk] of MIRROR_PAIRS) {
-      const lb = byKey.get(lk);
-      const rb = byKey.get(rk);
-      if (lb && rb) {
-        result.set(lk, { ...lb, quaternion: mirrorQuat(rb.quaternion) });
-        result.set(rk, { ...rb, quaternion: mirrorQuat(lb.quaternion) });
-      }
-    }
-    bones = [...result.values()];
-  }
-
-  return { hips: { ...pose.hips, quaternion: hipsQuat }, bones };
-}
-
-function applyBoneOverrides(pose: PoseBoneData, overrides: FrameOverrides): PoseBoneData {
-  if (Object.keys(overrides).length === 0) return pose;
-  return {
-    ...pose,
-    bones: pose.bones.map((b) => {
-      const ov = overrides[b.boneKey];
-      if (!ov) return b;
-      return {
-        ...b,
-        quaternion: new THREE.Quaternion().setFromEuler(
-          new THREE.Euler(ov.x * DEG2RAD, ov.y * DEG2RAD, ov.z * DEG2RAD, "YXZ"),
-        ),
-      };
-    }),
-  };
-}
-
-function quatToEulerDeg(q: THREE.Quaternion): EulerOverride {
-  const e = new THREE.Euler().setFromQuaternion(q, "YXZ");
-  return {
-    x: Math.round(e.x / DEG2RAD),
-    y: Math.round(e.y / DEG2RAD),
-    z: Math.round(e.z / DEG2RAD),
-  };
-}
-
-function normaliseTime(frames: PoseFrame[]): PoseFrame[] {
-  if (frames.length === 0) return [];
-  const offset = frames[0].time;
-  return frames.map((f) => ({ ...f, time: f.time - offset }));
-}
-
-function buildFinalPose(
-  frame: PoseFrame,
-  correction: Correction,
-  overrides: FrameOverrides,
-): PoseBoneData {
-  return applyBoneOverrides(applyCorrection(frame.data, correction), overrides);
-}
-
-// ── Bone label map ────────────────────────────────────────────────────────────
-
-const BONE_LABELS: Partial<Record<keyof BoneRemap, string>> = {
-  spine: "Spine",
-  spine1: "Spine 1",
-  spine2: "Spine 2",
-  neck: "Neck",
-  head: "Head",
-  leftShoulder: "L Clavicle",
-  rightShoulder: "R Clavicle",
-  leftArm: "L Upper Arm",
-  rightArm: "R Upper Arm",
-  leftForeArm: "L Forearm",
-  rightForeArm: "R Forearm",
-  leftUpLeg: "L Upper Leg",
-  rightUpLeg: "R Upper Leg",
-  leftLeg: "L Shin",
-  rightLeg: "R Shin",
-  leftFoot: "L Foot",
-  rightFoot: "R Foot",
+type HistoryState = {
+  past: PoseEditDraft[];
+  future: PoseEditDraft[];
 };
-
-// ── Sub-components ────────────────────────────────────────────────────────────
 
 interface BoneSliderRowProps {
   label: string;
   value: number;
-  onChange: (v: number) => void;
+  onChange: (value: number) => void;
 }
 
 function BoneSliderRow({ label, value, onChange }: BoneSliderRowProps) {
   return (
-    <>
-      <span className="text-muted-foreground text-right text-xs">{label}</span>
+    <label className="grid grid-cols-[1.5rem_1fr_3rem] items-center gap-2 text-xs">
+      <span className="text-muted-foreground text-right">{label}</span>
       <input
         type="range"
         min={-180}
         max={180}
         step={1}
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(event) => onChange(Number(event.target.value))}
         className="accent-primary"
       />
-      <span className="text-right tabular-nums text-xs w-10">{value}°</span>
-    </>
+      <input
+        type="number"
+        min={-180}
+        max={180}
+        step={1}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="h-7 rounded border bg-background px-1 text-right tabular-nums"
+      />
+    </label>
   );
 }
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
   frames: PoseFrame[];
@@ -174,334 +84,550 @@ interface Props {
   onBack: () => void;
 }
 
-export function ReviewStep({ frames, remap, modelUuid, onConfirm, onBack }: Props) {
-  const [editedFrames, setEditedFrames] = useState<PoseFrame[]>([...frames]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [correction, setCorrection] = useState<Correction>({
-    rotX: 0, rotY: 0, rotZ: 0, mirror: false,
+export function ReviewStep({
+  frames,
+  remap,
+  modelUuid,
+  onConfirm,
+  onBack,
+}: Props) {
+  const [draft, setDraft] = useState<PoseEditDraft>({
+    frames: [...frames],
+    correction: { ...DEFAULT_POSE_CORRECTION },
+    overrides: {},
   });
-  const [allOverrides, setAllOverrides] = useState<AllOverrides>({});
-  const [correctionsOpen, setCorrectionsOpen] = useState(false);
-  const [bonesOpen, setBonesOpen] = useState(false);
-  const [expandedBone, setExpandedBone] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryState>({
+    past: [],
+    future: [],
+  });
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedBone, setSelectedBone] = useState<string | null>(null);
+  const [copiedPose, setCopiedPose] = useState<PoseFrameOverrides | null>(null);
 
-  const landmarksRef = useRef<
-    import("@mediapipe/tasks-vision").NormalizedLandmark[] | null
-  >(null);
+  const landmarksRef =
+    useRef<import("@mediapipe/tasks-vision").NormalizedLandmark[] | null>(null);
   const staticPoseRef = useRef<PoseBoneData | null>(null);
 
-  const clampedIndex = Math.min(currentIndex, Math.max(0, editedFrames.length - 1));
-  const frameOverrides = allOverrides[clampedIndex] ?? {};
+  const clampedIndex = Math.min(
+    currentIndex,
+    Math.max(0, draft.frames.length - 1),
+  );
+  const currentFrame = draft.frames[clampedIndex];
+  const frameOverrides = useMemo(
+    () => draft.overrides[clampedIndex] ?? {},
+    [draft.overrides, clampedIndex],
+  );
+  const currentBones = useMemo(
+    () => currentFrame?.data.bones ?? [],
+    [currentFrame],
+  );
+  const selectedBoneData =
+    currentBones.find((bone) => bone.boneKey === selectedBone) ??
+    currentBones[0];
+  const selectedBoneKey = selectedBoneData?.boneKey ?? null;
+  const selectedBoneEuler = selectedBoneKey
+    ? getPoseBoneEuler(
+        currentFrame,
+        draft.correction,
+        frameOverrides,
+        selectedBoneKey,
+      )
+    : { x: 0, y: 0, z: 0 };
 
-  // Keep the R3F ref in sync: corrections → bone overrides → preview
+  const mappedBoneKeys = useMemo(
+    () => new Set(currentBones.map((bone) => bone.boneKey)),
+    [currentBones],
+  );
+
   useEffect(() => {
-    const frame = editedFrames[clampedIndex];
+    const frame = draft.frames[clampedIndex];
     staticPoseRef.current = frame
-      ? buildFinalPose(frame, correction, allOverrides[clampedIndex] ?? {})
+      ? buildFinalPose(frame, draft.correction, frameOverrides)
       : null;
-  }, [editedFrames, clampedIndex, correction, allOverrides]);
+  }, [draft, clampedIndex, frameOverrides]);
 
-  // ── Global correction helpers ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedBoneKey && currentBones[0]) {
+      setSelectedBone(currentBones[0].boneKey);
+    }
+  }, [currentBones, selectedBoneKey]);
 
-  const setCorr = (update: Partial<Correction>) =>
-    setCorrection((c) => ({ ...c, ...update }));
-
-  const handleFlip = () => {
-    const next = ((correction.rotY + 180 + 180) % 360) - 180;
-    setCorr({ rotY: next });
-  };
-
-  // ── Frame edit handlers ────────────────────────────────────────────────────
-
-  const handleDelete = () => {
-    if (editedFrames.length === 0) return;
-    const next = normaliseTime(editedFrames.filter((_, i) => i !== clampedIndex));
-    // Remove overrides for deleted frame; shift indices above it down by 1
-    setAllOverrides((prev) => {
-      const result: AllOverrides = {};
-      for (const [k, v] of Object.entries(prev)) {
-        const idx = Number(k);
-        if (idx === clampedIndex) continue;
-        result[idx > clampedIndex ? idx - 1 : idx] = v;
-      }
-      return result;
-    });
-    setEditedFrames(next);
-    setCurrentIndex(Math.min(clampedIndex, next.length - 1));
-  };
-
-  const handleTrimBefore = () => {
-    const offset = clampedIndex;
-    setAllOverrides((prev) => {
-      const result: AllOverrides = {};
-      for (const [k, v] of Object.entries(prev)) {
-        const idx = Number(k);
-        if (idx < offset) continue;
-        result[idx - offset] = v;
-      }
-      return result;
-    });
-    setEditedFrames(normaliseTime(editedFrames.slice(clampedIndex)));
-    setCurrentIndex(0);
-  };
-
-  const handleTrimAfter = () => {
-    setAllOverrides((prev) => {
-      const result: AllOverrides = {};
-      for (const [k, v] of Object.entries(prev)) {
-        const idx = Number(k);
-        if (idx <= clampedIndex) result[idx] = v;
-      }
-      return result;
-    });
-    setEditedFrames(normaliseTime(editedFrames.slice(0, clampedIndex + 1)));
-  };
-
-  // ── Per-bone override helpers ──────────────────────────────────────────────
-
-  /** Get euler for a bone on the current frame: override if set, else derive from corrected pose. */
-  const getBoneEuler = (boneKey: string): EulerOverride => {
-    const existing = frameOverrides[boneKey];
-    if (existing) return existing;
-
-    const frame = editedFrames[clampedIndex];
-    if (!frame) return { x: 0, y: 0, z: 0 };
-
-    const corrected = applyCorrection(frame.data, correction);
-    const bone = corrected.bones.find((b) => b.boneKey === boneKey);
-    return bone ? quatToEulerDeg(bone.quaternion) : { x: 0, y: 0, z: 0 };
-  };
-
-  const setBoneAxis = (boneKey: string, axis: "x" | "y" | "z", value: number) => {
-    const current = getBoneEuler(boneKey);
-    setAllOverrides((prev) => ({
-      ...prev,
-      [clampedIndex]: {
-        ...(prev[clampedIndex] ?? {}),
-        [boneKey]: { ...current, [axis]: value },
-      },
-    }));
-  };
-
-  const resetBone = (boneKey: string) => {
-    setAllOverrides((prev) => {
-      const frameOvs = { ...(prev[clampedIndex] ?? {}) };
-      delete frameOvs[boneKey];
-      return { ...prev, [clampedIndex]: frameOvs };
-    });
-  };
-
-  const applyBoneToAllFrames = (boneKey: string) => {
-    const euler = frameOverrides[boneKey];
-    if (!euler) return;
-    setAllOverrides((prev) => {
-      const next = { ...prev };
-      editedFrames.forEach((_, i) => {
-        next[i] = { ...(next[i] ?? {}), [boneKey]: euler };
-      });
+  const commitDraft = (updater: (current: PoseEditDraft) => PoseEditDraft) => {
+    setDraft((current) => {
+      const next = updater(current);
+      setHistory((state) => ({
+        past: [...state.past, current].slice(-60),
+        future: [],
+      }));
       return next;
     });
   };
 
-  // ── Render helpers ─────────────────────────────────────────────────────────
+  const undo = () => {
+    setHistory((state) => {
+      const previous = state.past.at(-1);
+      if (!previous) return state;
+      setDraft(() => {
+        setCurrentIndex((index) =>
+          Math.min(index, Math.max(0, previous.frames.length - 1)),
+        );
+        return previous;
+      });
+      return {
+        past: state.past.slice(0, -1),
+        future: [draft, ...state.future].slice(0, 60),
+      };
+    });
+  };
 
-  const currentTime = editedFrames[clampedIndex]?.time ?? 0;
-  const totalTime = editedFrames.length > 0 ? editedFrames[editedFrames.length - 1].time : 0;
-  const currentBones = editedFrames[clampedIndex]?.data.bones ?? [];
-  const hasAnyOverride = Object.keys(frameOverrides).length > 0;
+  const redo = () => {
+    setHistory((state) => {
+      const next = state.future[0];
+      if (!next) return state;
+      setDraft(() => {
+        setCurrentIndex((index) =>
+          Math.min(index, Math.max(0, next.frames.length - 1)),
+        );
+        return next;
+      });
+      return {
+        past: [...state.past, draft].slice(-60),
+        future: state.future.slice(1),
+      };
+    });
+  };
+
+  const updateCorrection = (
+    update: Partial<PoseEditDraft["correction"]>,
+  ) => {
+    commitDraft((current) => ({
+      ...current,
+      correction: { ...current.correction, ...update },
+    }));
+  };
+
+  const setBoneEuler = (boneKey: string, euler: PoseBoneOverride) => {
+    commitDraft((current) => ({
+      ...current,
+      overrides: setPoseBoneOverride(
+        current.overrides,
+        clampedIndex,
+        boneKey,
+        euler,
+      ),
+    }));
+  };
+
+  const setBoneAxis = (
+    boneKey: string,
+    axis: keyof PoseBoneOverride,
+    value: number,
+  ) => {
+    const current = getPoseBoneEuler(
+      currentFrame,
+      draft.correction,
+      frameOverrides,
+      boneKey,
+    );
+    setBoneEuler(boneKey, { ...current, [axis]: value });
+  };
+
+  const resetBone = (boneKey: string) => {
+    commitDraft((current) => ({
+      ...current,
+      overrides: resetPoseBoneOverride(current.overrides, clampedIndex, boneKey),
+    }));
+  };
+
+  const applyBoneToAllFrames = (boneKey: string) => {
+    commitDraft((current) => ({
+      ...current,
+      overrides: applyPoseBoneOverrideToAllFrames(
+        current.overrides,
+        current.frames,
+        clampedIndex,
+        boneKey,
+      ),
+    }));
+  };
+
+  const mirrorCurrentPose = () => {
+    if (!currentFrame) return;
+    commitDraft((current) => {
+      const finalPose = buildFinalPose(
+        current.frames[clampedIndex],
+        current.correction,
+        current.overrides[clampedIndex] ?? {},
+      );
+      const mirrored = applyPoseCorrection(finalPose, {
+        ...DEFAULT_POSE_CORRECTION,
+        mirror: true,
+      });
+      const overrides: PoseFrameOverrides = {};
+      mirrored.bones.forEach((bone) => {
+        overrides[bone.boneKey] = quaternionToEulerDeg(bone.quaternion);
+      });
+      return {
+        ...current,
+        overrides: { ...current.overrides, [clampedIndex]: overrides },
+      };
+    });
+  };
+
+  const clearAllEdits = () => {
+    commitDraft((current) => ({
+      ...current,
+      correction: { ...DEFAULT_POSE_CORRECTION },
+      overrides: {},
+    }));
+  };
+
+  const resetCurrentPose = () => {
+    commitDraft((current) => ({
+      ...current,
+      overrides: resetPoseFrameOverrides(current.overrides, clampedIndex),
+    }));
+  };
+
+  const copyCurrentPose = () => {
+    setCopiedPose(copyPoseFrameOverrides(draft.overrides, clampedIndex));
+  };
+
+  const pasteCurrentPose = () => {
+    if (!copiedPose) return;
+    commitDraft((current) => ({
+      ...current,
+      overrides: pastePoseFrameOverrides(
+        current.overrides,
+        clampedIndex,
+        copiedPose,
+      ),
+    }));
+  };
+
+  const handleDelete = () => {
+    if (!currentFrame) return;
+    commitDraft((current) => deletePoseFrame(current, clampedIndex));
+    setCurrentIndex((index) => Math.max(0, Math.min(index, draft.frames.length - 2)));
+  };
+
+  const handleTrimBefore = () => {
+    commitDraft((current) => trimPoseFramesBefore(current, clampedIndex));
+    setCurrentIndex(0);
+  };
+
+  const handleTrimAfter = () => {
+    commitDraft((current) => trimPoseFramesAfter(current, clampedIndex));
+  };
+
+  const hasSelectedOverride =
+    !!selectedBoneKey && !!frameOverrides[selectedBoneKey];
+  const overrideCount = Object.keys(frameOverrides).length;
+  const totalTime =
+    draft.frames.length > 0 ? draft.frames[draft.frames.length - 1].time : 0;
+  const currentTime = currentFrame?.time ?? 0;
 
   return (
-    <div className="flex flex-col gap-4 items-center">
-      {/* 3D preview */}
-      <div
-        className="rounded-md overflow-hidden bg-muted border"
-        style={{ width: VIDEO_W, height: VIDEO_H }}
-      >
-        <ModelPreview
-          modelUuid={modelUuid}
-          landmarksRef={landmarksRef}
-          remap={remap}
-          staticPoseRef={staticPoseRef}
-        />
-      </div>
-
-      {/* Frame info */}
-      <p className="text-sm text-muted-foreground">
-        {editedFrames.length === 0 ? (
-          "No frames"
-        ) : (
-          <>
-            Frame {clampedIndex + 1}&nbsp;/&nbsp;{editedFrames.length}
-            &nbsp;&middot;&nbsp;
-            {currentTime.toFixed(2)}s&nbsp;/&nbsp;{totalTime.toFixed(2)}s
-          </>
-        )}
-      </p>
-
-      {/* Timeline scrubber */}
-      <input
-        type="range"
-        className="w-full accent-primary"
-        min={0}
-        max={Math.max(0, editedFrames.length - 1)}
-        step={1}
-        value={clampedIndex}
-        disabled={editedFrames.length === 0}
-        onChange={(e) => setCurrentIndex(Number(e.target.value))}
-      />
-
-      {/* Frame trim / delete */}
-      <div className="flex flex-wrap gap-2 justify-center">
-        <Button variant="outline" size="sm" onClick={handleTrimBefore}
-          disabled={editedFrames.length === 0 || clampedIndex === 0}
-          title="Keep from this frame onward">
-          ⊢ Trim start
-        </Button>
-        <Button variant="destructive" size="sm" onClick={handleDelete}
-          disabled={editedFrames.length === 0}>
-          Delete frame
-        </Button>
-        <Button variant="outline" size="sm" onClick={handleTrimAfter}
-          disabled={editedFrames.length === 0 || clampedIndex === editedFrames.length - 1}
-          title="Keep up to this frame">
-          Trim end ⊣
-        </Button>
-      </div>
-
-      {/* ── Global Corrections ─────────────────────────────────────────────── */}
-      <Collapsible open={correctionsOpen} onOpenChange={setCorrectionsOpen} className="w-full">
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground">
-            <Settings2 size={14} />
-            Corrections{correctionsOpen ? " ▲" : " ▼"}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="border rounded-md p-3 mt-1 flex flex-col gap-3">
-          <div className="grid grid-cols-[1.5rem_1fr_2.5rem] items-center gap-x-3 gap-y-2 text-sm">
-            {(
-              [
-                ["X", "rotX", "Tilt forward / back"],
-                ["Y", "rotY", "Turn left / right"],
-                ["Z", "rotZ", "Lean left / right"],
-              ] as const
-            ).map(([label, key, title]) => (
-              <>
-                <span key={`${key}-l`} className="text-muted-foreground text-right" title={title}>
-                  {label}
-                </span>
-                <input key={`${key}-s`} type="range" min={-180} max={180} step={1}
-                  value={correction[key]}
-                  onChange={(e) => setCorr({ [key]: Number(e.target.value) })}
-                  className="accent-primary" />
-                <span key={`${key}-v`} className="text-right tabular-nums text-xs">
-                  {correction[key]}°
-                </span>
-              </>
-            ))}
+    <div className="flex min-h-0 flex-col gap-3">
+      <div className="grid min-h-0 grid-cols-[minmax(420px,1fr)_360px] gap-3 max-lg:grid-cols-1">
+        <div className="flex min-h-0 flex-col gap-2">
+          <div
+            className="overflow-hidden rounded-md border bg-muted"
+            style={{ width: "100%", height: PREVIEW_H }}
+          >
+            <ModelPreview
+              modelUuid={modelUuid}
+              landmarksRef={landmarksRef}
+              remap={remap}
+              staticPoseRef={staticPoseRef}
+              selectedBoneKey={selectedBoneKey}
+              onSelectBone={setSelectedBone}
+              onBoneEulerChange={setBoneEuler}
+            />
           </div>
-          <div className="flex flex-wrap gap-2 items-center">
-            <Button size="sm" variant={correction.mirror ? "secondary" : "outline"}
-              onClick={() => setCorr({ mirror: !correction.mirror })}>
-              ⇄ Mirror L↔R
+
+          <div className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
+            <span className="text-sm text-muted-foreground">
+              {draft.frames.length === 0
+                ? "No frames"
+                : `Frame ${clampedIndex + 1} / ${draft.frames.length} · ${currentTime.toFixed(2)}s / ${totalTime.toFixed(2)}s`}
+            </span>
+            <div className="ml-auto flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={undo}
+                disabled={history.past.length === 0}
+                title="Undo"
+              >
+                <Undo2 size={15} />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={redo}
+                disabled={history.future.length === 0}
+                title="Redo"
+              >
+                <Redo2 size={15} />
+              </Button>
+            </div>
+          </div>
+
+          <input
+            type="range"
+            className="w-full accent-primary"
+            min={0}
+            max={Math.max(0, draft.frames.length - 1)}
+            step={1}
+            value={clampedIndex}
+            disabled={draft.frames.length === 0}
+            onChange={(event) => setCurrentIndex(Number(event.target.value))}
+          />
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTrimBefore}
+              disabled={draft.frames.length === 0 || clampedIndex === 0}
+              title="Keep from this frame onward"
+            >
+              Trim start
             </Button>
-            <Button size="sm" variant="outline" onClick={handleFlip}>
-              ↺ Flip 180°
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={draft.frames.length === 0}
+            >
+              Delete frame
             </Button>
-            <Button size="sm" variant="ghost" className="text-muted-foreground ml-auto"
-              onClick={() => setCorrection({ rotX: 0, rotY: 0, rotZ: 0, mirror: false })}>
-              Reset
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTrimAfter}
+              disabled={
+                draft.frames.length === 0 ||
+                clampedIndex === draft.frames.length - 1
+              }
+              title="Keep up to this frame"
+            >
+              Trim end
             </Button>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        </div>
 
-      {/* ── Per-bone Adjustments ───────────────────────────────────────────── */}
-      <Collapsible open={bonesOpen} onOpenChange={setBonesOpen} className="w-full">
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground">
-            <Bone size={14} />
-            Bone Adjustments
-            {hasAnyOverride && (
-              <span className="ml-1 text-xs text-primary">● {Object.keys(frameOverrides).length} override{Object.keys(frameOverrides).length !== 1 ? "s" : ""}</span>
-            )}
-            {bonesOpen ? " ▲" : " ▼"}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="border rounded-md mt-1 overflow-hidden">
-          {currentBones.length === 0 ? (
-            <p className="p-3 text-sm text-muted-foreground">No frames captured.</p>
-          ) : (
-            <ul className="divide-y">
-              {currentBones.map((b) => {
-                const label = BONE_LABELS[b.boneKey as keyof BoneRemap] ?? b.boneKey;
-                const isExpanded = expandedBone === b.boneKey;
-                const hasOverride = !!frameOverrides[b.boneKey];
-                const euler = getBoneEuler(b.boneKey);
+        <div className="flex min-h-0 flex-col gap-3">
+          <section className="rounded-md border">
+            <div className="flex items-center gap-2 border-b px-3 py-2 text-sm font-medium">
+              <Bone size={15} />
+              Bones
+              {overrideCount > 0 && (
+                <span className="ml-auto text-xs text-primary">
+                  {overrideCount} edited
+                </span>
+              )}
+            </div>
+            <div className="max-h-56 overflow-y-auto p-2">
+              {POSE_BONE_GROUPS.map((group) => (
+                <div key={group.label} className="mb-2 last:mb-0">
+                  <p className="px-1 pb-1 text-xs font-medium uppercase text-muted-foreground">
+                    {group.label}
+                  </p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {group.keys
+                      .filter((key) => mappedBoneKeys.has(key))
+                      .map((key) => {
+                        const hasOverride = !!frameOverrides[key];
+                        const selected = selectedBoneKey === key;
+                        return (
+                          <Button
+                            key={key}
+                            type="button"
+                            size="sm"
+                            variant={selected ? "secondary" : "ghost"}
+                            className="h-8 justify-start gap-1 px-2 text-xs"
+                            onClick={() => setSelectedBone(key)}
+                          >
+                            <span className="truncate">
+                              {POSE_BONE_LABELS[key] ?? key}
+                            </span>
+                            {hasOverride && (
+                              <span className="ml-auto text-primary">●</span>
+                            )}
+                          </Button>
+                        );
+                      })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
-                return (
-                  <li key={b.boneKey}>
-                    {/* Bone row header */}
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors text-left"
-                      onClick={() => setExpandedBone(isExpanded ? null : b.boneKey)}
+          <section className="rounded-md border">
+            <div className="flex items-center gap-2 border-b px-3 py-2 text-sm font-medium">
+              <Settings2 size={15} />
+              Selected Bone
+              {selectedBoneKey && (
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {POSE_BONE_LABELS[selectedBoneKey as keyof BoneRemap] ??
+                    selectedBoneKey}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 p-3">
+              {selectedBoneKey ? (
+                <>
+                  <BoneSliderRow
+                    label="X"
+                    value={selectedBoneEuler.x}
+                    onChange={(value) =>
+                      setBoneAxis(selectedBoneKey, "x", value)
+                    }
+                  />
+                  <BoneSliderRow
+                    label="Y"
+                    value={selectedBoneEuler.y}
+                    onChange={(value) =>
+                      setBoneAxis(selectedBoneKey, "y", value)
+                    }
+                  />
+                  <BoneSliderRow
+                    label="Z"
+                    value={selectedBoneEuler.z}
+                    onChange={(value) =>
+                      setBoneAxis(selectedBoneKey, "z", value)
+                    }
+                  />
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => resetBone(selectedBoneKey)}
+                      disabled={!hasSelectedOverride}
                     >
-                      <span className="flex-1">{label}</span>
-                      {hasOverride && (
-                        <span className="text-xs text-primary" title="Has override on this frame">●</span>
-                      )}
-                      <span className="text-muted-foreground text-xs">{isExpanded ? "▲" : "▼"}</span>
-                    </button>
+                      Reset
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="ml-auto"
+                      onClick={() => applyBoneToAllFrames(selectedBoneKey)}
+                      disabled={!hasSelectedOverride || draft.frames.length <= 1}
+                    >
+                      Apply to all
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No mapped bones.</p>
+              )}
+            </div>
+          </section>
 
-                    {/* Expanded: euler sliders */}
-                    {isExpanded && (
-                      <div className="px-3 pb-3 flex flex-col gap-2 bg-muted/30">
-                        <div className="grid grid-cols-[1.5rem_1fr_2.5rem] items-center gap-x-3 gap-y-1">
-                          <BoneSliderRow label="X" value={euler.x}
-                            onChange={(v) => setBoneAxis(b.boneKey, "x", v)} />
-                          <BoneSliderRow label="Y" value={euler.y}
-                            onChange={(v) => setBoneAxis(b.boneKey, "y", v)} />
-                          <BoneSliderRow label="Z" value={euler.z}
-                            onChange={(v) => setBoneAxis(b.boneKey, "z", v)} />
-                        </div>
-                        <div className="flex gap-2 mt-1">
-                          <Button size="sm" variant="ghost" className="text-muted-foreground text-xs"
-                            onClick={() => resetBone(b.boneKey)} disabled={!hasOverride}>
-                            Reset bone
-                          </Button>
-                          <Button size="sm" variant="ghost" className="text-xs ml-auto"
-                            onClick={() => applyBoneToAllFrames(b.boneKey)}
-                            disabled={!hasOverride || editedFrames.length <= 1}
-                            title="Copy this bone's override to every frame">
-                            Apply to all frames
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
+          <section className="rounded-md border">
+            <div className="border-b px-3 py-2 text-sm font-medium">
+              Pose Actions
+            </div>
+            <div className="grid grid-cols-2 gap-2 p-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={mirrorCurrentPose}
+                disabled={!currentFrame}
+              >
+                <FlipHorizontal size={14} />
+                Mirror current
+              </Button>
+              <Button
+                size="sm"
+                variant={draft.correction.mirror ? "secondary" : "outline"}
+                onClick={() =>
+                  updateCorrection({ mirror: !draft.correction.mirror })
+                }
+              >
+                <FlipHorizontal size={14} />
+                Mirror all
+              </Button>
+              <Button size="sm" variant="outline" onClick={copyCurrentPose}>
+                <Clipboard size={14} />
+                Copy pose
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={pasteCurrentPose}
+                disabled={!copiedPose}
+              >
+                <ClipboardPaste size={14} />
+                Paste pose
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const next =
+                    ((draft.correction.rotY + 180 + 180) % 360) - 180;
+                  updateCorrection({ rotY: next });
+                }}
+              >
+                <RotateCcw size={14} />
+                Flip 180
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={resetCurrentPose}
+                disabled={!currentFrame}
+              >
+                Reset current
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="col-span-2 text-muted-foreground"
+                onClick={clearAllEdits}
+              >
+                Reset all edits
+              </Button>
+            </div>
+          </section>
 
-      {/* Navigation */}
-      <div className="flex gap-2 justify-between w-full">
+          <section className="rounded-md border">
+            <div className="border-b px-3 py-2 text-sm font-medium">
+              Global Correction
+            </div>
+            <div className="flex flex-col gap-2 p-3">
+              <BoneSliderRow
+                label="X"
+                value={draft.correction.rotX}
+                onChange={(value) => updateCorrection({ rotX: value })}
+              />
+              <BoneSliderRow
+                label="Y"
+                value={draft.correction.rotY}
+                onChange={(value) => updateCorrection({ rotY: value })}
+              />
+              <BoneSliderRow
+                label="Z"
+                value={draft.correction.rotZ}
+                onChange={(value) => updateCorrection({ rotZ: value })}
+              />
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div className="flex gap-2 justify-between">
         <Button variant="outline" onClick={onBack}>
-          ← Back to capture
+          Back to capture
         </Button>
         <Button
-          disabled={editedFrames.length === 0}
-          onClick={() =>
-            onConfirm(
-              editedFrames.map((f, i) =>
-                ({ ...f, data: buildFinalPose(f, correction, allOverrides[i] ?? {}) })
-              ),
-            )
-          }
+          disabled={draft.frames.length === 0}
+          onClick={() => onConfirm(buildFinalPoseFrames(draft))}
         >
-          Save →
+          Save
         </Button>
       </div>
     </div>

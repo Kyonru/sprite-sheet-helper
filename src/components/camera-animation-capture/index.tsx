@@ -6,7 +6,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DisclaimerStep } from "./disclaimer-step";
 import { CaptureStep } from "./capture-step";
 import { ReviewStep } from "./review-step";
 import { SaveStep } from "./save-step";
@@ -14,7 +13,7 @@ import type { PoseFrame } from "@/utils/pose-to-animation";
 import { MIXAMO_DEFAULT_REMAP, type BoneRemap } from "@/utils/bone-remap";
 import { cn } from "@/lib/utils";
 
-type Step = "disclaimer" | "capture" | "review" | "save";
+type Step = "capture" | "review" | "save";
 
 type CaptureState = {
   open: boolean;
@@ -28,8 +27,12 @@ function dispatch(state: CaptureState) {
   _listener?.(state);
 }
 
-export function openCameraCapture(modelUuid: string) {
+export function openPoseStudio(modelUuid: string) {
   dispatch({ open: true, modelUuid });
+}
+
+export function openCameraCapture(modelUuid: string) {
+  openPoseStudio(modelUuid);
 }
 
 export function CameraAnimationCaptureProvider() {
@@ -37,14 +40,14 @@ export function CameraAnimationCaptureProvider() {
     open: false,
     modelUuid: "",
   });
-  const [step, setStep] = useState<Step>("disclaimer");
+  const [step, setStep] = useState<Step>("capture");
   const [frames, setFrames] = useState<PoseFrame[]>([]);
   const [remap, setRemap] = useState<BoneRemap>({ ...MIXAMO_DEFAULT_REMAP });
 
   useEffect(() => {
     _listener = (next) => {
       setState(next);
-      setStep("disclaimer");
+      setStep("capture");
       setFrames([]);
       setRemap({ ...MIXAMO_DEFAULT_REMAP });
     };
@@ -58,9 +61,8 @@ export function CameraAnimationCaptureProvider() {
   if (!state.open) return null;
 
   const stepTitles: Record<Step, string> = {
-    disclaimer: "Camera Animation Capture",
-    capture: "Record Movement",
-    review: "Review Captured Poses",
+    capture: "Pose Studio",
+    review: "Edit Pose Studio Clip",
     save: "Save Animation",
   };
 
@@ -71,19 +73,12 @@ export function CameraAnimationCaptureProvider() {
           className={cn([
             "z-999 items-baseline justify-center overflow-auto",
             (step === "capture" || step === "review") &&
-              "sm:max-w-dvw max-w-dvw w-[90dvw] h-[90vh]",
+              "sm:max-w-dvw max-w-dvw w-[94dvw] h-[92vh]",
           ])}
         >
           <DialogHeader>
             <DialogTitle>{stepTitles[step]}</DialogTitle>
           </DialogHeader>
-
-          {step === "disclaimer" && (
-            <DisclaimerStep
-              onAccept={() => setStep("capture")}
-              onCancel={close}
-            />
-          )}
 
           {step === "capture" && (
             <CaptureStep

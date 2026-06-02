@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Grid } from "@react-three/drei";
+import type { ThreeEvent } from "@react-three/fiber";
+import { OrbitControls, Grid, TransformControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useModelsStore } from "@/store/next/models";
 import { parseModel } from "@/utils/model";
@@ -14,6 +15,10 @@ import { JointSmoother } from "@/utils/animation-smoothing";
 import type { BoneRemap } from "@/utils/bone-remap";
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 import type { ModelComponent } from "@/types/ecs";
+import {
+  quaternionToEulerDeg,
+  type PoseBoneOverride,
+} from "@/utils/pose-edit";
 
 interface BoneData {
   bone: THREE.Object3D;
@@ -406,6 +411,154 @@ function PosedModel({
   return <primitive object={object} />;
 }
 
+function setDepthTest(material: THREE.Material | THREE.Material[]) {
+  if (Array.isArray(material)) {
+    material.forEach((item) => {
+      item.depthTest = false;
+    });
+    return;
+  }
+  material.depthTest = false;
+}
+
+function PoseSkeletonHelper({ object }: { object: THREE.Object3D }) {
+  const helper = useMemo(() => {
+    const next = new THREE.SkeletonHelper(object);
+    setDepthTest(next.material);
+    next.renderOrder = 20;
+    return next;
+  }, [object]);
+
+  useFrame(() => {
+    helper.updateMatrixWorld(true);
+  });
+
+  useEffect(() => {
+    return () => {
+      helper.geometry.dispose();
+      if (Array.isArray(helper.material)) {
+        helper.material.forEach((material) => material.dispose());
+      } else {
+        helper.material.dispose();
+      }
+    };
+  }, [helper]);
+
+  return <primitive object={helper} />;
+}
+
+function getNamedObjectMap(object: THREE.Object3D) {
+  const map = new Map<string, THREE.Object3D>();
+  object.traverse((child) => {
+    if (child.name) map.set(child.name, child);
+  });
+  return map;
+}
+
+type BoneHandleProps = {
+  boneKey: string;
+  bone: THREE.Object3D;
+  selected: boolean;
+  onSelectBone?: (boneKey: string) => void;
+};
+
+function BoneHandle({
+  boneKey,
+  bone,
+  selected,
+  onSelectBone,
+}: BoneHandleProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+    bone.getWorldPosition(meshRef.current.position);
+  });
+
+  const onClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    onSelectBone?.(boneKey);
+  };
+
+  return (
+    <mesh ref={meshRef} onClick={onClick} renderOrder={30}>
+      <sphereGeometry args={[selected ? 0.055 : 0.038, 16, 16]} />
+      <meshBasicMaterial
+        color={selected ? "#22c55e" : "#38bdf8"}
+        depthTest={false}
+        transparent
+        opacity={selected ? 1 : 0.82}
+      />
+    </mesh>
+  );
+}
+
+type PoseEditLayerProps = {
+  object: THREE.Object3D;
+  remap: BoneRemap;
+  selectedBoneKey?: string | null;
+  onSelectBone?: (boneKey: string) => void;
+  onBoneEulerChange?: (boneKey: string, euler: PoseBoneOverride) => void;
+};
+
+function PoseEditLayer({
+  object,
+  remap,
+  selectedBoneKey,
+  onSelectBone,
+  onBoneEulerChange,
+}: PoseEditLayerProps) {
+  const boneMap = useMemo(() => getNamedObjectMap(object), [object]);
+  const entries = useMemo(
+    () =>
+      (Object.entries(remap) as [keyof BoneRemap, string][])
+        .filter(([key]) => key !== "hips")
+        .map(([key, boneName]) => ({
+          key,
+          boneName,
+          bone: boneMap.get(boneName),
+        }))
+        .filter(
+          (entry): entry is { key: keyof BoneRemap; boneName: string; bone: THREE.Object3D } =>
+            Boolean(entry.bone),
+        ),
+    [boneMap, remap],
+  );
+  const selectedBone =
+    selectedBoneKey && remap[selectedBoneKey as keyof BoneRemap]
+      ? boneMap.get(remap[selectedBoneKey as keyof BoneRemap])
+      : undefined;
+
+  return (
+    <>
+      <PoseSkeletonHelper object={object} />
+      {entries.map(({ key, bone }) => (
+        <BoneHandle
+          key={key}
+          boneKey={key}
+          bone={bone}
+          selected={selectedBoneKey === key}
+          onSelectBone={onSelectBone}
+        />
+      ))}
+      {selectedBone && selectedBoneKey && (
+        <TransformControls
+          object={selectedBone}
+          mode="rotate"
+          space="local"
+          size={0.65}
+          onObjectChange={() =>
+            onBoneEulerChange?.(
+              selectedBoneKey,
+              quaternionToEulerDeg(selectedBone.quaternion),
+            )
+          }
+        />
+      )}
+    </>
+  );
+}
+
 interface Props {
   modelUuid: string;
   landmarksRef: React.RefObject<NormalizedLandmark[] | null>;
@@ -413,6 +566,9 @@ interface Props {
   poseDataRef?: React.RefObject<PoseBoneData | null>;
   staticPoseRef?: React.RefObject<PoseBoneData | null>;
   rootMotion?: boolean;
+  selectedBoneKey?: string | null;
+  onSelectBone?: (boneKey: string) => void;
+  onBoneEulerChange?: (boneKey: string, euler: PoseBoneOverride) => void;
 }
 
 export function ModelPreview({
@@ -422,6 +578,9 @@ export function ModelPreview({
   poseDataRef,
   staticPoseRef,
   rootMotion,
+  selectedBoneKey,
+  onSelectBone,
+  onBoneEulerChange,
 }: Props) {
   const model = useModelsStore((s) => s.models[modelUuid]);
   const [object, setObject] = useState<THREE.Object3D | null>(null);
@@ -488,6 +647,15 @@ export function ModelPreview({
         rootMotion={rootMotion}
         modelScale={modelScale}
       />
+      {staticPoseRef && (
+        <PoseEditLayer
+          object={object}
+          remap={remap}
+          selectedBoneKey={selectedBoneKey}
+          onSelectBone={onSelectBone}
+          onBoneEulerChange={onBoneEulerChange}
+        />
+      )}
       <Grid
         args={[10, 10]}
         position={[0, -1, 0]}
