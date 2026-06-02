@@ -15,6 +15,7 @@ import {
   ACCEPTED_MODEL_FILE_TYPES,
 } from "./data.js";
 import { captureWorkflow } from "./workflows.js";
+import type { CliAtlasOptions } from "./types.js";
 
 const FORMAT_ALIASES: Record<string, string> = {
   "bevy-rust": "bevy",
@@ -35,6 +36,7 @@ interface CliArgs {
   cameraDistance?: number;
   cameraAngle?: number;
   normalMap: boolean;
+  atlasOptions: CliAtlasOptions;
 }
 
 function parseCliArgs(): CliArgs {
@@ -51,6 +53,12 @@ function parseCliArgs(): CliArgs {
       workflow: { type: "string", default: undefined },
       cameraDistance: { type: "string", default: "5" },
       normalMap: { type: "string", default: "false" },
+      atlasLayout: { type: "string", default: "rows" },
+      atlasPadding: { type: "string", default: "0" },
+      atlasBleed: { type: "string", default: "0" },
+      atlasScale: { type: "string", default: "1" },
+      maxAtlasSize: { type: "string", default: "2048" },
+      multiPage: { type: "string", default: "false" },
       phi: { type: "string", default: undefined },
     },
     allowPositionals: true,
@@ -105,6 +113,14 @@ function parseCliArgs(): CliArgs {
     cameraDistance: parseFloat(values.cameraDistance ?? "5"),
     cameraAngle: values.phi ? parseFloat(values.phi) : undefined,
     normalMap: values.normalMap === "true",
+    atlasOptions: {
+      layout: values.atlasLayout === "packed" ? "packed" : "rows",
+      padding: parseInt(values.atlasPadding ?? "0", 10),
+      extrude: parseInt(values.atlasBleed ?? "0", 10),
+      scale: parseFloat(values.atlasScale ?? "1"),
+      maxAtlasSize: parseInt(values.maxAtlasSize ?? "2048", 10),
+      allowMultiPage: values.multiPage === "true",
+    },
   };
 }
 
@@ -171,7 +187,11 @@ async function main() {
     }
 
     console.log(`[sprite-sheet-helper] Exporting as ${args.format}...`);
-    const { href } = await triggerExport(page, args.format);
+    const { href } = await triggerExport(
+      page,
+      args.format,
+      args.atlasOptions,
+    );
 
     console.log(`[sprite-sheet-helper] Writing to ${args.output}...`);
     const files = await extractToOutput(href, args.output);

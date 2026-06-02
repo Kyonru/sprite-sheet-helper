@@ -1,6 +1,10 @@
 import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
-import { buildSpritesheetAssets, createNormalMapFile } from "./helpers";
+import {
+  assertSinglePageAtlas,
+  buildSpritesheetAssets,
+  createNormalMapFile,
+} from "./helpers";
 
 export const createPhaserAtlasJSON = (
   json: SpritesheetJSON,
@@ -114,9 +118,13 @@ export const phaserExporter: Exporter<"phaser"> = {
   id: "phaser",
   label: "PhaserJS",
 
-  async run({ exportedImages, includeNormalMap }) {
-    const { json, base64PNG, normalBase64PNG } =
-      await buildSpritesheetAssets(exportedImages, { includeNormalMap });
+  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+    const assets = await buildSpritesheetAssets(exportedImages, {
+      includeNormalMap,
+      atlasOptions,
+    });
+    assertSinglePageAtlas(assets, "PhaserJS");
+    const { json, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "phaser.zip",

@@ -1,6 +1,10 @@
 import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
-import { buildSpritesheetAssets, createNormalMapFile } from "./helpers";
+import {
+  assertSinglePageAtlas,
+  buildSpritesheetAssets,
+  createNormalMapFile,
+} from "./helpers";
 
 export const createRaylibH = (
   json: SpritesheetJSON,
@@ -144,9 +148,13 @@ export const raylibExporter: Exporter<"raylib"> = {
   id: "raylib",
   label: "Raylib",
 
-  async run({ exportedImages, includeNormalMap }) {
-    const { json, base64PNG, normalBase64PNG } =
-      await buildSpritesheetAssets(exportedImages, { includeNormalMap });
+  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+    const assets = await buildSpritesheetAssets(exportedImages, {
+      includeNormalMap,
+      atlasOptions,
+    });
+    assertSinglePageAtlas(assets, "raylib");
+    const { json, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "raylib.zip",

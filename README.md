@@ -115,6 +115,13 @@ sprite-sheet-helper <input> [options]
 | `--port` | `4174` | Port for the local preview server |
 | `--workflow` | — | Workflow preset ID (see table below) |
 | `--cameraDistance` | `5` | Camera distance from the model (used with `--workflow`) |
+| `--normalMap` | `false` | Capture and export a matching normal atlas |
+| `--atlasLayout` | `rows` | Atlas layout: `rows` or `packed` |
+| `--atlasPadding` | `0` | Empty pixels around each frame slot |
+| `--atlasBleed` | `0` | Edge-pixel extrusion into padding |
+| `--atlasScale` | `1` | Scale atlas frame dimensions |
+| `--maxAtlasSize` | `2048` | Maximum atlas page width and height |
+| `--multiPage` | `false` | Allow generic spritesheet page splitting |
 
 Format aliases: `bevy-rust` → `bevy`, `love2d` → `love2d-lua`
 
@@ -129,6 +136,9 @@ sprite-sheet-helper character.glb --format love2d --frames 16 --width 128 --heig
 
 # Animated GIF
 sprite-sheet-helper character.fbx --format gif --frames 12 --fps 12 --output ./exports
+
+# Packed generic atlas with page splitting
+sprite-sheet-helper character.glb --format spritesheet --atlasLayout packed --multiPage true --maxAtlasSize 1024
 ```
 
 ### Example output — `--format love2d`
@@ -339,4 +349,3 @@ git push origin feature/your-feature-name
 Please keep commits clear and scoped. Bug fixes, performance improvements, and new features are all appreciated.
 
 ---
-

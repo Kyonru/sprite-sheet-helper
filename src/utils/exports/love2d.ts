@@ -1,6 +1,10 @@
 import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
-import { buildSpritesheetAssets, createNormalMapFile } from "./helpers";
+import {
+  assertSinglePageAtlas,
+  buildSpritesheetAssets,
+  createNormalMapFile,
+} from "./helpers";
 
 export const createVanillaLua = (
   json: SpritesheetJSON,
@@ -158,9 +162,13 @@ export const love2dVanillaExporter: Exporter<"love2d-lua"> = {
   id: "love2d-lua",
   label: "Love2D (Lua)",
 
-  async run({ exportedImages, includeNormalMap }) {
-    const { json, base64PNG, normalBase64PNG } =
-      await buildSpritesheetAssets(exportedImages, { includeNormalMap });
+  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+    const assets = await buildSpritesheetAssets(exportedImages, {
+      includeNormalMap,
+      atlasOptions,
+    });
+    assertSinglePageAtlas(assets, "Love2D (Lua)");
+    const { json, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "lua.zip",
@@ -179,9 +187,13 @@ export const love2dAnim8Exporter: Exporter<"love2d-anim8"> = {
   id: "love2d-anim8",
   label: "Love2D (Anim8)",
 
-  async run({ exportedImages, includeNormalMap }) {
-    const { json, base64PNG, normalBase64PNG } =
-      await buildSpritesheetAssets(exportedImages, { includeNormalMap });
+  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+    const assets = await buildSpritesheetAssets(exportedImages, {
+      includeNormalMap,
+      atlasOptions,
+    });
+    assertSinglePageAtlas(assets, "Love2D (Anim8)");
+    const { json, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "anim8.zip",

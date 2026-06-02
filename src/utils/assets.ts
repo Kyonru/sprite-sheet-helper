@@ -159,6 +159,13 @@ export interface SpritesheetJSON {
     spacing: number;
     margin: number;
     normalImage?: string;
+    pages?: {
+      index: number;
+      image: string;
+      width: number;
+      height: number;
+      normalImage?: string;
+    }[];
   };
   animations: {
     name: string;
@@ -166,7 +173,7 @@ export interface SpritesheetJSON {
     fps: number;
     frameWidth: number;
     frameHeight: number;
-    quads: { x: number; y: number; w: number; h: number }[];
+    quads: { x: number; y: number; w: number; h: number; page?: number }[];
   }[];
 }
 

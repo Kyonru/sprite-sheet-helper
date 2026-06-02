@@ -49,19 +49,25 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 
 ## Options
 
-| Option           | Type   | Default     | Description                              |
-| ---------------- | ------ | ----------- | ---------------------------------------- |
-| --format         | string | spritesheet | Export format (see formats below)        |
-| --frames         | number | 8           | Number of frames to capture              |
-| --fps            | number | 10          | Frames per second for animated exports   |
-| --width          | number | 64          | Frame width in pixels                    |
-| --height         | number | 64          | Frame height in pixels                   |
-| --output         | string | ./out       | Output directory (created if missing)    |
-| --port           | number | 4174        | Local preview server port                |
-| --workflow       | string | —           | Workflow preset ID (see workflows below) |
-| --cameraDistance | number | 5           | Camera distance from model origin        |
+| Option           | Type   | Default     | Description                               |
+| ---------------- | ------ | ----------- | ----------------------------------------- |
+| --format         | string | spritesheet | Export format (see formats below)         |
+| --frames         | number | 8           | Number of frames to capture               |
+| --fps            | number | 10          | Frames per second for animated exports    |
+| --width          | number | 64          | Frame width in pixels                     |
+| --height         | number | 64          | Frame height in pixels                    |
+| --output         | string | ./out       | Output directory (created if missing)     |
+| --port           | number | 4174        | Local preview server port                 |
+| --workflow       | string | —           | Workflow preset ID (see workflows below)  |
+| --cameraDistance | number | 5           | Camera distance from model origin         |
 | --normalMap      | string | false       | Capture and export a matching normal atlas |
-| --phi            | number | —           | Camera elevation angle in degrees        |
+| --atlasLayout    | string | rows        | `rows` or deterministic `packed` layout   |
+| --atlasPadding   | number | 0           | Empty pixels around each frame slot       |
+| --atlasBleed     | number | 0           | Edge-pixel extrusion into padding         |
+| --atlasScale     | number | 1           | Scale atlas frame dimensions              |
+| --maxAtlasSize   | number | 2048        | Maximum atlas page width and height       |
+| --multiPage      | string | false       | Allow generic spritesheet page splitting  |
+| --phi            | number | —           | Camera elevation angle in degrees         |
 
 ## Export Formats
 
@@ -83,6 +89,32 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 **Format aliases:** `bevy-rust` → `bevy`, `love2d` → `love2d-lua`, `anim8` → `love2d-anim8`
 
 Use `--normalMap true` before capture to include real camera-space normal data in atlas-style exports. Frames captured without normal maps export as transparent placeholders in `spritesheet_normal.png`.
+
+## Atlas Options
+
+The CLI uses the same atlas engine as the Export Workbench.
+
+```bash
+sprite-sheet-helper character.glb \
+  --format spritesheet \
+  --atlasLayout packed \
+  --atlasPadding 2 \
+  --atlasBleed 1 \
+  --maxAtlasSize 1024
+```
+
+`--atlasLayout rows` preserves the compatible row layout unless padding, bleed, scale, or max-size choices require a different page plan. `--atlasLayout packed` uses stable deterministic packing without frame rotation.
+
+Multi-page output is currently supported by the generic `spritesheet` format:
+
+```bash
+sprite-sheet-helper character.glb \
+  --format spritesheet \
+  --multiPage true \
+  --maxAtlasSize 512
+```
+
+Multi-page generic output writes `spritesheet.png`, `spritesheet_2.png`, and matching `spritesheet_normal.png`, `spritesheet_normal_2.png` files when normal maps are enabled. The JSON includes `meta.pages` and `quad.page` for page-aware loading. Engine exporters block multi-page plans until their generated code supports multiple texture pages.
 
 ## Workflows
 

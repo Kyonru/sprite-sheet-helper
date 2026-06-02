@@ -1,6 +1,10 @@
 import type { Exporter } from "@/types/file";
 import type { SpritesheetJSON } from "../assets";
-import { buildSpritesheetAssets, createNormalMapFile } from "./helpers";
+import {
+  assertSinglePageAtlas,
+  buildSpritesheetAssets,
+  createNormalMapFile,
+} from "./helpers";
 
 export const createUnityCS = (
   json: SpritesheetJSON,
@@ -177,9 +181,13 @@ export const unityExporter: Exporter<"unity"> = {
   id: "unity",
   label: "Unity (C#)",
 
-  async run({ exportedImages, includeNormalMap }) {
-    const { json, base64PNG, normalBase64PNG } =
-      await buildSpritesheetAssets(exportedImages, { includeNormalMap });
+  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+    const assets = await buildSpritesheetAssets(exportedImages, {
+      includeNormalMap,
+      atlasOptions,
+    });
+    assertSinglePageAtlas(assets, "Unity");
+    const { json, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "unity.zip",

@@ -1,6 +1,10 @@
 import EventEmitter from "eventemitter3";
 import { pubSubEventClient } from "../../devtools/pubsub-event-client";
-import { ExportFormats, type ExportFormat } from "@/types/file";
+import {
+  ExportFormats,
+  type AtlasOptions,
+  type ExportFormat,
+} from "@/types/file";
 
 export const EventType = {
   TAKE_SINGLE_SCREENSHOT: "take_single_screenshot",
@@ -91,6 +95,13 @@ export type CaptureProgressPayload = {
   capturedFrames: number;
   expectedFrames: number;
 };
+
+export type StartExportPayload =
+  | ExportFormat
+  | {
+      format?: ExportFormat;
+      atlasOptions?: Partial<AtlasOptions>;
+    };
 
 export interface EventLogEntry {
   id: number;

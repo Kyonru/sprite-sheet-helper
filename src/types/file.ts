@@ -15,6 +15,17 @@ export const ExportFormats = [
 ] as const;
 export type ExportFormat = (typeof ExportFormats)[number];
 
+export type AtlasLayout = "rows" | "packed";
+
+export interface AtlasOptions {
+  layout: AtlasLayout;
+  padding: number;
+  extrude: number;
+  scale: number;
+  maxAtlasSize: number;
+  allowMultiPage: boolean;
+}
+
 export interface ExportRow {
   uuid: string;
   label: string;
@@ -29,6 +40,7 @@ export type ExportContext = {
   exportedImages: ExportRow[];
   frameDelay: number;
   includeNormalMap: boolean;
+  atlasOptions?: Partial<AtlasOptions>;
 };
 
 export type ExportFile = {

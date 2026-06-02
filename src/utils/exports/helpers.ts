@@ -1,10 +1,36 @@
 import type { ExportFile, ExportRow } from "@/types/file";
-import { createSpriteSheet, createSpritesheetJSON } from "../assets";
 import JSZip from "jszip";
+import {
+  atlasPageFileName,
+  createAtlasPlan,
+  createSpritesheetJSONFromAtlasPlan,
+  normalizeAtlasOptions,
+  type AtlasPlan,
+} from "../atlas";
+import { renderAtlasPages } from "../atlas-renderer";
+import type { AtlasOptions } from "@/types/file";
 
 type BuildSpritesheetAssetsOptions = {
   includeNormalMap?: boolean;
+  atlasOptions?: Partial<AtlasOptions>;
+  imageName?: string;
   normalImageName?: string;
+};
+
+export type AtlasImageFile = ExportFile & {
+  name: string;
+  content: string;
+  base64: true;
+};
+
+export type BuildSpritesheetAssetsResult = {
+  json: ReturnType<typeof createSpritesheetJSONFromAtlasPlan>;
+  base64PNG: string;
+  normalBase64PNG?: string;
+  colorPages: AtlasImageFile[];
+  normalPages: AtlasImageFile[];
+  plan: AtlasPlan;
+  pageCount: number;
 };
 
 export type NormalCoverageStatus = "ready" | "partial" | "missing";
@@ -62,8 +88,18 @@ function createTransparentFrame(width: number, height: number): string {
 export async function buildSpritesheetAssets(
   exportedImages: ExportRow[],
   options: BuildSpritesheetAssetsOptions = {},
-) {
-  const dataUrl = await createSpriteSheet(exportedImages);
+): Promise<BuildSpritesheetAssetsResult> {
+  const atlasOptions = normalizeAtlasOptions(options.atlasOptions);
+  const imageName = options.imageName ?? "spritesheet.png";
+  const normalImageName =
+    options.normalImageName ?? "spritesheet_normal.png";
+  const plan = createAtlasPlan(exportedImages, atlasOptions);
+  const colorDataUrls = await renderAtlasPages(exportedImages, plan, atlasOptions);
+  const colorPages = colorDataUrls.map((dataUrl, index) => ({
+    name: atlasPageFileName(imageName, index),
+    content: dataUrl.split("base64,")[1],
+    base64: true as const,
+  }));
   const transparentFrames = new Map<string, string>();
   const normalRows = options.includeNormalMap
     ? exportedImages.map((row) => ({
@@ -87,15 +123,34 @@ export async function buildSpritesheetAssets(
     : [];
   const hasNormalImages =
     options.includeNormalMap && normalRows.length === exportedImages.length;
-  const json = createSpritesheetJSON(exportedImages);
+  const json = createSpritesheetJSONFromAtlasPlan(
+    exportedImages,
+    plan,
+    imageName,
+    hasNormalImages ? normalImageName : undefined,
+  );
   if (hasNormalImages) {
-    json.meta.normalImage = options.normalImageName ?? "spritesheet_normal.png";
+    json.meta.normalImage = normalImageName;
   }
-  const base64PNG = dataUrl.split("base64,")[1];
-  const normalBase64PNG = hasNormalImages
-    ? (await createSpriteSheet(normalRows)).split("base64,")[1]
-    : undefined;
-  return { json, base64PNG, normalBase64PNG };
+  const normalPages = hasNormalImages
+    ? (await renderAtlasPages(normalRows, plan, atlasOptions)).map(
+        (dataUrl, index) => ({
+          name: atlasPageFileName(normalImageName, index),
+          content: dataUrl.split("base64,")[1],
+          base64: true as const,
+        }),
+      )
+    : [];
+
+  return {
+    json,
+    base64PNG: colorPages[0]?.content ?? "",
+    normalBase64PNG: normalPages[0]?.content,
+    colorPages,
+    normalPages,
+    plan,
+    pageCount: plan.pages.length,
+  };
 }
 
 export function createNormalMapFile(
@@ -105,4 +160,14 @@ export function createNormalMapFile(
   return normalBase64PNG
     ? [{ name, content: normalBase64PNG, base64: true }]
     : [];
+}
+
+export function assertSinglePageAtlas(
+  assets: BuildSpritesheetAssetsResult,
+  label: string,
+): void {
+  if (assets.pageCount <= 1) return;
+  throw new Error(
+    `${label} does not support multi-page atlases yet. Increase max atlas size, disable multi-page, or export the generic spritesheet format.`,
+  );
 }

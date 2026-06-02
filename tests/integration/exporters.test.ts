@@ -1,20 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createSpriteSheet } from "@/utils/assets";
+import { renderAtlasPages } from "@/utils/atlas-renderer";
 import { SpritesheetExporter } from "@/utils/exports/spritesheet";
 import { phaserExporter } from "@/utils/exports/phaser";
 import { bevyExporter } from "@/utils/exports/bevy";
 import { love2dVanillaExporter } from "@/utils/exports/love2d";
 import { exportRow, frame } from "../helpers/export-fixtures";
 
-vi.mock("@/utils/assets", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/utils/assets")>();
-  return {
-    ...actual,
-    createSpriteSheet: vi.fn(),
-  };
+vi.mock("@/utils/atlas-renderer", () => {
+  return { renderAtlasPages: vi.fn() };
 });
 
-const createSpriteSheetMock = vi.mocked(createSpriteSheet);
+const renderAtlasPagesMock = vi.mocked(renderAtlasPages);
 
 const rows = [
   exportRow("walk", [frame("c0"), frame("c1")], [frame("n0"), frame("n1")]),
@@ -22,7 +18,9 @@ const rows = [
 
 describe("spritesheet atlas exporters", () => {
   beforeEach(() => {
-    createSpriteSheetMock.mockResolvedValue("data:image/png;base64,atlas");
+    renderAtlasPagesMock.mockImplementation(async (_rows, plan) =>
+      plan.pages.map((page) => `data:image/png;base64,atlas-${page.index}`),
+    );
   });
 
   it.each([
@@ -79,5 +77,52 @@ describe("spritesheet atlas exporters", () => {
 
     expect(jsonWithNormals.meta.normalImage).toBe("spritesheet_normal.png");
     expect(jsonWithoutNormals.meta.normalImage).toBeUndefined();
+  });
+
+  it("lets generic spritesheet export multi-page atlases", async () => {
+    const result = await SpritesheetExporter.run({
+      exportedImages: [
+        exportRow("walk", [frame("c0"), frame("c1"), frame("c2")], undefined, {
+          frameWidth: 16,
+          frameHeight: 16,
+        }),
+      ],
+      frameDelay: 100,
+      includeNormalMap: false,
+      atlasOptions: {
+        layout: "rows",
+        maxAtlasSize: 24,
+        allowMultiPage: true,
+      },
+    });
+
+    expect(result.files.map((file) => file.name)).toContain(
+      "spritesheet_2.png",
+    );
+  });
+
+  it("blocks representative engine exporters from unsafe multi-page output", async () => {
+    await expect(
+      phaserExporter.run({
+        exportedImages: [
+          exportRow(
+            "walk",
+            [frame("c0"), frame("c1"), frame("c2")],
+            undefined,
+            {
+              frameWidth: 16,
+              frameHeight: 16,
+            },
+          ),
+        ],
+        frameDelay: 100,
+        includeNormalMap: false,
+        atlasOptions: {
+          layout: "rows",
+          maxAtlasSize: 24,
+          allowMultiPage: true,
+        },
+      }),
+    ).rejects.toThrow("does not support multi-page");
   });
 });

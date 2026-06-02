@@ -1,26 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExportRow } from "@/types/file";
-import { createSpriteSheet } from "@/utils/assets";
+import { renderAtlasPages } from "@/utils/atlas-renderer";
 import { buildSpritesheetAssets } from "@/utils/exports/helpers";
 import { exportRow, frame } from "../helpers/export-fixtures";
 
-vi.mock("@/utils/assets", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/utils/assets")>();
-  return {
-    ...actual,
-    createSpriteSheet: vi.fn(),
-  };
+vi.mock("@/utils/atlas-renderer", () => {
+  return { renderAtlasPages: vi.fn() };
 });
 
-const createSpriteSheetMock = vi.mocked(createSpriteSheet);
+const renderAtlasPagesMock = vi.mocked(renderAtlasPages);
 
 const encodeRows = (rows: ExportRow[]) =>
   Buffer.from(JSON.stringify(rows.map((row) => row.images))).toString("base64");
 
 describe("buildSpritesheetAssets", () => {
   beforeEach(() => {
-    createSpriteSheetMock.mockImplementation(
-      async (rows) => `data:image/png;base64,${encodeRows(rows)}`,
+    renderAtlasPagesMock.mockImplementation(
+      async (rows, plan) =>
+        plan.pages.map(
+          (page) =>
+            `data:image/png;base64,${encodeRows(rows)}-${page.index}`,
+        ),
     );
   });
 
@@ -36,7 +36,7 @@ describe("buildSpritesheetAssets", () => {
 
     expect(result.normalBase64PNG).toBeUndefined();
     expect(result.json.meta.normalImage).toBeUndefined();
-    expect(createSpriteSheetMock).toHaveBeenCalledTimes(1);
+    expect(renderAtlasPagesMock).toHaveBeenCalledTimes(1);
   });
 
   it("emits a matching normal atlas when all frames have normals", async () => {
@@ -53,10 +53,10 @@ describe("buildSpritesheetAssets", () => {
     });
 
     expect(result.json.meta.normalImage).toBe("spritesheet_normal.png");
-    expect(result.normalBase64PNG).toBe(encodeRows([
-      { ...rows[0], images: [frame("n0"), frame("n1")] },
-    ]));
-    expect(createSpriteSheetMock).toHaveBeenCalledTimes(2);
+    expect(result.normalBase64PNG).toBe(
+      `${encodeRows([{ ...rows[0], images: [frame("n0"), frame("n1")] }])}-0`,
+    );
+    expect(renderAtlasPagesMock).toHaveBeenCalledTimes(2);
   });
 
   it("fills missing normals with transparent placeholder frames", async () => {
@@ -66,12 +66,15 @@ describe("buildSpritesheetAssets", () => {
 
     await buildSpritesheetAssets(rows, { includeNormalMap: true });
 
-    expect(createSpriteSheetMock).toHaveBeenLastCalledWith([
+    expect(renderAtlasPagesMock).toHaveBeenLastCalledWith([
       {
         ...rows[0],
         images: [frame("n0"), "transparent-frame"],
       },
-    ]);
+      ],
+      expect.any(Object),
+      expect.any(Object),
+    );
   });
 
   it("uses a custom normal image metadata path", async () => {
@@ -84,5 +87,37 @@ describe("buildSpritesheetAssets", () => {
     );
 
     expect(result.json.meta.normalImage).toBe("assets/spritesheet_normal.png");
+  });
+
+  it("emits multi-page atlas files from the shared plan", async () => {
+    const rows = [
+      exportRow(
+        "walk",
+        [frame("c0"), frame("c1"), frame("c2"), frame("c3"), frame("c4")],
+        undefined,
+        {
+          frameWidth: 16,
+          frameHeight: 16,
+        },
+      ),
+    ];
+
+    const result = await buildSpritesheetAssets(rows, {
+      atlasOptions: {
+        layout: "rows",
+        maxAtlasSize: 32,
+        allowMultiPage: true,
+      },
+    });
+
+    expect(result.pageCount).toBeGreaterThan(1);
+    expect(result.colorPages.map((file) => file.name)).toEqual([
+      "spritesheet.png",
+      "spritesheet_2.png",
+    ]);
+    expect(result.json.meta.pages?.map((page) => page.image)).toEqual([
+      "spritesheet.png",
+      "spritesheet_2.png",
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ExportFormat } from "@/types/file";
+import type { AtlasLayout, AtlasOptions, ExportFormat } from "@/types/file";
 import { getBasedOnDisplaySize } from "@/utils/query";
 import { inspector } from "@kyonru/zustand-inspector";
 import type { SnapshotEnabledStore } from "@/types/ecs";
@@ -25,6 +25,12 @@ export interface SettingsState {
   cameraDistance: number;
   cameraAngle?: number;
   exportNormalMap: boolean;
+  atlasLayout: AtlasLayout;
+  atlasPadding: number;
+  atlasBleed: number;
+  atlasScale: number;
+  maxAtlasSize: number;
+  allowMultiPage: boolean;
   editorBackgroundColor: string;
   gridSectionColor: string;
   gridCellColor: string;
@@ -40,6 +46,7 @@ interface SettingsActions extends SnapshotEnabledStore<SettingsState> {
   setCameraDistance: (cameraDistance: number) => void;
   setCameraAngle: (cameraAngle?: number) => void;
   setExportNormalMap: (exportNormalMap: boolean) => void;
+  setAtlasOptions: (atlasOptions: Partial<AtlasOptions>) => void;
   setEditorBackgroundColor: (editorBackgroundColor: string) => void;
   setTheme: (theme: "light" | "dark") => void;
   setName: (name: string) => void;
@@ -57,6 +64,12 @@ const initialState: SettingsState = {
   cameraDistance: 5,
   cameraAngle: undefined,
   exportNormalMap: false,
+  atlasLayout: "rows",
+  atlasPadding: 0,
+  atlasBleed: 0,
+  atlasScale: 1,
+  maxAtlasSize: 2048,
+  allowMultiPage: false,
   theme: "dark",
   gridSectionColor: "#a09f9f",
   gridCellColor: "#868686",
@@ -73,6 +86,12 @@ const WATCHED_KEYS: (keyof SettingsState)[] = [
   "cameraDistance",
   "cameraAngle",
   "exportNormalMap",
+  "atlasLayout",
+  "atlasPadding",
+  "atlasBleed",
+  "atlasScale",
+  "maxAtlasSize",
+  "allowMultiPage",
   "editorBackgroundColor",
   "gridSectionColor",
   "gridCellColor",
@@ -95,6 +114,16 @@ export const useSettingsStore = create<SettingsStore>()(
         setCameraDistance: (cameraDistance) => set({ cameraDistance }),
         setCameraAngle: (cameraAngle) => set({ cameraAngle }),
         setExportNormalMap: (exportNormalMap) => set({ exportNormalMap }),
+        setAtlasOptions: (atlasOptions) =>
+          set((state) => ({
+            atlasLayout: atlasOptions.layout ?? state.atlasLayout,
+            atlasPadding: atlasOptions.padding ?? state.atlasPadding,
+            atlasBleed: atlasOptions.extrude ?? state.atlasBleed,
+            atlasScale: atlasOptions.scale ?? state.atlasScale,
+            maxAtlasSize: atlasOptions.maxAtlasSize ?? state.maxAtlasSize,
+            allowMultiPage:
+              atlasOptions.allowMultiPage ?? state.allowMultiPage,
+          })),
         setEditorBackgroundColor: (editorBackgroundColor) =>
           set({ editorBackgroundColor }),
         setTheme: (theme) => set({ theme }),
@@ -111,6 +140,12 @@ export const useSettingsStore = create<SettingsStore>()(
             cameraDistance: get().cameraDistance,
             cameraAngle: get().cameraAngle,
             exportNormalMap: get().exportNormalMap,
+            atlasLayout: get().atlasLayout,
+            atlasPadding: get().atlasPadding,
+            atlasBleed: get().atlasBleed,
+            atlasScale: get().atlasScale,
+            maxAtlasSize: get().maxAtlasSize,
+            allowMultiPage: get().allowMultiPage,
             editorBackgroundColor: get().editorBackgroundColor,
             gridSectionColor: get().gridSectionColor,
             gridCellColor: get().gridCellColor,
@@ -131,6 +166,12 @@ export const useSettingsStore = create<SettingsStore>()(
             cameraDistance: snapshot.cameraDistance,
             cameraAngle: snapshot.cameraAngle,
             exportNormalMap: snapshot.exportNormalMap ?? false,
+            atlasLayout: snapshot.atlasLayout ?? "rows",
+            atlasPadding: snapshot.atlasPadding ?? 0,
+            atlasBleed: snapshot.atlasBleed ?? 0,
+            atlasScale: snapshot.atlasScale ?? 1,
+            maxAtlasSize: snapshot.maxAtlasSize ?? 2048,
+            allowMultiPage: snapshot.allowMultiPage ?? false,
             editorBackgroundColor: snapshot.editorBackgroundColor,
             gridSectionColor: snapshot.gridSectionColor,
             gridCellColor: snapshot.gridCellColor,

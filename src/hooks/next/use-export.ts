@@ -6,6 +6,7 @@ import {
   EventType,
   PubSub,
   type CaptureStartPayload,
+  type StartExportPayload,
 } from "../../lib/events";
 import { useSceneStore } from "@/components/panels/scene/store";
 import { useSettingsStore } from "@/store/next/settings";
@@ -15,6 +16,12 @@ import { exporters } from "@/utils/exports";
 import { buildZip, getNormalCoverage } from "@/utils/exports/helpers";
 import { downloadFile } from "@/utils/assets";
 import { toast } from "sonner";
+import { normalizeAtlasOptions } from "@/utils/atlas";
+import {
+  getExportSummary,
+  validateExportRequest,
+} from "@/utils/export-validation";
+import { addExportHistoryEntry } from "@/utils/export-history";
 
 const NORMAL_MAP_EXPORT_FORMATS = new Set<ExportFormat>([
   "spritesheet",
@@ -42,6 +49,12 @@ export const useExport = () => {
 
   const exportFormat = useSettingsStore((state) => state.mode);
   const exportNormalMap = useSettingsStore((state) => state.exportNormalMap);
+  const atlasLayout = useSettingsStore((state) => state.atlasLayout);
+  const atlasPadding = useSettingsStore((state) => state.atlasPadding);
+  const atlasBleed = useSettingsStore((state) => state.atlasBleed);
+  const atlasScale = useSettingsStore((state) => state.atlasScale);
+  const maxAtlasSize = useSettingsStore((state) => state.maxAtlasSize);
+  const allowMultiPage = useSettingsStore((state) => state.allowMultiPage);
 
   const { exportHeight, exportWidth } = useSettingsStore();
   const addImages = useImagesStore((state) => state.addImagesRow);
@@ -124,8 +137,40 @@ export const useExport = () => {
   ]);
 
   const exportSpriteSheet = useCallback(
-    async (format?: ExportFormat) => {
-      const exportType = format ?? exportFormat;
+    async (payload?: StartExportPayload) => {
+      const exportType =
+        typeof payload === "string"
+          ? payload
+          : (payload?.format ?? exportFormat);
+      const storeAtlasOptions = {
+        layout: atlasLayout,
+        padding: atlasPadding,
+        extrude: atlasBleed,
+        scale: atlasScale,
+        maxAtlasSize,
+        allowMultiPage,
+      };
+      const atlasOptions = normalizeAtlasOptions(
+        typeof payload === "object"
+          ? { ...storeAtlasOptions, ...payload.atlasOptions }
+          : storeAtlasOptions,
+      );
+      const validation = validateExportRequest({
+        rows: exportedImages,
+        format: exportType,
+        includeNormalMap: exportNormalMap,
+        atlasOptions,
+      });
+
+      if (validation.blocking) {
+        toast.error("Export blocked", {
+          description:
+            validation.messages.find((message) => message.severity === "error")
+              ?.message ?? "Fix export validation errors before exporting.",
+        });
+        PubSub.emit(EventType.STOP_EXPORT);
+        return;
+      }
 
       try {
         const exporter = exporters[exportType];
@@ -135,6 +180,7 @@ export const useExport = () => {
           exportedImages,
           frameDelay,
           includeNormalMap: exportNormalMap,
+          atlasOptions,
         });
 
         if (exportNormalMap && NORMAL_MAP_EXPORT_FORMATS.has(exportType)) {
@@ -160,13 +206,38 @@ export const useExport = () => {
         });
 
         downloadFile("data:application/zip;base64," + zipData, result.filename);
+        const summary = getExportSummary(exportedImages, atlasOptions);
+        addExportHistoryEntry({
+          format: exportType,
+          filename: result.filename,
+          frameCount: summary.frameCount,
+          animationCount: summary.animationCount,
+          pageCount: summary.pageCount,
+          normalStatus: summary.normalStatus,
+          atlasOptions,
+          messages: validation.messages,
+        });
       } catch (err) {
         console.error(err);
+        toast.error("Export failed", {
+          description: err instanceof Error ? err.message : "Unknown error",
+        });
       } finally {
         PubSub.emit(EventType.STOP_EXPORT);
       }
     },
-    [exportedImages, exportFormat, frameDelay, exportNormalMap],
+    [
+      allowMultiPage,
+      atlasBleed,
+      atlasLayout,
+      atlasPadding,
+      atlasScale,
+      exportedImages,
+      exportFormat,
+      frameDelay,
+      exportNormalMap,
+      maxAtlasSize,
+    ],
   );
 
   const takeScreenshotSequence = useCallback(

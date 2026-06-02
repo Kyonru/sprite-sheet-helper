@@ -7,3 +7,12 @@ export interface CaptureOptions {
   cameraDistance?: number;
   normalMap?: boolean;
 }
+
+export interface CliAtlasOptions {
+  layout?: "rows" | "packed";
+  padding?: number;
+  extrude?: number;
+  scale?: number;
+  maxAtlasSize?: number;
+  allowMultiPage?: boolean;
+}

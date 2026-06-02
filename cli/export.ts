@@ -1,10 +1,16 @@
 import type { Page } from "puppeteer";
+import type { CliAtlasOptions } from "./types.js";
 
 export async function triggerExport(
   page: Page,
   format: string,
+  atlasOptionsOrTimeout?: CliAtlasOptions | number,
   timeoutMs = 60000,
 ): Promise<{ href: string; filename: string }> {
+  const atlasOptions =
+    typeof atlasOptionsOrTimeout === "number" ? undefined : atlasOptionsOrTimeout;
+  const exportTimeoutMs =
+    typeof atlasOptionsOrTimeout === "number" ? atlasOptionsOrTimeout : timeoutMs;
   let captureResolve!: (value: { href: string; filename: string }) => void;
   const capturePromise = new Promise<{ href: string; filename: string }>(
     (res) => {
@@ -34,14 +40,19 @@ export async function triggerExport(
   });
 
   await page.evaluate(
-    (fmt: string) => window.__SSH_BRIDGE__.PubSub.emit("start_export", fmt),
+    (fmt: string, options?: CliAtlasOptions) =>
+      window.__SSH_BRIDGE__.PubSub.emit(
+        "start_export",
+        options ? { format: fmt, atlasOptions: options } : fmt,
+      ),
     format,
+    atlasOptions,
   );
 
   const timeoutPromise = new Promise<never>((_, rej) =>
     setTimeout(
-      () => rej(new Error(`Export timed out after ${timeoutMs}ms`)),
-      timeoutMs,
+      () => rej(new Error(`Export timed out after ${exportTimeoutMs}ms`)),
+      exportTimeoutMs,
     ),
   );
 

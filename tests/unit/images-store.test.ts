@@ -71,4 +71,42 @@ describe("images store normal frame alignment", () => {
 
     expect(useImagesStore.getState().images).toEqual([]);
   });
+
+  it("preserves normal frame alignment when frames are reordered", () => {
+    const store = useImagesStore.getState();
+    const normalImages = new Array<string>(3);
+    normalImages[0] = frame("n0");
+    normalImages[2] = frame("n2");
+
+    store.addImagesRow(
+      "walk-id",
+      "walk",
+      [frame("c0"), frame("c1"), frame("c2")],
+      normalImages,
+      16,
+      12,
+      8,
+    );
+
+    const row = useImagesStore.getState().images[0];
+    const order = [2, 0, 1];
+    store.updateImagesRow(
+      0,
+      order.map((index) => row.images[index]),
+      row.normalImages
+        ? order.map((index) => row.normalImages![index])
+        : undefined,
+    );
+
+    expect(useImagesStore.getState().images[0].images).toEqual([
+      frame("c2"),
+      frame("c0"),
+      frame("c1"),
+    ]);
+    expect(useImagesStore.getState().images[0].normalImages).toEqual([
+      frame("n2"),
+      frame("n0"),
+      undefined,
+    ]);
+  });
 });
