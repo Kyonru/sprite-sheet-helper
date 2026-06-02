@@ -2,6 +2,10 @@ import { EventType, PubSub } from "@/lib/events";
 import { useModel, useModelsStore } from "@/store/next/models";
 import { useRefsStore } from "@/store/next/refs";
 import type { ModelComponent as ModelComponentType } from "@/types/ecs";
+import {
+  buildPlaybackClip,
+  getAnimationClipFps,
+} from "@/utils/animation-clips";
 import { fitObjectToCamera } from "@/utils/camera";
 import { parseModel } from "@/utils/model";
 import { useFrame } from "@react-three/fiber";
@@ -108,23 +112,13 @@ export function Based({ uuid, ...props }: { uuid: string }) {
       clip.clip.duration,
     ];
 
-    // Derive FPS from clip tracks, fallback to 30
-    const fps =
-      clip.clip.tracks[0]?.times.length > 1
-        ? 1 / (clip.clip.tracks[0].times[1] - clip.clip.tracks[0].times[0])
-        : 30;
-
-    const startFrame = Math.round(trimStart * fps);
-    const endFrame = Math.round(trimEnd * fps);
-
-    // Create a subclip for the trimmed range
-    const trimmedClip = THREE.AnimationUtils.subclip(
+    const playbackClip = buildPlaybackClip(
       clip.clip,
-      `${clip.clip.name}_trimmed`,
-      startFrame,
-      endFrame,
-      fps,
+      trimStart,
+      trimEnd,
+      getAnimationClipFps(clip.clip),
     );
+    const trimmedClip = playbackClip.clip;
 
     const action = mixerRef.current.clipAction(trimmedClip);
 
@@ -143,8 +137,10 @@ export function Based({ uuid, ...props }: { uuid: string }) {
 
     return () => {
       action.stop();
-      mixerRef.current?.uncacheAction(trimmedClip);
-      mixerRef.current?.uncacheClip(trimmedClip);
+      if (playbackClip.generated) {
+        mixerRef.current?.uncacheAction(trimmedClip);
+        mixerRef.current?.uncacheClip(trimmedClip);
+      }
     };
   }, [animation, clips, uuid, durations, speeds, loops]);
 

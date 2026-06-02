@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { buildAnimationClip } from "@/utils/pose-to-animation";
+import {
+  buildAnimationClip,
+  getPoseClipDuration,
+} from "@/utils/pose-to-animation";
 import { useModelsStore } from "@/store/next/models";
 import { toast } from "sonner";
 import type { PoseFrame } from "@/utils/pose-to-animation";
@@ -23,7 +26,7 @@ export function SaveStep({ frames, modelUuid, onDone, onBack }: Props) {
   const [name, setName] = useState(defaultName);
   const [saving, setSaving] = useState(false);
 
-  const duration = frames.length > 0 ? frames[frames.length - 1].time : 0;
+  const duration = getPoseClipDuration(frames);
 
   const handleSave = async () => {
     const trimmed = name.trim() || defaultName;

@@ -18,13 +18,17 @@ import {
   AlertCircle,
   Camera,
   CheckCircle2,
+  Crosshair,
+  Gauge,
   Image,
   Loader2,
   Settings2,
   ShieldCheck,
+  Sparkles,
   Video,
   type LucideIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Collapsible,
   CollapsibleContent,
@@ -35,6 +39,13 @@ import { cn } from "@/lib/utils";
 import { useModelsStore } from "@/store/next/models";
 import { parseModel } from "@/utils/model";
 import type { ModelComponent } from "@/types/ecs";
+import {
+  analyzeBoneMapping,
+  scorePoseLandmarks,
+  selectBestPoseCandidate,
+  type PoseCalibration,
+  type PoseQualityResult,
+} from "@/utils/pose-retargeting";
 
 const VIDEO_W = 480;
 const VIDEO_H = 360;
@@ -103,6 +114,49 @@ function StatusPill({
   );
 }
 
+function QualityPill({ quality }: { quality: PoseQualityResult }) {
+  const tone =
+    quality.label === "Good"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+      : quality.label === "Usable"
+        ? "border-sky-500/30 bg-sky-500/10 text-sky-700"
+        : "border-amber-500/30 bg-amber-500/10 text-amber-700";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
+        tone,
+      )}
+      title={quality.warnings.join("\n") || "Pose landmarks look stable"}
+    >
+      <Gauge size={12} />
+      Quality: {quality.label} {Math.round(quality.score * 100)}%
+    </span>
+  );
+}
+
+function clonePoseData(pose: PoseBoneData): PoseBoneData {
+  return {
+    hips: {
+      boneName: pose.hips.boneName,
+      position: pose.hips.position.clone(),
+      quaternion: pose.hips.quaternion.clone(),
+    },
+    bones: pose.bones.map((bone) => ({
+      boneKey: bone.boneKey,
+      boneName: bone.boneName,
+      quaternion: bone.quaternion.clone(),
+    })),
+  };
+}
+
+function waitForPreviewFrame() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
 interface Props {
   modelUuid: string;
   onFramesReady: (frames: PoseFrame[], remap: BoneRemap) => void;
@@ -117,6 +171,11 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
   const startTimeRef = useRef<number>(0);
   const smootherRef = useRef(new PoseSmoother(0.4));
   const framesRef = useRef<PoseFrame[]>([]);
+  const bestFrameRef = useRef<{
+    frame: PoseFrame;
+    quality: PoseQualityResult;
+  } | null>(null);
+  const calibrationRef = useRef<PoseCalibration | null>(null);
   const autoDetectedRef = useRef(false);
 
   const worldLandmarksRef = useRef<
@@ -138,9 +197,16 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
 
   const [recording, setRecording] = useState(false);
   const [frameCount, setFrameCount] = useState(0);
+  const [rejectedFrameCount, setRejectedFrameCount] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [camError, setCamError] = useState<string | null>(null);
   const [remapOpen, setRemapOpen] = useState(false);
+  const [calibrationRequestId, setCalibrationRequestId] = useState(0);
+  const [calibrated, setCalibrated] = useState(false);
+  const [bestQuality, setBestQuality] = useState<PoseQualityResult | null>(
+    null,
+  );
+  const [detectingBestPhoto, setDetectingBestPhoto] = useState(false);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -156,6 +222,8 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     fps,
     isReady,
     error: mpError,
+    detectImageCandidates,
+    applyDetectedCandidate,
   } = useMediaPipe(
     inputMode === "camera" || inputMode === "video" ? videoRef : undefined,
     inputMode === "photo" ? imageRef : undefined,
@@ -165,10 +233,27 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     worldLandmarksRef.current = worldLandmarks;
   }, [worldLandmarks]);
 
+  const mappingAnalysis = useMemo(
+    () => analyzeBoneMapping(boneRemap, availableBones),
+    [availableBones, boneRemap],
+  );
+  const poseQuality = useMemo(
+    () =>
+      scorePoseLandmarks({
+        worldLandmarks,
+        screenLandmarks,
+        remap: boneRemap,
+        availableBones,
+      }),
+    [availableBones, boneRemap, screenLandmarks, worldLandmarks],
+  );
+
   useEffect(() => {
     autoDetectedRef.current = false;
     setAvailableBones([]);
     setBoneLoadError(null);
+    calibrationRef.current = null;
+    setCalibrated(false);
 
     if (!model?.file) return;
     const format = model.file.name
@@ -185,7 +270,7 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
         parsed.object.traverse((child) => {
           if (child.name) names.push(child.name);
         });
-        const sorted = names.sort();
+        const sorted = [...new Set(names)].sort();
         setAvailableBones(sorted);
         if (!autoDetectedRef.current && sorted.length > 0) {
           setBoneRemap(autoDetectRemap(sorted));
@@ -200,6 +285,11 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
       cancelled = true;
     };
   }, [model?.file]);
+
+  useEffect(() => {
+    calibrationRef.current = null;
+    setCalibrated(false);
+  }, [boneRemap]);
 
   // Webcam setup
   useEffect(() => {
@@ -267,17 +357,9 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     return () => URL.revokeObjectURL(url);
   }, [videoFile]);
 
-  // Capture frames while recording (camera and video modes)
-  useEffect(() => {
-    if (
-      !recording ||
-      (inputMode !== "camera" && inputMode !== "video") ||
-      !worldLandmarks ||
-      !poseDataRef.current
-    )
-      return;
+  const buildSmoothedFrame = useCallback((time: number): PoseFrame | null => {
     const pose = poseDataRef.current;
-    const time = (performance.now() - startTimeRef.current) / 1000;
+    if (!pose) return null;
 
     const smoothed: PoseBoneData = {
       hips: {
@@ -288,23 +370,77 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
           pose.hips.quaternion,
         ),
       },
-      bones: pose.bones.map((b) => ({
-        boneKey: b.boneKey,
-        boneName: b.boneName,
-        quaternion: smootherRef.current.smoothQuat(b.boneName, b.quaternion),
+      bones: pose.bones.map((bone) => ({
+        boneKey: bone.boneKey,
+        boneName: bone.boneName,
+        quaternion: smootherRef.current.smoothQuat(
+          bone.boneName,
+          bone.quaternion,
+        ),
       })),
     };
 
-    framesRef.current.push({ time, data: smoothed });
+    return { time, data: smoothed };
+  }, []);
+
+  const rememberBestFrame = useCallback(
+    (frame: PoseFrame, quality: PoseQualityResult) => {
+      if (quality.label === "Poor") return;
+      const currentBest = bestFrameRef.current;
+      if (!currentBest || quality.score > currentBest.quality.score) {
+        bestFrameRef.current = {
+          frame: {
+            time: 0,
+            data: clonePoseData(frame.data),
+          },
+          quality,
+        };
+        setBestQuality(quality);
+      }
+    },
+    [],
+  );
+
+  // Capture frames while recording (camera and video modes)
+  useEffect(() => {
+    if (
+      !recording ||
+      (inputMode !== "camera" && inputMode !== "video") ||
+      !worldLandmarks ||
+      !poseDataRef.current
+    )
+      return;
+    const time = (performance.now() - startTimeRef.current) / 1000;
+    const frame = buildSmoothedFrame(time);
+    if (!frame) return;
+
+    if (poseQuality.label === "Poor") {
+      setRejectedFrameCount((count) => count + 1);
+      rememberBestFrame(frame, poseQuality);
+      return;
+    }
+
+    framesRef.current.push(frame);
+    rememberBestFrame(frame, poseQuality);
     setFrameCount(framesRef.current.length);
     setElapsed(time);
-  }, [worldLandmarks, recording, inputMode]);
+  }, [
+    buildSmoothedFrame,
+    inputMode,
+    poseQuality,
+    recording,
+    rememberBestFrame,
+    worldLandmarks,
+  ]);
 
   const handleStart = useCallback(() => {
     framesRef.current = [];
+    bestFrameRef.current = null;
     smootherRef.current.reset();
     startTimeRef.current = performance.now();
     setFrameCount(0);
+    setRejectedFrameCount(0);
+    setBestQuality(null);
     setElapsed(0);
     setRecording(true);
   }, []);
@@ -313,8 +449,11 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
 
   const handleClear = useCallback(() => {
     framesRef.current = [];
+    bestFrameRef.current = null;
     smootherRef.current.reset();
     setFrameCount(0);
+    setRejectedFrameCount(0);
+    setBestQuality(null);
     setElapsed(0);
     setRecording(false);
   }, []);
@@ -333,34 +472,114 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     });
   }, [handleClear]);
 
-  const handleCapturePhoto = useCallback(() => {
-    if (!worldLandmarks || !poseDataRef.current || !photoUrl) return;
-    const pose = poseDataRef.current;
+  const handleCapturePhoto = useCallback(async () => {
+    if (!photoUrl || !imageRef.current) return;
+    setDetectingBestPhoto(true);
 
-    const smoothed: PoseBoneData = {
-      hips: {
-        boneName: pose.hips.boneName,
-        position: smootherRef.current.smoothVec("hips.pos", pose.hips.position),
-        quaternion: smootherRef.current.smoothQuat(
-          "hips.quat",
-          pose.hips.quaternion,
-        ),
+    try {
+      let selectedQuality = poseQuality;
+      const candidates = await detectImageCandidates(imageRef.current);
+      const best = selectBestPoseCandidate(candidates, {
+        remap: boneRemap,
+        availableBones,
+      });
+
+      if (best?.candidate) {
+        applyDetectedCandidate(best.candidate);
+        if (best.candidate.worldLandmarks) {
+          worldLandmarksRef.current = best.candidate.worldLandmarks;
+        }
+        selectedQuality = best.quality;
+        await waitForPreviewFrame();
+      }
+
+      if (!worldLandmarksRef.current || !poseDataRef.current) return;
+      smootherRef.current.reset();
+      const frame = buildSmoothedFrame(0);
+      if (!frame) return;
+
+      framesRef.current = [frame];
+      rememberBestFrame(frame, selectedQuality);
+      setFrameCount(1);
+      setRejectedFrameCount(0);
+      setElapsed(0);
+
+      if (selectedQuality.label === "Poor") {
+        toast.warning("Captured pose quality is poor", {
+          description:
+            selectedQuality.warnings[0] ??
+            "Try a full-body frame with visible elbows, knees, wrists, and ankles.",
+        });
+      }
+    } finally {
+      setDetectingBestPhoto(false);
+    }
+  }, [
+    applyDetectedCandidate,
+    availableBones,
+    boneRemap,
+    buildSmoothedFrame,
+    detectImageCandidates,
+    photoUrl,
+    poseQuality,
+    rememberBestFrame,
+  ]);
+
+  const handleUseBestFrame = useCallback(() => {
+    const best = bestFrameRef.current;
+    if (!best) return;
+    framesRef.current = [
+      {
+        time: 0,
+        data: clonePoseData(best.frame.data),
       },
-      bones: pose.bones.map((b) => ({
-        boneKey: b.boneKey,
-        boneName: b.boneName,
-        quaternion: smootherRef.current.smoothQuat(b.boneName, b.quaternion),
-      })),
-    };
-
-    framesRef.current = [{ time: 0, data: smoothed }];
+    ];
     setFrameCount(1);
+    setRejectedFrameCount(0);
     setElapsed(0);
-  }, [photoUrl, worldLandmarks]);
+    setRecording(false);
+    toast.success("Using best detected pose", {
+      description: `${best.quality.label} quality, ${Math.round(
+        best.quality.score * 100,
+      )}% confidence.`,
+    });
+  }, []);
+
+  const handleCalibrateRestPose = useCallback(() => {
+    if (!worldLandmarksRef.current || !poseDataRef.current) {
+      toast.warning("No pose is ready to calibrate", {
+        description: "Load a photo or stand in frame until Pose shows detected.",
+      });
+      return;
+    }
+    setCalibrationRequestId((value) => value + 1);
+  }, []);
+
+  const handleCalibrationReady = useCallback(() => {
+    setCalibrated(true);
+    toast.success("Rest pose calibrated for this session");
+  }, []);
 
   const handleNext = useCallback(() => {
+    if (mappingAnalysis.issues.length > 0) {
+      toast.warning("Bone mapping needs attention", {
+        description: mappingAnalysis.issues[0],
+      });
+    }
+    if (rejectedFrameCount > 0) {
+      toast.warning("Some low-quality frames were skipped", {
+        description: `${rejectedFrameCount} poor frame${
+          rejectedFrameCount === 1 ? "" : "s"
+        } rejected during capture.`,
+      });
+    }
     onFramesReady([...framesRef.current], boneRemap);
-  }, [onFramesReady, boneRemap]);
+  }, [
+    boneRemap,
+    mappingAnalysis.issues,
+    onFramesReady,
+    rejectedFrameCount,
+  ]);
 
   const inputError =
     inputMode === "photo" && !photoUrl
@@ -372,13 +591,7 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
     inputMode === "camera" ? (camError ?? mpError) : (inputError ?? mpError);
 
   const isVideoMode = inputMode === "camera" || inputMode === "video";
-  const mappedBoneCount = useMemo(
-    () =>
-      Object.values(boneRemap).filter((boneName) =>
-        availableBones.includes(boneName),
-      ).length,
-    [availableBones, boneRemap],
-  );
+  const mappedBoneCount = mappingAnalysis.mapped;
   const expectedBoneCount = Object.keys(BODY_PART_LABELS).length;
   const poseDetected = Boolean(screenLandmarks && worldLandmarks);
   const modelReady = model?.loadState === "loaded";
@@ -405,9 +618,16 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
               ? `${mappedBoneCount}/${expectedBoneCount}`
               : boneLoadError
                 ? "error"
-                : "loading"
+              : "loading"
           }
         />
+        <QualityPill quality={poseQuality} />
+        {calibrated && (
+          <span className="inline-flex items-center gap-1 rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-xs text-sky-700">
+            <Crosshair size={12} />
+            Calibrated
+          </span>
+        )}
         <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
           <ShieldCheck size={13} />
           Local browser detection
@@ -560,6 +780,9 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
               landmarksRef={worldLandmarksRef}
               remap={boneRemap}
               poseDataRef={poseDataRef}
+              calibrationRef={calibrationRef}
+              calibrationRequestId={calibrationRequestId}
+              onCalibrationReady={handleCalibrationReady}
               rootMotion={rootMotion}
             />
           </div>
@@ -569,7 +792,42 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
       <p className="text-sm text-muted-foreground text-center">
         {frameCount} frames recorded
         {frameCount > 0 && ` · ${elapsed.toFixed(1)}s`}
+        {rejectedFrameCount > 0 &&
+          ` · ${rejectedFrameCount} poor skipped`}
+        {bestQuality &&
+          ` · best ${bestQuality.label.toLowerCase()} ${Math.round(
+            bestQuality.score * 100,
+          )}%`}
       </p>
+
+      {poseQuality.warnings.length > 0 && (
+        <p className="rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
+          {poseQuality.warnings[0]}
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1 gap-2"
+          onClick={handleCalibrateRestPose}
+          disabled={!poseDetected}
+        >
+          <Crosshair size={14} />
+          Calibrate Rest Pose
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1 gap-2"
+          onClick={handleUseBestFrame}
+          disabled={!bestQuality}
+        >
+          <Sparkles size={14} />
+          Use Best Frame
+        </Button>
+      </div>
 
       <button
         type="button"
@@ -625,9 +883,9 @@ export function CaptureStep({ modelUuid, onFramesReady, onCancel }: Props) {
         {inputMode === "photo" ? (
           <Button
             onClick={handleCapturePhoto}
-            disabled={!isReady || !!error || !photoUrl}
+            disabled={!isReady || !!error || !photoUrl || detectingBestPhoto}
           >
-            Capture Pose
+            {detectingBestPhoto ? "Finding Best…" : "Capture Pose"}
           </Button>
         ) : recording ? (
           <Button variant="destructive" onClick={handleStop}>

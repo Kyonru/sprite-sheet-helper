@@ -19,50 +19,20 @@ import {
   quaternionToEulerDeg,
   type PoseBoneOverride,
 } from "@/utils/pose-edit";
+import {
+  applyPoseCalibration,
+  applyRetargetedPose,
+  buildPreferredNamedObjectMap,
+  buildPoseCalibration,
+  buildRigRetargetMap,
+  clampAnatomicalPose,
+  scorePoseLandmarks,
+  type PoseCalibration,
+  type RigRetargetBone,
+  type RigRetargetMap,
+} from "@/utils/pose-retargeting";
 
-interface BoneData {
-  bone: THREE.Object3D;
-  restQuat: THREE.Quaternion; // bind-pose local quaternion (reset each frame)
-  restDir: THREE.Vector3; // bind-pose direction in parent-local space
-}
-
-/**
- * Apply a world-space target direction to a bone in its parent's local space.
- *
- * Algorithm (correct parent-local approach):
- *   1. Get parent's current world quaternion (accounts for all ancestor rotations)
- *   2. Convert world target direction → parent-local direction
- *   3. Rotate from the bone's rest direction to that local direction
- */
-function applyBoneDirection(
-  boneData: BoneData,
-  fromWorld: THREE.Vector3,
-  toWorld: THREE.Vector3,
-) {
-  const { bone, restDir } = boneData;
-  if (!bone.parent) return;
-
-  const dir = toWorld.clone().sub(fromWorld);
-  if (dir.lengthSq() < 1e-8) return;
-  dir.normalize();
-
-  // Parent's accumulated world rotation
-  const parentWorldQuat = new THREE.Quaternion();
-  bone.parent.getWorldQuaternion(parentWorldQuat);
-
-  // Bring world direction into parent-local space
-  const localDir = dir
-    .clone()
-    .applyQuaternion(parentWorldQuat.clone().invert());
-
-  // Rotation: rest direction → local target direction
-  if (restDir.lengthSq() < 1e-8) return;
-  const q = new THREE.Quaternion().setFromUnitVectors(restDir, localDir);
-  bone.quaternion.copy(q);
-  bone.updateMatrix();
-}
-
-function applyHips(hipsData: BoneData, j: JointPositions) {
+function applyHips(hipsData: RigRetargetBone, j: JointPositions) {
   const { bone } = hipsData;
 
   // Hips position (scale down from meter space to rig space)
@@ -85,6 +55,54 @@ function applyHips(hipsData: BoneData, j: JointPositions) {
   bone.updateMatrix();
 }
 
+function buildPoseDataFromRig(rigMap: RigRetargetMap, rootMotion?: boolean) {
+  const hipsData = rigMap.bones.get("hips");
+  const bones: BoneFrame[] = [];
+
+  rigMap.bones.forEach((boneData, key) => {
+    if (key === "hips") return;
+    bones.push({
+      boneKey: key,
+      boneName: boneData.boneName,
+      quaternion: boneData.bone.quaternion.clone(),
+    });
+  });
+
+  return {
+    hips: {
+      boneName: hipsData?.boneName ?? "",
+      position:
+        rootMotion && hipsData
+          ? hipsData.bone.position.clone()
+          : new THREE.Vector3(),
+      quaternion: hipsData
+        ? hipsData.bone.quaternion.clone()
+        : new THREE.Quaternion(),
+    },
+    bones,
+  };
+}
+
+function applyPoseDataToRig(
+  rigMap: RigRetargetMap,
+  pose: PoseBoneData,
+  applyHipsPosition = true,
+) {
+  const hipsData = rigMap.bones.get("hips");
+  if (hipsData) {
+    hipsData.bone.quaternion.copy(pose.hips.quaternion);
+    if (applyHipsPosition) hipsData.bone.position.copy(pose.hips.position);
+    hipsData.bone.updateMatrix();
+  }
+
+  for (const frame of pose.bones) {
+    const boneData = rigMap.bones.get(frame.boneKey);
+    if (!boneData) continue;
+    boneData.bone.quaternion.copy(frame.quaternion);
+    boneData.bone.updateMatrix();
+  }
+}
+
 // ── Inner R3F component ──────────────────────────────────────────────────────
 
 interface PosedModelProps {
@@ -92,6 +110,9 @@ interface PosedModelProps {
   landmarksRef: React.RefObject<NormalizedLandmark[] | null>;
   remap: BoneRemap;
   poseDataRef?: React.RefObject<PoseBoneData | null>;
+  calibrationRef?: React.RefObject<PoseCalibration | null>;
+  calibrationRequestId?: number;
+  onCalibrationReady?: (calibration: PoseCalibration) => void;
   staticPoseRef?: React.RefObject<PoseBoneData | null>;
   rootMotion?: boolean;
   modelScale?: number;
@@ -105,14 +126,21 @@ function PosedModel({
   landmarksRef,
   remap,
   poseDataRef,
+  calibrationRef,
+  calibrationRequestId = 0,
+  onCalibrationReady,
   staticPoseRef,
   rootMotion,
   modelScale = 1,
 }: PosedModelProps) {
-  const boneMapRef = useRef<Map<string, BoneData>>(new Map());
+  const rigMapRef = useRef<RigRetargetMap>({
+    bones: new Map(),
+    byName: new Map(),
+  });
   const smootherRef = useRef(new JointSmoother(1.0, 0.5));
   // Holds the last bone quaternion set while visibility was good, per bone name.
   const holdQuatRef = useRef<Map<string, THREE.Quaternion>>(new Map());
+  const lastCalibrationRequestRef = useRef(0);
   // Root motion: hip height at rest (first frame), and the hips bone rest position.
   const restHipToFloorRef = useRef<number | null>(null);
   const hipRestPosRef = useRef<THREE.Vector3 | null>(null);
@@ -125,67 +153,22 @@ function PosedModel({
 
   // Build bone map and cache rest data whenever object or remap changes
   useEffect(() => {
-    // Ensure world matrices are current before reading bind-pose positions
-    object.updateMatrixWorld(true);
-
-    const map = new Map<string, THREE.Object3D>();
-    object.traverse((child) => {
-      if (child.name) map.set(child.name, child);
-    });
-
-    const boneMap = new Map<string, BoneData>();
-    const addBone = (boneName: string) => {
-      if (!boneName || boneMap.has(boneName)) return;
-      const bone = map.get(boneName);
-      if (!bone) return;
-
-      const restQuat = bone.quaternion.clone();
-
-      // Compute restDir as the bind-pose direction this bone segment points.
-      // Use world-space vector from this bone's pivot → first named child's pivot,
-      // then convert to parent-local space. This is correct for bones like UpLeg whose
-      // joint-offset (bone.position) points sideways, not downward along the limb.
-      let restDir: THREE.Vector3;
-      const firstChild = bone.children.find((c) => c.name);
-      if (firstChild && bone.parent) {
-        const boneWP = new THREE.Vector3();
-        const childWP = new THREE.Vector3();
-        bone.getWorldPosition(boneWP);
-        firstChild.getWorldPosition(childWP);
-        const worldDir = childWP.sub(boneWP);
-        if (worldDir.lengthSq() > 1e-8) {
-          worldDir.normalize();
-          const parentWQ = new THREE.Quaternion();
-          bone.parent.getWorldQuaternion(parentWQ);
-          restDir = worldDir.applyQuaternion(parentWQ.invert());
-        } else {
-          restDir = bone.position.clone().normalize();
-        }
-      } else {
-        restDir = bone.position.clone().normalize();
-      }
-
-      boneMap.set(boneName, { bone, restQuat, restDir });
-    };
-
-    // Add all remapped bones
-    (Object.values(remap) as string[]).forEach(addBone);
-    boneMapRef.current = boneMap;
-  }, [object, remap]);
+    rigMapRef.current = buildRigRetargetMap(object, remap);
+    holdQuatRef.current.clear();
+    if (calibrationRef) calibrationRef.current = null;
+  }, [calibrationRef, object, remap]);
 
   useFrame((_state, delta) => {
-    const bm = boneMapRef.current;
+    const rigMap = rigMapRef.current;
 
     // Static playback mode — apply stored bone quaternions directly and skip live detection
     const staticPose = staticPoseRef?.current;
     if (staticPose) {
-      bm.forEach(({ bone, restQuat }) => { bone.quaternion.copy(restQuat); bone.updateMatrix(); });
-      const hd = bm.get(staticPose.hips.boneName);
-      if (hd) { hd.bone.quaternion.copy(staticPose.hips.quaternion); hd.bone.updateMatrix(); }
-      for (const f of staticPose.bones) {
-        const bd = bm.get(f.boneName);
-        if (bd) { bd.bone.quaternion.copy(f.quaternion); bd.bone.updateMatrix(); }
-      }
+      rigMap.bones.forEach(({ bone, restQuat }) => {
+        bone.quaternion.copy(restQuat);
+        bone.updateMatrix();
+      });
+      applyPoseDataToRig(rigMap, staticPose);
       object.updateMatrixWorld(true);
       return;
     }
@@ -223,8 +206,9 @@ function PosedModel({
 
     const hold = holdQuatRef.current;
     const vis = (idx: number) => (lm[idx].visibility ?? 1) >= VIS_THRESHOLD;
+    const quality = scorePoseLandmarks(lm);
 
-    const get = (key: keyof BoneRemap) => bm.get(remap[key]);
+    const get = (key: keyof BoneRemap) => rigMap.bones.get(key);
 
     // Helper: apply bone and record last-good quaternion; or restore it if occluded.
     const drive = (
@@ -237,18 +221,25 @@ function PosedModel({
       if (!bd) return;
       if (visOk) {
         bd.bone.quaternion.copy(bd.restQuat);
-        applyBoneDirection(bd, from, to);
-        hold.set(remap[key], bd.bone.quaternion.clone());
+        applyRetargetedPose(bd, from, to);
+        hold.set(key, bd.bone.quaternion.clone());
       } else {
-        const saved = hold.get(remap[key]);
-        if (saved) bd.bone.quaternion.copy(saved);
-        else bd.bone.quaternion.copy(bd.restQuat);
+        const saved = hold.get(key);
+        if (saved && quality.score >= 0.52) {
+          bd.bone.quaternion.copy(saved);
+        } else if (saved) {
+          bd.bone.quaternion
+            .copy(bd.restQuat)
+            .slerp(saved, Math.max(0.1, quality.score * 0.5));
+        } else {
+          bd.bone.quaternion.copy(bd.restQuat);
+        }
       }
       bd.bone.updateMatrix();
     };
 
     // 1. Reset ALL bones to rest pose so we don't accumulate rotations
-    bm.forEach(({ bone, restQuat }) => {
+    rigMap.bones.forEach(({ bone, restQuat }) => {
       bone.quaternion.copy(restQuat);
       bone.updateMatrix();
     });
@@ -300,11 +291,11 @@ function PosedModel({
     const spineMid = spineOrigin.clone().lerp(spineEnd, 0.5);
 
     const spineData = get("spine");
-    if (spineData) applyBoneDirection(spineData, spineOrigin, spineMid);
+    if (spineData) applyRetargetedPose(spineData, spineOrigin, spineMid);
     const spine1Data = get("spine1");
-    if (spine1Data) applyBoneDirection(spine1Data, spineOrigin, spineMid);
+    if (spine1Data) applyRetargetedPose(spine1Data, spineOrigin, spineMid);
     const spine2Data = get("spine2");
-    if (spine2Data) applyBoneDirection(spine2Data, spineMid, spineEnd);
+    if (spine2Data) applyRetargetedPose(spine2Data, spineMid, spineEnd);
 
     // Shoulders (clavicles)
     drive("leftShoulder", vis(L_SHOULDER), j.shoulderCenter, j.leftShoulder);
@@ -375,37 +366,27 @@ function PosedModel({
     // Force scene to update matrices for next bone in chain
     object.updateMatrixWorld(true);
 
-    // Write actual local bone quaternions so recording matches the preview exactly
-    if (poseDataRef) {
-      const hipsData = get("hips");
-      const bones: BoneFrame[] = [];
-      for (const key of Object.keys(remap) as (keyof BoneRemap)[]) {
-        if (key === "hips") continue;
-        const bd = bm.get(remap[key]);
-        if (bd) {
-          bones.push({
-            boneKey: key,
-            boneName: remap[key],
-            quaternion: bd.bone.quaternion.clone(),
-          });
-        }
-      }
-      poseDataRef.current = {
-        hips: {
-          boneName: remap.hips,
-          // When root motion is enabled, use the actual (modified) bone position
-          // so the recorded keyframes carry the vertical movement.
-          position:
-            rootMotion && hipsData
-              ? hipsData.bone.position.clone()
-              : new THREE.Vector3(),
-          quaternion: hipsData
-            ? hipsData.bone.quaternion.clone()
-            : new THREE.Quaternion(),
-        },
-        bones,
-      };
+    const rawPose = buildPoseDataFromRig(rigMap, rootMotion);
+    if (
+      calibrationRequestId > 0 &&
+      calibrationRequestId !== lastCalibrationRequestRef.current
+    ) {
+      const calibration = buildPoseCalibration(rawPose, rigMap);
+      if (calibrationRef) calibrationRef.current = calibration;
+      lastCalibrationRequestRef.current = calibrationRequestId;
+      onCalibrationReady?.(calibration);
     }
+
+    const calibratedPose = applyPoseCalibration(
+      rawPose,
+      calibrationRef?.current,
+    );
+    const finalPose = clampAnatomicalPose(calibratedPose, rigMap);
+    applyPoseDataToRig(rigMap, finalPose, Boolean(rootMotion));
+    object.updateMatrixWorld(true);
+
+    // Write actual local bone quaternions so recording matches the preview exactly
+    if (poseDataRef) poseDataRef.current = finalPose;
   });
 
   return <primitive object={object} />;
@@ -445,14 +426,6 @@ function PoseSkeletonHelper({ object }: { object: THREE.Object3D }) {
   }, [helper]);
 
   return <primitive object={helper} />;
-}
-
-function getNamedObjectMap(object: THREE.Object3D) {
-  const map = new Map<string, THREE.Object3D>();
-  object.traverse((child) => {
-    if (child.name) map.set(child.name, child);
-  });
-  return map;
 }
 
 type BoneHandleProps = {
@@ -508,7 +481,7 @@ function PoseEditLayer({
   onSelectBone,
   onBoneEulerChange,
 }: PoseEditLayerProps) {
-  const boneMap = useMemo(() => getNamedObjectMap(object), [object]);
+  const boneMap = useMemo(() => buildPreferredNamedObjectMap(object), [object]);
   const entries = useMemo(
     () =>
       (Object.entries(remap) as [keyof BoneRemap, string][])
@@ -566,6 +539,9 @@ interface Props {
   poseDataRef?: React.RefObject<PoseBoneData | null>;
   staticPoseRef?: React.RefObject<PoseBoneData | null>;
   rootMotion?: boolean;
+  calibrationRef?: React.RefObject<PoseCalibration | null>;
+  calibrationRequestId?: number;
+  onCalibrationReady?: (calibration: PoseCalibration) => void;
   selectedBoneKey?: string | null;
   onSelectBone?: (boneKey: string) => void;
   onBoneEulerChange?: (boneKey: string, euler: PoseBoneOverride) => void;
@@ -578,6 +554,9 @@ export function ModelPreview({
   poseDataRef,
   staticPoseRef,
   rootMotion,
+  calibrationRef,
+  calibrationRequestId,
+  onCalibrationReady,
   selectedBoneKey,
   onSelectBone,
   onBoneEulerChange,
@@ -643,6 +622,9 @@ export function ModelPreview({
         landmarksRef={landmarksRef}
         remap={remap}
         poseDataRef={poseDataRef}
+        calibrationRef={calibrationRef}
+        calibrationRequestId={calibrationRequestId}
+        onCalibrationReady={onCalibrationReady}
         staticPoseRef={staticPoseRef}
         rootMotion={rootMotion}
         modelScale={modelScale}
