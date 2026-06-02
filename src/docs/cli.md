@@ -92,6 +92,8 @@ Passing `--workflow` switches the CLI into multi-angle mode. It automatically it
 sprite-sheet-helper character.glb --workflow topdown-8dir
 ```
 
+The CLI waits for the workflow completion event before exporting. If the workflow reports an error, is cancelled, or times out, the command exits with an error instead of exporting a partial atlas.
+
 ### Available Workflow Presets
 
 | ID                 | Directions                 | Elevation | Use Case                            |

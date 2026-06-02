@@ -23,6 +23,8 @@ Workflows automate multi-angle sprite sheet generation. Instead of manually rota
 
 The app will automatically rotate the model to each required angle, play through all animation clips, capture frames, and combine everything into the output format you chose.
 
+Before each sequence, the workflow waits for the animation state to apply, moves the camera, lets the render view settle, then starts frame capture. You can cancel a running workflow; the active sequence capture is stopped before the workflow exits.
+
 ## Output Structure
 
 Each animation clip is exported with direction labels appended to the clip name. For example, a model with `idle` and `walk` animations run through **Top-Down 8-Dir** produces:
@@ -47,5 +49,6 @@ These labeled sequences are embedded in the exported JSON/metadata file so your 
 
 - Name your animation clips clearly in your 3D tool before exporting — those names become the sequence identifiers.
 - For isometric games, the **Isometric** workflow produces the four standard angles (SE, NE, NW, SW) used by most isometric engines.
-- The **Platformer** workflow mirrors the right-facing frames to produce the left-facing set, halving the export time.
+- The **Platformer** workflow captures both Right and Left directions. Use **Platformer Single Side** if your game will mirror the sprite at runtime.
+- Enable **Capture normal maps** before running a workflow if you want every workflow sequence to include real normal map frames.
 - Workflows respect your current lighting and effects settings — configure those first.

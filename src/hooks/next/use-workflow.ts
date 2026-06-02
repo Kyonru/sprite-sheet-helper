@@ -1,6 +1,12 @@
-import { useState, useCallback, useRef } from "react";
-import { PubSub, EventType } from "@/lib/events";
+import { useState, useCallback, useEffect, useRef } from "react";
+import {
+  PubSub,
+  EventType,
+  type CaptureStopPayload,
+  type CaptureProgressPayload,
+} from "@/lib/events";
 import { useModelsStore } from "@/store/next/models";
+import { useImagesStore } from "@/store/next/images";
 import { useSettingsStore } from "@/store/next/settings";
 import { useCamerasStore } from "@/store/next/cameras";
 import { useTargetsStore } from "@/store/next/targets";
@@ -8,31 +14,100 @@ import {
   WORKFLOW_PRESETS,
   computePosition,
   type WorkflowDefinition,
+  type WorkflowDirection,
 } from "@/constants/workflows";
 import { useEntitiesStore } from "@/store/next/entities";
 
 export interface WorkflowStep {
+  modelUuid?: string;
   animationName: string;
   directionLabel: string;
   rowLabel: string;
 }
 
-export type WorkflowStatus = "idle" | "running" | "done" | "error";
+export type WorkflowStatus =
+  | "idle"
+  | "running"
+  | "done"
+  | "cancelled"
+  | "error";
 
 export interface WorkflowState {
   status: WorkflowStatus;
   currentStep: number;
   totalSteps: number;
+  currentFrame: number;
+  expectedFrames: number;
   currentLabel: string;
+  currentAnimation: string;
+  currentDirection: string;
+  startedAt?: number;
+  failureStep?: string;
   error?: string;
 }
 
-const waitForCaptureDone = (label: string): Promise<void> =>
-  new Promise((resolve) => {
-    const handler = (payload: { label: string }) => {
-      if (payload.label === label) resolve();
+const CAPTURE_TIMEOUT_BUFFER_MS = 5000;
+const ANIMATION_READY_TIMEOUT_MS = 5000;
+
+const initialState: WorkflowState = {
+  status: "idle",
+  currentStep: 0,
+  totalSteps: 0,
+  currentFrame: 0,
+  expectedFrames: 0,
+  currentLabel: "",
+  currentAnimation: "",
+  currentDirection: "",
+};
+
+const waitForAnimationFrames = (count: number) =>
+  new Promise<void>((resolve) => {
+    const next = (remaining: number) => {
+      if (remaining <= 0) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(() => next(remaining - 1));
     };
-    PubSub.once(EventType.STOP_ASSETS_CREATION, handler);
+    next(count);
+  });
+
+const waitForCaptureDone = ({
+  label,
+  workflowRunId,
+  timeoutMs,
+}: {
+  label: string;
+  workflowRunId: string;
+  timeoutMs: number;
+}): Promise<CaptureStopPayload> =>
+  new Promise((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timeout);
+      PubSub.off(EventType.STOP_ASSETS_CREATION, handler);
+    };
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Capture timeout for ${label}`));
+    }, timeoutMs);
+
+    const handler = (payload: CaptureStopPayload) => {
+      if (payload.label !== label || payload.workflowRunId !== workflowRunId) {
+        return;
+      }
+
+      cleanup();
+
+      if (payload.status === "error") {
+        reject(new Error(`Capture failed for ${label}`));
+        return;
+      }
+
+      resolve(payload);
+    };
+
+    PubSub.on(EventType.STOP_ASSETS_CREATION, handler);
   });
 
 const waitForAnimationReady = (
@@ -40,66 +115,155 @@ const waitForAnimationReady = (
   animation: string,
 ): Promise<void> =>
   new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
+    const cleanup = () => {
+      clearTimeout(timeout);
       PubSub.off(EventType.ANIMATION_READY, handler);
-      console.warn(
-        `[ANIMATION_READY TIMEOUT] uuid: ${uuid}, animation: ${animation}`,
-      );
-      reject(
-        new Error(
-          `Animation ready timeout for ${uuid}:${animation}. Check if model/animation exists.`,
-        ),
-      );
-    }, 5000);
+    };
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Animation ready timeout for ${uuid}:${animation}`));
+    }, ANIMATION_READY_TIMEOUT_MS);
 
     const handler = ({
-      uuid: uuid2,
-      animation: animation2,
+      uuid: readyUuid,
+      animation: readyAnimation,
     }: {
       uuid: string;
       animation: string;
     }) => {
-      if (uuid === uuid2 && animation === animation2) {
-        clearTimeout(timeout);
-        PubSub.off(EventType.ANIMATION_READY, handler);
-        resolve();
-      }
+      if (uuid !== readyUuid || animation !== readyAnimation) return;
+      cleanup();
+      resolve();
     };
+
     PubSub.on(EventType.ANIMATION_READY, handler);
   });
 
-const initialState: WorkflowState = {
-  status: "idle",
-  currentStep: 0,
-  totalSteps: 0,
-  currentLabel: "",
-};
+function buildWorkflowSteps(workflow: WorkflowDefinition): WorkflowStep[] {
+  const { clips, models } = useModelsStore.getState();
+  const modelUuids = Object.keys(models);
+  const clipEntries = Object.entries(clips).filter(
+    ([, modelClips]) => modelClips.length > 0,
+  );
+
+  if (clipEntries.length === 0) {
+    return workflow.directions.map((dir) => ({
+      animationName: "none",
+      directionLabel: dir.label,
+      rowLabel: `none_${dir.label}`,
+    }));
+  }
+
+  const rawSteps = clipEntries.flatMap(([modelUuid, modelClips]) => {
+    const animationNames = [...new Set(modelClips.map((c) => c.clip.name))];
+    return animationNames.flatMap((animationName) =>
+      workflow.directions.map((dir) => ({
+        modelUuid,
+        animationName,
+        directionLabel: dir.label,
+      })),
+    );
+  });
+
+  const labelCounts = rawSteps.reduce<Record<string, number>>((acc, step) => {
+    const label = `${step.animationName}_${step.directionLabel}`;
+    acc[label] = (acc[label] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return rawSteps.map((step) => {
+    const baseLabel = `${step.animationName}_${step.directionLabel}`;
+    const needsModelPrefix = labelCounts[baseLabel] > 1 || modelUuids.length > 1;
+    const modelPrefix = needsModelPrefix
+      ? `${step.modelUuid?.slice(0, 8) ?? "scene"}_`
+      : "";
+
+    return {
+      ...step,
+      rowLabel: `${modelPrefix}${baseLabel}`,
+    };
+  });
+}
+
+function getDirectionForStep(
+  workflow: WorkflowDefinition,
+  step: WorkflowStep,
+): WorkflowDirection {
+  return (
+    workflow.directions.find((dir) => dir.label === step.directionLabel) ??
+    workflow.directions[0]
+  );
+}
+
+async function setStepAnimation(step: WorkflowStep) {
+  if (step.animationName === "none") return;
+  if (!step.modelUuid) return;
+
+  const modelState = useModelsStore.getState();
+  const modelClips = modelState.clips[step.modelUuid] ?? [];
+  const clip = modelClips.find((c) => c.clip.name === step.animationName);
+  if (!clip) return;
+
+  const currentAnimation = modelState.animations[step.modelUuid];
+  const shouldWait = currentAnimation !== step.animationName;
+  const waiter = shouldWait
+    ? waitForAnimationReady(step.modelUuid, step.animationName)
+    : Promise.resolve();
+
+  modelState.setAnimation(step.modelUuid, step.animationName);
+  modelState.setDuration(step.modelUuid, step.animationName, [
+    0,
+    clip.clip.duration,
+  ]);
+  modelState.mixerRef[step.modelUuid]?.setTime(0);
+
+  await waiter;
+}
+
+function resetStepAnimation(step: WorkflowStep) {
+  if (!step.modelUuid || step.animationName === "none") return;
+
+  const modelState = useModelsStore.getState();
+  const modelClips = modelState.clips[step.modelUuid] ?? [];
+  const clip = modelClips.find((c) => c.clip.name === step.animationName);
+
+  const mixer = modelState.mixerRef[step.modelUuid];
+  mixer?.setTime(0);
+  if (clip) mixer?.clipAction(clip.clip)?.play();
+}
 
 export const useWorkflow = () => {
   const [workflowState, setWorkflowState] =
     useState<WorkflowState>(initialState);
 
   const abortRef = useRef(false);
+  const workflowRunIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const onProgress = (payload: CaptureProgressPayload) => {
+      if (
+        !workflowRunIdRef.current ||
+        payload.workflowRunId !== workflowRunIdRef.current
+      ) {
+        return;
+      }
+
+      setWorkflowState((prev) => ({
+        ...prev,
+        currentFrame: payload.capturedFrames,
+        expectedFrames: payload.expectedFrames,
+      }));
+    };
+
+    PubSub.on(EventType.ASSETS_CREATION_PROGRESS, onProgress);
+    return () => {
+      PubSub.off(EventType.ASSETS_CREATION_PROGRESS, onProgress);
+    };
+  }, []);
 
   const buildSteps = useCallback(
-    (workflow: WorkflowDefinition): WorkflowStep[] => {
-      const clips = useModelsStore.getState().clips;
-      const allClips = Object.values(clips).flat();
-      const rawNames = allClips.map((c) => c.clip.name);
-      const animNames = rawNames.length > 0 ? [...new Set(rawNames)] : ["none"];
-
-      const steps: WorkflowStep[] = [];
-      for (const animName of animNames) {
-        for (const dir of workflow.directions) {
-          steps.push({
-            animationName: animName,
-            directionLabel: dir.label,
-            rowLabel: `${animName}_${dir.label}`,
-          });
-        }
-      }
-      return steps;
-    },
+    (workflow: WorkflowDefinition): WorkflowStep[] => buildWorkflowSteps(workflow),
     [],
   );
 
@@ -107,126 +271,129 @@ export const useWorkflow = () => {
     useEntitiesStore.getState().unselectEntity();
     abortRef.current = false;
 
-    const clips = useModelsStore.getState().clips;
+    const steps = buildWorkflowSteps(workflow);
+    const workflowRunId = Date.now().toString();
+    workflowRunIdRef.current = workflowRunId;
+
     const cameraDistance = useSettingsStore.getState().cameraDistance;
     const cameraAngle = useSettingsStore.getState().cameraAngle;
+    const intervals = useImagesStore.getState().intervals;
+    const iterations = useImagesStore.getState().iterations;
     const cameraUUID = useCamerasStore.getState().mainCamera;
     const target: [number, number, number] = cameraUUID
       ? (useTargetsStore.getState().targets[cameraUUID] ?? [0, 0, 0])
       : [0, 0, 0];
 
-    const allModelUUIDs = Object.keys(clips);
-    const allClips = Object.values(clips).flat();
-    const rawNames = allClips.map((c) => c.clip.name);
-    const animNames = rawNames.length > 0 ? [...new Set(rawNames)] : ["none"];
-
-    const totalSteps = animNames.length * workflow.directions.length;
-    let currentStep = 0;
-
     setWorkflowState({
       status: "running",
       currentStep: 0,
-      totalSteps,
+      totalSteps: steps.length,
+      currentFrame: 0,
+      expectedFrames: iterations,
       currentLabel: "",
+      currentAnimation: "",
+      currentDirection: "",
+      startedAt: Date.now(),
     });
 
     try {
-      for (const animName of animNames) {
+      for (let index = 0; index < steps.length; index++) {
         if (abortRef.current) break;
 
-        const waiters: Promise<void>[] = [];
+        const step = steps[index];
+        const dir = getDirectionForStep(workflow, step);
 
-        for (const uuid of allModelUUIDs) {
-          (useModelsStore.getState().clips[uuid] || []).forEach((clip) => {
-            if (clip.clip.name === animName) {
-              waiters.push(waitForAnimationReady(uuid, animName));
-            }
-          });
-        }
+        setWorkflowState((prev) => ({
+          ...prev,
+          currentStep: index + 1,
+          currentFrame: 0,
+          expectedFrames: iterations,
+          currentLabel: step.rowLabel,
+          currentAnimation: step.animationName,
+          currentDirection: step.directionLabel,
+        }));
 
-        for (const uuid of allModelUUIDs) {
-          const modelClips = clips[uuid] ?? [];
-          const clip = modelClips.find((c) => c.clip.name === animName);
-          if (clip || animName === "none") {
-            useModelsStore.getState().setAnimation(uuid, animName);
-            useModelsStore
-              .getState()
-              .setDuration(uuid, animName, [0, clip?.clip.duration ?? 0]);
-            useModelsStore.getState().mixerRef[uuid]?.setTime(0);
-          }
-        }
+        await setStepAnimation(step);
+        resetStepAnimation(step);
 
-        if (waiters.length > 0) {
-          await Promise.all(waiters);
-        }
+        const position = computePosition(
+          cameraAngle ?? dir.phi,
+          dir.theta,
+          cameraDistance,
+          target,
+        );
 
-        for (const dir of workflow.directions) {
-          if (abortRef.current) break;
+        PubSub.emit(EventType.SET_CAMERA_ANGLE, { position, target });
+        await waitForAnimationFrames(2);
 
-          currentStep += 1;
-          const rowLabel = `${animName}_${dir.label}`;
+        const captureDone = waitForCaptureDone({
+          label: step.rowLabel,
+          workflowRunId,
+          timeoutMs: intervals * iterations + CAPTURE_TIMEOUT_BUFFER_MS,
+        });
 
-          setWorkflowState((prev) => ({
-            ...prev,
-            currentStep,
-            currentLabel: rowLabel,
-          }));
+        PubSub.emit(EventType.START_ASSETS_CREATION, {
+          label: step.rowLabel,
+          workflowRunId,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+        });
 
-          for (const uuid of allModelUUIDs) {
-            useModelsStore.getState().mixerRef[uuid]?.setTime(0);
+        const result = await captureDone;
 
-            const modelClips = clips[uuid] ?? [];
-            const clip = modelClips.find((c) => c.clip.name === animName);
+        setWorkflowState((prev) => ({
+          ...prev,
+          currentFrame: result.capturedFrames,
+          expectedFrames: result.expectedFrames,
+        }));
 
-            if (clip) {
-              useModelsStore
-                .getState()
-                .mixerRef[uuid]?.clipAction(clip!.clip!)
-                ?.play();
-            }
-          }
-
-          const position = computePosition(
-            cameraAngle ?? dir.phi,
-            dir.theta,
-            cameraDistance,
-            target,
-          );
-
-          PubSub.emit(EventType.SET_CAMERA_ANGLE, { position, target });
-
-          PubSub.emit(EventType.START_ASSETS_CREATION, { label: rowLabel });
-          await waitForCaptureDone(rowLabel);
+        if (result.status === "cancelled") {
+          abortRef.current = true;
+          break;
         }
       }
 
-      setWorkflowState((prev) => ({
-        ...prev,
-        status: abortRef.current ? "idle" : "done",
-      }));
+      const status = abortRef.current ? "cancelled" : "done";
+      setWorkflowState((prev) => ({ ...prev, status }));
 
       PubSub.emit(EventType.STOP_WORKFLOW, {
         workflow,
-        status: abortRef.current ? "cancelled" : "done",
+        workflowRunId,
+        status,
       });
     } catch (err) {
       setWorkflowState((prev) => ({
         ...prev,
         status: "error",
+        failureStep: prev.currentLabel,
         error: (err as Error).message,
       }));
-      PubSub.emit(EventType.STOP_WORKFLOW, { workflow, status: "error" });
+      PubSub.emit(EventType.STOP_WORKFLOW, {
+        workflow,
+        workflowRunId,
+        status: "error",
+        error: (err as Error).message,
+      });
+    } finally {
+      workflowRunIdRef.current = null;
     }
   }, []);
 
   const abortWorkflow = useCallback(() => {
     abortRef.current = true;
-    setWorkflowState((prev) => ({ ...prev, status: "idle" }));
+    PubSub.emit(EventType.CANCEL_ASSETS_CREATION, {
+      workflowRunId: workflowRunIdRef.current,
+    });
+    setWorkflowState((prev) => ({ ...prev, status: "cancelled" }));
   }, []);
 
   const resetWorkflow = useCallback(() => {
     setWorkflowState(initialState);
   }, []);
+
+  const canRunWorkflow = useModelsStore((state) =>
+    Object.values(state.models).some((model) => model.loadState === "loaded"),
+  );
 
   return {
     workflowState,
@@ -235,5 +402,6 @@ export const useWorkflow = () => {
     buildSteps,
     resetWorkflow,
     presets: WORKFLOW_PRESETS,
+    canRunWorkflow,
   };
 };

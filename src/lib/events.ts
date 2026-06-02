@@ -5,7 +5,9 @@ import { ExportFormats, type ExportFormat } from "@/types/file";
 export const EventType = {
   TAKE_SINGLE_SCREENSHOT: "take_single_screenshot",
   START_ASSETS_CREATION: "start_assets_creation",
+  ASSETS_CREATION_PROGRESS: "assets_creation_progress",
   STOP_ASSETS_CREATION: "stop_assets_creation",
+  CANCEL_ASSETS_CREATION: "cancel_assets_creation",
   SET_WORKFLOW: "set_workflow",
   START_WORKFLOW: "start_workflow",
   STOP_WORKFLOW: "stop_workflow",
@@ -65,6 +67,30 @@ export type ShortCutEventPayload = {
 };
 
 export type EventTypeName = (typeof EventType)[keyof typeof EventType];
+
+export type CaptureStatus = "done" | "cancelled" | "error";
+
+export type CaptureStartPayload = {
+  label?: string;
+  workflowRunId?: string;
+  stepIndex?: number;
+  totalSteps?: number;
+};
+
+export type CaptureStopPayload = {
+  label?: string;
+  workflowRunId?: string;
+  capturedFrames: number;
+  expectedFrames: number;
+  status: CaptureStatus;
+};
+
+export type CaptureProgressPayload = {
+  label?: string;
+  workflowRunId?: string;
+  capturedFrames: number;
+  expectedFrames: number;
+};
 
 export interface EventLogEntry {
   id: number;

@@ -2,13 +2,15 @@ export function scheduleInterval(
   callback: () => void,
   interval: number,
   iterations: number,
-  onComplete?: () => void
+  onTick?: () => void,
+  onComplete?: () => void,
 ): NodeJS.Timeout {
   let count = 0;
 
   const id = setInterval(() => {
     callback();
     count++;
+    onTick?.();
 
     if (count >= iterations) {
       clearInterval(id);

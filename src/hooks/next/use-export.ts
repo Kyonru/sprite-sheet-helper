@@ -2,7 +2,11 @@ import * as THREE from "three";
 import { useCallback, useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
 import { scheduleInterval } from "../../utils/time";
-import { EventType, PubSub } from "../../lib/events";
+import {
+  EventType,
+  PubSub,
+  type CaptureStartPayload,
+} from "../../lib/events";
 import { useSceneStore } from "@/components/panels/scene/store";
 import { useSettingsStore } from "@/store/next/settings";
 import { useImagesStore } from "@/store/next/images";
@@ -29,6 +33,7 @@ export const useExport = () => {
   const images = useRef<{ name: string; dataURL: string }[]>([]);
   const normalImages = useRef<{ name: string; dataURL: string }[]>([]);
   const intervalRef = useRef<NodeJS.Timeout>(null);
+  const activeCaptureRef = useRef<CaptureStartPayload | null>(null);
   const normalMaterialRef = useRef<THREE.MeshNormalMaterial | null>(null);
 
   const intervals = useImagesStore((state) => state.intervals);
@@ -165,21 +170,36 @@ export const useExport = () => {
   );
 
   const takeScreenshotSequence = useCallback(
-    (payload?: { label?: string }) => {
+    (payload?: CaptureStartPayload) => {
       if (!gl) return;
       if (intervalRef.current) clearInterval(intervalRef.current);
 
       images.current = [];
       normalImages.current = [];
+      activeCaptureRef.current = payload ?? {};
 
       intervalRef.current = scheduleInterval(
         captureScreenshotData,
         intervals,
         iterations,
+        () => {
+          PubSub.emit(EventType.ASSETS_CREATION_PROGRESS, {
+            label: payload?.label,
+            workflowRunId: payload?.workflowRunId,
+            capturedFrames: images.current.length,
+            expectedFrames: iterations,
+          });
+        },
         async () => {
+          intervalRef.current = null;
           PubSub.emit(EventType.STOP_ASSETS_CREATION, {
             label: payload?.label,
+            workflowRunId: payload?.workflowRunId,
+            capturedFrames: images.current.length,
+            expectedFrames: iterations,
+            status: "done",
           });
+          activeCaptureRef.current = null;
 
           addImages(
             Date.now().toString(),
@@ -207,6 +227,28 @@ export const useExport = () => {
       exportNormalMap,
     ],
   );
+
+  const cancelScreenshotSequence = useCallback(() => {
+    if (!intervalRef.current && !activeCaptureRef.current) return;
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    const payload = activeCaptureRef.current;
+    PubSub.emit(EventType.STOP_ASSETS_CREATION, {
+      label: payload?.label,
+      workflowRunId: payload?.workflowRunId,
+      capturedFrames: images.current.length,
+      expectedFrames: iterations,
+      status: "cancelled",
+    });
+
+    activeCaptureRef.current = null;
+    images.current = [];
+    normalImages.current = [];
+  }, [iterations]);
 
   const addScreenshot = useCallback(() => {
     if (!gl) return;
@@ -267,6 +309,13 @@ export const useExport = () => {
       PubSub.off(EventType.START_ASSETS_CREATION, takeScreenshotSequence);
     };
   }, [takeScreenshotSequence]);
+
+  useEffect(() => {
+    PubSub.on(EventType.CANCEL_ASSETS_CREATION, cancelScreenshotSequence);
+    return () => {
+      PubSub.off(EventType.CANCEL_ASSETS_CREATION, cancelScreenshotSequence);
+    };
+  }, [cancelScreenshotSequence]);
 
   useEffect(() => {
     PubSub.on(EventType.START_EXPORT, exportSpriteSheet);

@@ -45,6 +45,7 @@ export const WorkflowsMenu = () => {
     buildSteps,
     resetWorkflow,
     presets,
+    canRunWorkflow,
   } = useWorkflow();
 
   const cameraDistance = useSettingsStore((state) => state.cameraDistance);
@@ -54,6 +55,7 @@ export const WorkflowsMenu = () => {
   const steps = selectedWorkflow ? buildSteps(selectedWorkflow) : [];
   const isRunning = workflowState.status === "running";
   const isDone = workflowState.status === "done";
+  const isCancelled = workflowState.status === "cancelled";
 
   const onSelectWorkflow = useCallback(
     (workflow: WorkflowDefinition) => {
@@ -89,9 +91,12 @@ export const WorkflowsMenu = () => {
   }, [onSelectWorkflow]);
 
   useEffect(() => {
-    const onStartWorkflow = () => {
-      if (!selectedWorkflow) return;
-      runWorkflow(selectedWorkflow);
+    const onStartWorkflow = (workflowId?: WorkflowId) => {
+      const workflow = workflowId
+        ? WORKFLOW_PRESETS.find((w) => w.id === workflowId)
+        : selectedWorkflow;
+      if (!workflow) return;
+      runWorkflow(workflow);
     };
 
     PubSub.on(EventType.START_WORKFLOW, onStartWorkflow);
@@ -233,6 +238,22 @@ export const WorkflowsMenu = () => {
                   {workflowState.currentStep} / {workflowState.totalSteps}
                 </span>
               </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>
+                  {workflowState.currentAnimation || "none"} ·{" "}
+                  {workflowState.currentDirection || "direction"}
+                </span>
+                <span>
+                  Frames {workflowState.currentFrame} /{" "}
+                  {workflowState.expectedFrames}
+                  {workflowState.startedAt
+                    ? ` · ${Math.max(
+                        0,
+                        Math.round((Date.now() - workflowState.startedAt) / 1000),
+                      )}s`
+                    : ""}
+                </span>
+              </div>
               <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                 <div
                   className="h-full bg-primary transition-all duration-200"
@@ -251,9 +272,16 @@ export const WorkflowsMenu = () => {
             </p>
           )}
 
+          {isCancelled && (
+            <p className="text-sm text-muted-foreground">
+              Workflow cancelled.
+            </p>
+          )}
+
           {workflowState.status === "error" && (
             <p className="text-sm text-destructive">
-              Error: {workflowState.error}
+              Error{workflowState.failureStep ? ` at ${workflowState.failureStep}` : ""}:{" "}
+              {workflowState.error}
             </p>
           )}
 
@@ -272,9 +300,11 @@ export const WorkflowsMenu = () => {
                 <Button
                   id="run-workflow-button"
                   onClick={onRun}
-                  disabled={steps.length === 0}
+                  disabled={steps.length === 0 || !canRunWorkflow}
                 >
-                  Run Workflow ({steps.length} sequences)
+                  {canRunWorkflow
+                    ? `Run Workflow (${steps.length} sequences)`
+                    : "Load a model first"}
                 </Button>
               </>
             )}
