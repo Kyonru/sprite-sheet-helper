@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { LightComponent, SnapshotEnabledStore } from "@/types/ecs";
-import { inspector } from "../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import { withHistory } from "../common/middlewares/history";
 import { createMergeKey } from "./history/utils";
 import { isEqual } from "@/utils/object";
@@ -175,7 +175,7 @@ export const useLightsStore = create<LightsState & LightsActions>()(
         ],
       },
     ),
-    { name: "Lights" },
+    { name: "Lights", enabled: import.meta.env.DEV },
   ),
 );
 

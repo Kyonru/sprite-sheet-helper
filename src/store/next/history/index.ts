@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
-import { inspector } from "../../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import type {
   HistoryAction,
   HistoryEntry,
@@ -239,7 +239,7 @@ export const useHistoryStore = create<HistoryState & HistoryActions>()(
           future: snapshot.future,
         }),
     })),
-    { name: "History" },
+    { name: "History", enabled: import.meta.env.DEV },
   ),
 );
 

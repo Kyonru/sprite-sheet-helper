@@ -11,7 +11,7 @@ import {
   PredicationMode,
 } from "postprocessing";
 import { create } from "zustand";
-import { inspector } from "../../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import type { SnapshotEnabledStore } from "@/types/ecs";
 import { createMergeKey } from "../history/utils";
 import { withHistory } from "../../common/middlewares/history";
@@ -391,6 +391,6 @@ export const useEffectsStore = create<EffectsStore>()(
         ],
       },
     ),
-    { name: "Effects" },
+    { name: "Effects", enabled: import.meta.env.DEV },
   ),
 );

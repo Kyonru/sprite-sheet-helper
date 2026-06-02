@@ -7,6 +7,9 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      "@kyonru/zustand-inspector": [
+        "./packages/zustand-inspector/src"
+      ],
       "@/*": ["./src/*"]
     },
     "types": ["vite-plugin-pwa/react"]

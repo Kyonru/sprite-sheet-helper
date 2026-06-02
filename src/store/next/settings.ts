@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { ExportFormat } from "@/types/file";
 import { getBasedOnDisplaySize } from "@/utils/query";
-import { inspector } from "../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import type { SnapshotEnabledStore } from "@/types/ecs";
 import { withHistory } from "../common/middlewares/history";
 import { createMergeKey } from "./history/utils";
@@ -147,6 +147,6 @@ export const useSettingsStore = create<SettingsStore>()(
         })),
       },
     ),
-    { name: "Settings" },
+    { name: "Settings", enabled: import.meta.env.DEV },
   ),
 );

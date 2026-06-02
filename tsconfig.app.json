@@ -24,8 +24,11 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
+      "@kyonru/zustand-inspector": [
+        "./packages/zustand-inspector/src"
+      ],
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "devtools", "packages/zustand-inspector/src"]
 }

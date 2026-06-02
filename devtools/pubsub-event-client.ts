@@ -1,5 +1,12 @@
 import { EventClient } from "@tanstack/devtools-event-client";
-import type { EventLogEntry } from "../src/lib/events";
+
+interface EventLogEntry {
+  id: number;
+  event: string | symbol;
+  payload: unknown;
+  timestamp: number;
+  listeners: number;
+}
 
 type EventMap = {
   "pubsub-log": { entries: EventLogEntry[] };

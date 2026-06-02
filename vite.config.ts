@@ -68,6 +68,10 @@ export default defineConfig({
   ].filter(Boolean),
   resolve: {
     alias: {
+      "@kyonru/zustand-inspector": path.resolve(
+        __dirname,
+        "./packages/zustand-inspector/src",
+      ),
       "@": path.resolve(__dirname, "./src"),
     },
   },

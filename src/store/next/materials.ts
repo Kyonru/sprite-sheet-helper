@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { MaterialComponent } from "@/types/ecs";
-import { inspector } from "../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 
 export const DEFAULT_MATERIAL: MaterialComponent = {
   color: "#ffffff",
@@ -62,7 +62,7 @@ export const useMaterialsStore = create<MaterialsState & MaterialsActions>()(
 
       hydrate: (materials) => set({ materials }),
     }),
-    { name: "Materials" },
+    { name: "Materials", enabled: import.meta.env.DEV },
   ),
 );
 

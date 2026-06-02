@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { inspector } from "../../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import type {
   ModelComponent,
   ModelLoadState,
@@ -290,7 +290,7 @@ export const useModelsStore = create<ModelsStore>()(
       },
     ),
 
-    { name: "Models" },
+    { name: "Models", enabled: import.meta.env.DEV },
   ),
 );
 

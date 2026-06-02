@@ -1,6 +1,6 @@
 // stores/cameras.ts
 import { create } from "zustand";
-import { inspector } from "../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import type { CameraComponent, SnapshotEnabledStore } from "@/types/ecs";
 import type { CameraType } from "@/types/camera";
 import { withHistory } from "../common/middlewares/history";
@@ -229,7 +229,7 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
         ],
       },
     ),
-    { name: "Cameras" },
+    { name: "Cameras", enabled: import.meta.env.DEV },
   ),
 );
 

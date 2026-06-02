@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from "react";
-import { storeInspector } from "./inspector-middleware";
+import { storeInspector } from "@kyonru/zustand-inspector";
 
 const STORE_COLORS: Record<string, string> = {
   playerStore: "#4ade80",

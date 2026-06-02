@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { inspector } from "../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import type { SnapshotEnabledStore } from "@/types/ecs";
 import type { ExportRow } from "@/types/file";
 
@@ -209,6 +209,6 @@ export const useImagesStore = create<ImagesStore>()(
 
       reset: () => set(initialState),
     }),
-    { name: "Images" },
+    { name: "Images", enabled: import.meta.env.DEV },
   ),
 );

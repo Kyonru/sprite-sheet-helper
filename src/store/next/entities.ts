@@ -1,7 +1,7 @@
 import type { Entity, ObjectType, SnapshotEnabledStore } from "@/types/ecs";
 import { generateUUID } from "@/utils/strings";
 import { create } from "zustand";
-import { inspector } from "../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import { withHistory } from "../common/middlewares/history";
 import { isEqual } from "@/utils/object";
 
@@ -265,7 +265,7 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
         ],
       },
     ),
-    { name: "Entities" },
+    { name: "Entities", enabled: import.meta.env.DEV },
   ),
 );
 

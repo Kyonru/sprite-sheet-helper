@@ -1,7 +1,7 @@
 // stores/project.ts
 import { create } from "zustand";
 import JSZip from "jszip";
-import { inspector } from "../../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import { CURRENT_VERSION } from "@/types/project";
 import { migrateSnapshot } from "./migration";
 import { useEntitiesStore } from "../entities";
@@ -204,6 +204,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         setAppTitle(snapshot.settings.name);
       },
     }),
-    { name: "Project" },
+    { name: "Project", enabled: import.meta.env.DEV },
   ),
 );

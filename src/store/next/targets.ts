@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { inspector } from "../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import type { SnapshotEnabledStore } from "@/types/ecs";
 import { createMergeKey } from "./history/utils";
 import { withHistory } from "../common/middlewares/history";
@@ -118,7 +118,7 @@ export const useTargetsStore = create<TargetsState & TargetsActions>()(
         ],
       },
     ),
-    { name: "Targets" },
+    { name: "Targets", enabled: import.meta.env.DEV },
   ),
 );
 

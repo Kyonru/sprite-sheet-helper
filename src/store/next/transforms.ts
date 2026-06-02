@@ -1,7 +1,7 @@
 import type { SnapshotEnabledStore, Transform } from "@/types/ecs";
 import type { Transform as TransformMode } from "@/types/transform";
 import { create } from "zustand";
-import { inspector } from "../../../devtools/inspector-middleware";
+import { inspector } from "@kyonru/zustand-inspector";
 import { createMergeKey } from "./history/utils";
 import { withHistory } from "../common/middlewares/history";
 import { isEqual } from "@/utils/object";
@@ -173,7 +173,7 @@ export const useTransformsStore = create<TransformsState & TransformsActions>()(
         ],
       },
     ),
-    { name: "Transforms" },
+    { name: "Transforms", enabled: import.meta.env.DEV },
   ),
 );
 

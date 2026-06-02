@@ -139,9 +139,7 @@ const inspectorImpl =
   (set, get, api) => {
     const {
       name,
-      enabled = typeof process !== "undefined"
-        ? process.env.NODE_ENV !== "production"
-        : true,
+      enabled = true,
       anonymousActionType,
     } = options;
 

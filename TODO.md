@@ -1,27 +1,4 @@
-# Things to fix or improve
-
-## ✅ Completed
-
-- [x] Camera animation capture — live webcam recording with MediaPipe pose detection
-- [x] Photo upload mode — capture a single static pose from an image
-- [x] Pose review step — scrub, trim, delete frames before saving
-- [x] Global corrections — X/Y/Z rotation, mirror L↔R, flip 180°
-- [x] Per-bone adjustments — euler sliders per bone per frame, apply to all frames
-- [x] CLI / headless mode (`npm run cli`) with full option set
-- [x] Workflow presets — `topdown-8dir`, `topdown-4dir`, `isometric`, `platformer`
-- [x] Engine-native exporters — Bevy, Godot, Unity, Phaser 3, pygame, raylib, LÖVE 2D, Turbo
-- [x] In-app documentation with full-text search
-- [x] Camera capture documentation page
-- [x] Post-processing effects (Pixelation, Bloom, Outline, Glitch, DoF, ASCII, Dither, Palette, SSAO, etc.)
-- [x] Lighting controls — Ambient, Directional, Point, Spot
-- [x] Transform controls — reposition, rotate, scale objects
-- [x] Camera presets — Top-Down, Isometric, ¾ RPG, Dimetric, Side-Scroller
-- [x] Project files (`.sshProj`) — save/load full scene state
-- [x] Animated GIF export
-- [x] FBX format support
-- [x] Desktop app via Tauri (macOS, Windows, Linux)
-
----
+- Add the option to also capture normal maps
 
 ## 🔧 Bugs
 
