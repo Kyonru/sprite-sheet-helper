@@ -26,6 +26,8 @@
     "test:integration": "vitest run --config vitest.config.ts tests/integration",
     "test:e2e": "npm run build:cli && npm run test:e2e:run",
     "test:e2e:run": "vitest run --config vitest.e2e.config.ts",
+    "test:e2e:goldens": "vitest run --config vitest.e2e.config.ts tests/e2e/workflow-goldens.test.ts",
+    "test:e2e:update-goldens": "cross-env UPDATE_WORKFLOW_GOLDENS=true vitest run --config vitest.e2e.config.ts tests/e2e/workflow-goldens.test.ts",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit -p tsconfig.json --composite false",
     "preview": "vite preview",
     "tauri": "tauri",

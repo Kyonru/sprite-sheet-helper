@@ -23,7 +23,14 @@ export async function captureWorkflow(
   }: WorkflowOptions,
 ): Promise<void> {
   await page.evaluate(
-    (w: number, h: number, f: number, cam?: number, n?: boolean) => {
+    (
+      w: number,
+      h: number,
+      f: number,
+      frameCount: number,
+      cam?: number,
+      n?: boolean,
+    ) => {
       const { settings, images } = window.__SSH_BRIDGE__.stores;
       settings.getState().setExportWidth(w);
       settings.getState().setExportHeight(h);
@@ -33,10 +40,12 @@ export async function captureWorkflow(
         settings.getState().setCameraDistance(cam);
       }
       images.getState().setIntervals(Math.round(1000 / f));
+      images.getState().setIterations(frameCount);
     },
     width,
     height,
     fps,
+    frames,
     cameraDistance,
     normalMap,
   );

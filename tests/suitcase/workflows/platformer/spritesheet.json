@@ -1,0 +1,80 @@
+{
+  "animations": [
+    {
+      "fps": 10,
+      "frameHeight": 32,
+      "frames": 4,
+      "frameWidth": 32,
+      "name": "none_Right",
+      "quads": [
+        {
+          "h": 32,
+          "w": 32,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "h": 32,
+          "w": 32,
+          "x": 32,
+          "y": 0
+        },
+        {
+          "h": 32,
+          "w": 32,
+          "x": 64,
+          "y": 0
+        },
+        {
+          "h": 32,
+          "w": 32,
+          "x": 96,
+          "y": 0
+        }
+      ]
+    },
+    {
+      "fps": 10,
+      "frameHeight": 32,
+      "frames": 4,
+      "frameWidth": 32,
+      "name": "none_Left",
+      "quads": [
+        {
+          "h": 32,
+          "w": 32,
+          "x": 0,
+          "y": 32
+        },
+        {
+          "h": 32,
+          "w": 32,
+          "x": 32,
+          "y": 32
+        },
+        {
+          "h": 32,
+          "w": 32,
+          "x": 64,
+          "y": 32
+        },
+        {
+          "h": 32,
+          "w": 32,
+          "x": 96,
+          "y": 32
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "animationCount": 2,
+    "frameCount": 8,
+    "imageHeight": 64,
+    "imageWidth": 128,
+    "margin": 0,
+    "normalImage": "spritesheet_normal.png",
+    "spacing": 0,
+    "version": "1.0"
+  }
+}

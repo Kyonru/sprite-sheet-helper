@@ -22,6 +22,7 @@ type FakeBridge = {
     images: {
       getState: () => {
         setIntervals: (value: number) => void;
+        setIterations: (value: number) => void;
       };
     };
   };
@@ -40,6 +41,7 @@ type TestWindow = {
 class FakeWorkflowPage {
   private listeners = new Map<string, (payload: WorkflowResult) => void>();
   private bridge: FakeBridge;
+  public iterations = 0;
 
   constructor(private result?: WorkflowResult) {
     this.bridge = {
@@ -55,6 +57,9 @@ class FakeWorkflowPage {
         images: {
           getState: () => ({
             setIntervals: () => undefined,
+            setIterations: (value) => {
+              this.iterations = value;
+            },
           }),
         },
       },
@@ -116,6 +121,7 @@ describe("captureWorkflow CLI wait", () => {
     await expect(
       captureWorkflow(page as unknown as Page, options),
     ).resolves.toBeUndefined();
+    expect(page.iterations).toBe(options.frames);
   });
 
   it("rejects when the browser workflow is cancelled", async () => {

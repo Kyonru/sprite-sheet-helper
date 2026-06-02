@@ -1,0 +1,47 @@
+{
+  "animations": [
+    {
+      "fps": 10,
+      "frameHeight": 32,
+      "frames": 4,
+      "frameWidth": 32,
+      "name": "none_SE",
+      "quads": [
+        {
+          "h": 32,
+          "w": 32,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "h": 32,
+          "w": 32,
+          "x": 32,
+          "y": 0
+        },
+        {
+          "h": 32,
+          "w": 32,
+          "x": 64,
+          "y": 0
+        },
+        {
+          "h": 32,
+          "w": 32,
+          "x": 96,
+          "y": 0
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "animationCount": 1,
+    "frameCount": 4,
+    "imageHeight": 32,
+    "imageWidth": 128,
+    "margin": 0,
+    "normalImage": "spritesheet_normal.png",
+    "spacing": 0,
+    "version": "1.0"
+  }
+}

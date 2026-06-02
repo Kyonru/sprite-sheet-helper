@@ -88,3 +88,11 @@ jobs:
           name: workflow-reproducibility-output
           path: ./.e2e-artifacts/workflow-reproducibility/
           retention-days: 3
+
+      - name: Upload workflow golden outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: workflow-golden-output
+          path: ./.e2e-artifacts/workflow-goldens/
+          retention-days: 3
