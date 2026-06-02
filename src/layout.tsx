@@ -4,10 +4,12 @@ import TopPanel from "./components/panels/top";
 export default function Layout({ children }: { children: React.ReactNode }) {
   useReloadPrompt();
   return (
-    <div className="flex h-screen w-screen">
-      <div className="flex flex-1 flex-col h-full w-full">
+    <div className="flex h-screen w-screen overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col h-full w-full">
         <TopPanel />
-        <div className="h-full min-w-0">{children}</div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          {children}
+        </div>
       </div>
     </div>
   );

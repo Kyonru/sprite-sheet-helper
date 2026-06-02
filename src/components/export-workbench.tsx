@@ -17,9 +17,9 @@ import {
   Package,
   Play,
   Plus,
-  RotateCcw,
   Settings2,
   SquareStack,
+  Trash2Icon,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -43,7 +43,7 @@ import { cn } from "@/lib/utils";
 import { EventType, PubSub } from "@/lib/events";
 import { useImagesStore } from "@/store/next/images";
 import { useSettingsStore } from "@/store/next/settings";
-import type { ExportFormat } from "@/types/file";
+import type { ExportFormat, ExportRow } from "@/types/file";
 import { exporters } from "@/utils/exports";
 import { DEFAULT_ATLAS_OPTIONS, atlasPageFileName } from "@/utils/atlas";
 import {
@@ -134,7 +134,7 @@ type FormatLogo = {
 const FORMAT_LOGOS: Partial<Record<ExportFormat, FormatLogo>> = {
   phaser: { light: "/phaser.png" },
   bevy: { light: "/bevy.svg" },
-  godot: { light: "/godot.png" },
+  godot: { light: "/godot.svg" },
   unity: { light: "/unity.svg", dark: "/unity_dark.svg" },
   "love2d-lua": { light: "/love.svg" },
   "love2d-anim8": { light: "/love.svg" },
@@ -248,7 +248,10 @@ function OutputFileIcon({ file }: { file: string }) {
       ? Film
       : file.endsWith(".png") || file.includes("*.png")
         ? ImageIcon
-        : FileArchive;
+        : /\.(ts|rs|lua|gd|py|h|c|cs)$/.test(file) ||
+            file.endsWith(".toml.snippet")
+          ? Code2
+          : FileArchive;
 
   return <Icon size={13} className="shrink-0" />;
 }
@@ -364,20 +367,99 @@ function formatTimestamp(value: string) {
 
 function getPreflightOutputFiles({
   format,
+  rows,
   atlasFiles,
   normalFiles,
 }: {
   format: ExportFormat;
+  rows: ExportRow[];
   atlasFiles: string[];
   normalFiles: string[];
 }) {
-  if (format === "gif") return ["animation.gif"];
-  if (format === "zip") return ["frames/*.png"];
-  return [
-    ...(atlasFiles.length > 0 ? atlasFiles : ["spritesheet.png"]),
+  const colorAtlasFiles =
+    atlasFiles.length > 0 ? atlasFiles : ["spritesheet.png"];
+  const genericAtlasFiles = [
+    ...colorAtlasFiles,
     ...normalFiles,
     "spritesheet.json",
   ];
+  const singlePageNormalFiles = normalFiles.slice(0, 1);
+
+  switch (format) {
+    case "zip": {
+      const frameFiles = rows.flatMap((row) =>
+        row.images.map((_, index) => `${row.label}/${row.uuid}_${index}.png`),
+      );
+      return frameFiles.length > 0 ? frameFiles : ["<sequence>/<frame>.png"];
+    }
+    case "gif": {
+      const gifFiles = rows.map((row) => `${row.label}.gif`);
+      return gifFiles.length > 0 ? gifFiles : ["<sequence>.gif"];
+    }
+    case "spritesheet":
+      return genericAtlasFiles;
+    case "phaser":
+      return [
+        "spritesheet.png",
+        ...singlePageNormalFiles,
+        "spritesheet_atlas.json",
+        "spritesheet_phaser.ts",
+        "example.ts",
+      ];
+    case "bevy":
+      return [
+        "assets/spritesheet.png",
+        ...singlePageNormalFiles.map((file) => `assets/${file}`),
+        "src/spritesheet.rs",
+        "src/main.rs",
+        "Cargo.toml.snippet",
+      ];
+    case "godot":
+      return [
+        "spritesheet.png",
+        ...singlePageNormalFiles,
+        "SpriteSheetHelper.gd",
+        "ExamplePlayer.gd",
+      ];
+    case "love2d-lua":
+    case "love2d-anim8":
+      return [
+        "spritesheet.png",
+        ...singlePageNormalFiles,
+        "spritesheet.json",
+        "spritesheet.lua",
+        "main.lua",
+      ];
+    case "turbo":
+      return [
+        "spritesheet.png",
+        ...singlePageNormalFiles,
+        "spritesheet.json",
+        "spritesheet_turbo.rs",
+        "example.rs",
+      ];
+    case "pygame":
+      return [
+        "spritesheet.png",
+        ...singlePageNormalFiles,
+        "spritesheet.py",
+        "main.py",
+      ];
+    case "raylib":
+      return [
+        "spritesheet.png",
+        ...singlePageNormalFiles,
+        "spritesheet.h",
+        "main.c",
+      ];
+    case "unity":
+      return [
+        "spritesheet.png",
+        ...singlePageNormalFiles,
+        "SpriteSheetAnimator.cs",
+        "ExamplePlayer.cs",
+      ];
+  }
 }
 
 export function ExportWorkbench() {
@@ -492,13 +574,14 @@ export function ExportWorkbench() {
       : [];
   const outputFiles = getPreflightOutputFiles({
     format: mode,
+    rows,
     atlasFiles,
     normalFiles,
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="border-b px-4 py-3">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <header className="shrink-0 border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <FileArchive size={17} />
           <h2 className="text-sm font-semibold">Export Workbench</h2>
@@ -508,7 +591,7 @@ export function ExportWorkbench() {
         </p>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3">
         <section className="grid grid-cols-2 gap-2">
           <Stat label="Sequences" value={summary.animationCount} icon={Film} />
           <Stat label="Frames" value={summary.frameCount} icon={ImageIcon} />
@@ -637,7 +720,7 @@ export function ExportWorkbench() {
               onClick={() => setHistory(clearExportHistory())}
               disabled={history.length === 0}
             >
-              <RotateCcw size={14} />
+              <Trash2Icon size={14} />
             </Button>
           </div>
           <div className="grid gap-2 p-3">
@@ -667,7 +750,7 @@ export function ExportWorkbench() {
         </section>
       </div>
 
-      <footer className="border-t p-3">
+      <footer className="shrink-0 border-t p-3">
         <Button
           className="w-full gap-2"
           onClick={() => setPreflightOpen(true)}
@@ -937,10 +1020,10 @@ export function ExportWorkbench() {
                     <div className="rounded-md bg-muted/40 px-3 py-2 text-xs">
                       <div className="flex items-center gap-2 font-medium">
                         <Clock size={13} />
-                        Files
+                        Files ({outputFiles.length})
                       </div>
-                      <div className="mt-2 grid max-h-32 gap-1 overflow-auto text-muted-foreground">
-                        {outputFiles.slice(0, 8).map((file) => (
+                      <div className="mt-2 grid max-h-44 gap-1 overflow-auto text-muted-foreground">
+                        {outputFiles.map((file) => (
                           <span
                             key={file}
                             className="flex items-center gap-2 truncate"
@@ -949,9 +1032,6 @@ export function ExportWorkbench() {
                             <span className="truncate">{file}</span>
                           </span>
                         ))}
-                        {outputFiles.length > 8 && (
-                          <span>+ {outputFiles.length - 8} more files</span>
-                        )}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
