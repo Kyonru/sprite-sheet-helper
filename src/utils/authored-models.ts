@@ -1,6 +1,9 @@
 import type {
+  AuthoredAxisExtrudeFace,
   AuthoredBone,
   AuthoredExtrudeFace,
+  AuthoredFaceEdit,
+  AuthoredGeometryExtrudeFace,
   AuthoredExtrudeOptions,
   AuthoredMaterialSwatch,
   AuthoredMirrorSelection,
@@ -8,6 +11,7 @@ import type {
   AuthoredPart,
   AuthoredPose,
   AuthoredPrimitiveKind,
+  AuthoredVector3,
   BuildAuthoredModelOptions,
   BuiltAuthoredModel,
   CreateDefaultHumanoidOptions,
@@ -18,6 +22,14 @@ import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 
 export const AUTHORED_WORLD_BONE_ID = "__world";
+
+export type AuthoredPrimitiveFaceTarget = {
+  face: AuthoredGeometryExtrudeFace;
+};
+
+type AuthoredPartFaceTargetOptions = {
+  applyEdits?: boolean;
+};
 
 const DEFAULT_SWATCHES: AuthoredMaterialSwatch[] = [
   {
@@ -375,6 +387,8 @@ export function mirrorAuthoredSelection(
         ...extrusion,
         face: mirrorFace(extrusion.face),
       })),
+      faceEdits: (source.faceEdits ?? []).map(mirrorFaceEdit),
+      deletedFaceKeys: [...(source.deletedFaceKeys ?? [])],
     };
   }
 
@@ -402,10 +416,177 @@ export function extrudeAuthoredPrimitive(
         uuid: options.uuid ?? generateUUID(),
         face,
         distance,
-        scale: options.scale ?? [0.8, 0.8],
+        scale: options.scale ?? [1, 1],
       },
     ],
   };
+}
+
+export function getAuthoredPrimitiveFaceTargets(
+  primitive: AuthoredPrimitiveKind,
+): AuthoredPrimitiveFaceTarget[] {
+  return extractGeometryFaceTargets(
+    createGeometry(primitive),
+    primitive,
+    "base",
+    primitiveLabel(primitive),
+    "primitive",
+  );
+}
+
+export function getAuthoredPartFaceTargets(
+  part: AuthoredPart,
+  options: AuthoredPartFaceTargetOptions = {},
+): AuthoredPrimitiveFaceTarget[] {
+  const targets = [
+    ...extractGeometryFaceTargets(
+      createGeometry(part.primitive).applyMatrix4(
+        new THREE.Matrix4().makeScale(
+          part.scale[0],
+          part.scale[1],
+          part.scale[2],
+        ),
+      ),
+      part.primitive,
+      "base",
+      primitiveLabel(part.primitive),
+      "part",
+    ),
+    ...part.extrusions.flatMap((extrusion, index) =>
+      extractGeometryFaceTargets(
+        createExtrusionGeometry(part, extrusion),
+        part.primitive,
+        `extrusion:${extrusion.uuid}`,
+        `Extrusion ${index + 1}`,
+        "part",
+      ),
+    ),
+  ];
+  const deletedFaceKeys = new Set(part.deletedFaceKeys ?? []);
+  const visibleTargets = targets.filter(
+    (target) => !deletedFaceKeys.has(getAuthoredFaceKey(target.face)),
+  );
+
+  if (options.applyEdits === false) return visibleTargets;
+  return visibleTargets.map((target) => applyFaceEditToTarget(target, part));
+}
+
+export function getAuthoredFaceKey(face: AuthoredExtrudeFace) {
+  if (typeof face === "string") return face;
+  return [
+    face.sourceId ?? "base",
+    face.primitive,
+    face.index,
+    face.triangles.length,
+  ].join(":");
+}
+
+export function getAuthoredFaceEdit(
+  part: AuthoredPart,
+  face: AuthoredExtrudeFace,
+) {
+  const faceKey = getAuthoredFaceKey(face);
+  return (part.faceEdits ?? []).find((edit) => edit.faceKey === faceKey);
+}
+
+export function upsertAuthoredFaceEdit(
+  part: AuthoredPart,
+  face: AuthoredExtrudeFace,
+  props: Partial<Omit<AuthoredFaceEdit, "uuid" | "faceKey">>,
+): AuthoredPart {
+  const faceKey = getAuthoredFaceKey(face);
+  const existing = getAuthoredFaceEdit(part, face);
+  const nextEdit: AuthoredFaceEdit = {
+    uuid: existing?.uuid ?? generateUUID(),
+    faceKey,
+    position: props.position ?? existing?.position ?? [0, 0, 0],
+    rotation: props.rotation ?? existing?.rotation ?? [0, 0, 0],
+    scale: props.scale ?? existing?.scale ?? [1, 1],
+  };
+  const faceEdits = [
+    ...(part.faceEdits ?? []).filter((edit) => edit.faceKey !== faceKey),
+    nextEdit,
+  ];
+  return { ...part, faceEdits };
+}
+
+export function deleteAuthoredFace(
+  part: AuthoredPart,
+  face: AuthoredExtrudeFace,
+): AuthoredPart {
+  const faceKey = getAuthoredFaceKey(face);
+  const deletedFaceKeys = new Set(part.deletedFaceKeys ?? []);
+  deletedFaceKeys.add(faceKey);
+  return {
+    ...part,
+    deletedFaceKeys: Array.from(deletedFaceKeys),
+    faceEdits: (part.faceEdits ?? []).filter((edit) => edit.faceKey !== faceKey),
+  };
+}
+
+function extractGeometryFaceTargets(
+  sourceGeometry: THREE.BufferGeometry,
+  primitive: AuthoredPrimitiveKind,
+  sourceId: string,
+  labelPrefix: string,
+  space: "primitive" | "part",
+): AuthoredPrimitiveFaceTarget[] {
+  const geometry = sourceGeometry.toNonIndexed();
+  const position = geometry.getAttribute("position");
+  if (!position) return [];
+
+  const groups = new Map<
+    string,
+    {
+      normal: THREE.Vector3;
+      plane: number;
+      triangles: [THREE.Vector3, THREE.Vector3, THREE.Vector3][];
+    }
+  >();
+
+  for (let index = 0; index < position.count; index += 3) {
+    const a = vectorFromAttribute(position, index);
+    const b = vectorFromAttribute(position, index + 1);
+    const c = vectorFromAttribute(position, index + 2);
+    const normal = new THREE.Vector3()
+      .subVectors(b, a)
+      .cross(new THREE.Vector3().subVectors(c, a));
+    if (normal.lengthSq() < 1e-8) continue;
+    normal.normalize();
+    const plane = normal.dot(a);
+    const key = [
+      quantize(normal.x),
+      quantize(normal.y),
+      quantize(normal.z),
+      quantize(plane),
+    ].join("|");
+    const group = groups.get(key);
+    if (group) {
+      group.triangles.push([a, b, c]);
+    } else {
+      groups.set(key, { normal, plane, triangles: [[a, b, c]] });
+    }
+  }
+
+  return Array.from(groups.values()).map((group, index) => {
+    const center = getTriangleCenter(group.triangles);
+    const face: AuthoredGeometryExtrudeFace = {
+      kind: "geometry",
+      primitive,
+      sourceId,
+      space,
+      index,
+      label: `${labelPrefix} face ${index + 1}`,
+      center: vectorToArray(center),
+      normal: vectorToArray(group.normal),
+      triangles: group.triangles.map((triangle) => [
+        vectorToArray(triangle[0]),
+        vectorToArray(triangle[1]),
+        vectorToArray(triangle[2]),
+      ]),
+    };
+    return { face };
+  });
 }
 
 export async function exportAuthoredModelGlb(
@@ -455,6 +636,8 @@ export function createAuthoredPart(
     color: input.color,
     visible: true,
     extrusions: [],
+    faceEdits: [],
+    deletedFaceKeys: [],
   };
 }
 
@@ -471,9 +654,8 @@ function buildPartGroup(
   group.position.fromArray(part.position);
   group.rotation.set(...part.rotation);
 
-  const mainMesh = new THREE.Mesh(createGeometry(part.primitive), material);
+  const mainMesh = new THREE.Mesh(createAuthoredPartGeometry(part), material);
   mainMesh.name = `mesh_${safeName(part.name)}_${part.uuid}`;
-  mainMesh.scale.fromArray(part.scale);
   if (part.primitive === "edges" || part.primitive === "wireframe") {
     const meshMaterial = mainMesh.material as THREE.MeshStandardMaterial;
     meshMaterial.wireframe = true;
@@ -481,17 +663,6 @@ function buildPartGroup(
   mainMesh.castShadow = true;
   mainMesh.receiveShadow = true;
   group.add(mainMesh);
-
-  for (const extrusion of part.extrusions) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
-    mesh.name = `extrude_${extrusion.face}_${extrusion.uuid}`;
-    const placement = getExtrusionPlacement(part, extrusion);
-    mesh.position.fromArray(placement.position);
-    mesh.scale.fromArray(placement.scale);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-  }
 
   return group;
 }
@@ -652,10 +823,59 @@ function createMaterial(
   });
 }
 
+function createAuthoredPartGeometry(part: AuthoredPart) {
+  const positions: number[] = [];
+  for (const target of getAuthoredPartFaceTargets(part)) {
+    for (const triangle of target.face.triangles) {
+      pushTriangle(
+        positions,
+        vectorFromArray(triangle[0]),
+        vectorFromArray(triangle[1]),
+        vectorFromArray(triangle[2]),
+      );
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createExtrusionGeometry(
+  part: AuthoredPart,
+  extrusion: AuthoredPart["extrusions"][number],
+) {
+  if (isGeometryExtrudeFace(extrusion.face)) {
+    return createGeometryFaceExtrusionGeometry(part, extrusion);
+  }
+
+  const placement = getExtrusionPlacement(part, extrusion);
+  const matrix = new THREE.Matrix4().makeScale(
+    placement.scale[0],
+    placement.scale[1],
+    placement.scale[2],
+  );
+  matrix.setPosition(
+    placement.position[0],
+    placement.position[1],
+    placement.position[2],
+  );
+  return new THREE.BoxGeometry(1, 1, 1).applyMatrix4(
+    matrix,
+  );
+}
+
 function getExtrusionPlacement(
   part: AuthoredPart,
   extrusion: AuthoredPart["extrusions"][number],
 ) {
+  if (!isAxisExtrudeFace(extrusion.face)) {
+    return { position: [0, 0, 0], scale: [1, 1, 1] } as const;
+  }
   const axis = getFaceAxes(extrusion.face);
   const sign = extrusion.face.startsWith("p") ? 1 : -1;
   const position: [number, number, number] = [0, 0, 0];
@@ -670,7 +890,152 @@ function getExtrusionPlacement(
   return { position, scale };
 }
 
-function getFaceAxes(face: AuthoredExtrudeFace) {
+function createGeometryFaceExtrusionGeometry(
+  part: AuthoredPart,
+  extrusion: AuthoredPart["extrusions"][number],
+) {
+  if (!isGeometryExtrudeFace(extrusion.face)) {
+    return new THREE.BoxGeometry(1, 1, 1);
+  }
+  const face = extrusion.face;
+
+  const triangles = face.triangles
+    .map((triangle) =>
+      triangle.map((vertex) =>
+        face.space === "part"
+          ? vectorFromArray(vertex)
+          : scalePrimitiveVertex(vertex, part.scale),
+      ),
+    )
+    .filter((triangle) => triangle.length === 3) as [
+    THREE.Vector3,
+    THREE.Vector3,
+    THREE.Vector3,
+  ][];
+  if (triangles.length === 0) return new THREE.BufferGeometry();
+
+  const center = getTriangleCenter(triangles);
+  const normal = getScaledFaceNormal(triangles, face.normal);
+  const basisU = getFaceBasisU(triangles, normal);
+  const basisV = new THREE.Vector3().crossVectors(normal, basisU).normalize();
+  const capPosition = new THREE.Vector3(...(extrusion.position ?? [0, 0, 0]));
+  const capRotation = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(...(extrusion.rotation ?? [0, 0, 0])),
+  );
+
+  const baseTriangles = triangles;
+  const tipByBaseVertex = new Map<string, THREE.Vector3>();
+  const tipTriangles = baseTriangles.map((triangle) =>
+    triangle.map((vertex) => {
+      const scaled = scaleFaceVertex(
+        vertex,
+        center,
+        normal,
+        basisU,
+        basisV,
+        extrusion.scale,
+      );
+      const transformed = center
+        .clone()
+        .add(new THREE.Vector3().subVectors(scaled, center).applyQuaternion(capRotation))
+        .add(capPosition)
+        .addScaledVector(normal, extrusion.distance);
+      tipByBaseVertex.set(getVertexKey(vertex), transformed);
+      return transformed;
+    }),
+  ) as [THREE.Vector3, THREE.Vector3, THREE.Vector3][];
+
+  const positions: number[] = [];
+  for (const triangle of tipTriangles) {
+    pushTriangle(positions, triangle[0], triangle[1], triangle[2]);
+  }
+
+  for (const edge of getBoundaryEdges(baseTriangles)) {
+    const tipA =
+      tipByBaseVertex.get(getVertexKey(edge.a)) ??
+      edge.a.clone().add(capPosition).addScaledVector(normal, extrusion.distance);
+    const tipB =
+      tipByBaseVertex.get(getVertexKey(edge.b)) ??
+      edge.b.clone().add(capPosition).addScaledVector(normal, extrusion.distance);
+    pushTriangle(positions, edge.a, edge.b, tipB);
+    pushTriangle(positions, edge.a, tipB, tipA);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function applyFaceEditToTarget(
+  target: AuthoredPrimitiveFaceTarget,
+  part: AuthoredPart,
+): AuthoredPrimitiveFaceTarget {
+  const edit = getAuthoredFaceEdit(part, target.face);
+  if (!edit) return target;
+
+  const triangles = target.face.triangles.map((triangle) =>
+    transformFaceTriangle(triangle, target.face, edit),
+  );
+  const center = getTriangleCenter(
+    triangles.map((triangle) =>
+      triangle.map(vectorFromArray),
+    ) as [THREE.Vector3, THREE.Vector3, THREE.Vector3][],
+  );
+  const normal = new THREE.Vector3(...target.face.normal)
+    .applyQuaternion(
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(...edit.rotation)),
+    )
+    .normalize();
+
+  return {
+    face: {
+      ...target.face,
+      center: vectorToArray(center),
+      normal: vectorToArray(normal),
+      triangles,
+    },
+  };
+}
+
+function transformFaceTriangle(
+  triangle: [AuthoredVector3, AuthoredVector3, AuthoredVector3],
+  face: AuthoredGeometryExtrudeFace,
+  edit: AuthoredFaceEdit,
+): [AuthoredVector3, AuthoredVector3, AuthoredVector3] {
+  const sourceTriangles = face.triangles.map((sourceTriangle) =>
+    sourceTriangle.map(vectorFromArray),
+  ) as [THREE.Vector3, THREE.Vector3, THREE.Vector3][];
+  const center = new THREE.Vector3(...face.center);
+  const normal = getScaledFaceNormal(sourceTriangles, face.normal);
+  const basisU = getFaceBasisU(sourceTriangles, normal);
+  const basisV = new THREE.Vector3().crossVectors(normal, basisU).normalize();
+  const quaternion = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(...edit.rotation),
+  );
+  const position = new THREE.Vector3(...edit.position);
+
+  return triangle.map((vertex) => {
+    const scaled = scaleFaceVertex(
+      vectorFromArray(vertex),
+      center,
+      normal,
+      basisU,
+      basisV,
+      edit.scale,
+    );
+    const transformed = center
+      .clone()
+      .add(new THREE.Vector3().subVectors(scaled, center).applyQuaternion(quaternion))
+      .add(position);
+    return vectorToArray(transformed);
+  }) as [AuthoredVector3, AuthoredVector3, AuthoredVector3];
+}
+
+function getFaceAxes(face: AuthoredAxisExtrudeFace) {
   if (face.endsWith("x")) return { normal: 0, a: 1, b: 2 } as const;
   if (face.endsWith("y")) return { normal: 1, a: 0, b: 2 } as const;
   return { normal: 2, a: 0, b: 1 } as const;
@@ -679,7 +1044,177 @@ function getFaceAxes(face: AuthoredExtrudeFace) {
 function mirrorFace(face: AuthoredExtrudeFace): AuthoredExtrudeFace {
   if (face === "px") return "nx";
   if (face === "nx") return "px";
+  if (isGeometryExtrudeFace(face)) {
+    return {
+      ...face,
+      label: `${face.label} mirrored`,
+      center: mirrorPosition(face.center),
+      normal: mirrorPosition(face.normal),
+      triangles: face.triangles.map((triangle) => [
+        mirrorPosition(triangle[0]),
+        mirrorPosition(triangle[2]),
+        mirrorPosition(triangle[1]),
+      ]),
+    };
+  }
   return face;
+}
+
+function mirrorFaceEdit(edit: AuthoredFaceEdit): AuthoredFaceEdit {
+  return {
+    ...edit,
+    faceKey: `${edit.faceKey}:mirrored`,
+    position: mirrorPosition(edit.position),
+    rotation: mirrorRotation(edit.rotation),
+  };
+}
+
+function isAxisExtrudeFace(
+  face: AuthoredExtrudeFace,
+): face is AuthoredAxisExtrudeFace {
+  return typeof face === "string";
+}
+
+function isGeometryExtrudeFace(
+  face: AuthoredExtrudeFace,
+): face is AuthoredGeometryExtrudeFace {
+  return typeof face !== "string" && face.kind === "geometry";
+}
+
+function vectorFromAttribute(
+  attribute: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
+  index: number,
+) {
+  return new THREE.Vector3(
+    attribute.getX(index),
+    attribute.getY(index),
+    attribute.getZ(index),
+  );
+}
+
+function vectorFromArray(vector: AuthoredVector3) {
+  return new THREE.Vector3(vector[0], vector[1], vector[2]);
+}
+
+function vectorToArray(vector: THREE.Vector3): AuthoredVector3 {
+  return [vector.x, vector.y, vector.z];
+}
+
+function quantize(value: number) {
+  return Math.round(value * 10000) / 10000;
+}
+
+function getTriangleCenter(
+  triangles: [THREE.Vector3, THREE.Vector3, THREE.Vector3][],
+) {
+  const center = new THREE.Vector3();
+  let count = 0;
+  for (const triangle of triangles) {
+    for (const vertex of triangle) {
+      center.add(vertex);
+      count += 1;
+    }
+  }
+  return count > 0 ? center.multiplyScalar(1 / count) : center;
+}
+
+function scalePrimitiveVertex(
+  vertex: AuthoredVector3,
+  scale: AuthoredVector3,
+) {
+  return new THREE.Vector3(
+    vertex[0] * scale[0],
+    vertex[1] * scale[1],
+    vertex[2] * scale[2],
+  );
+}
+
+function getScaledFaceNormal(
+  triangles: [THREE.Vector3, THREE.Vector3, THREE.Vector3][],
+  fallback: AuthoredVector3,
+) {
+  for (const triangle of triangles) {
+    const normal = new THREE.Vector3()
+      .subVectors(triangle[1], triangle[0])
+      .cross(new THREE.Vector3().subVectors(triangle[2], triangle[0]));
+    if (normal.lengthSq() > 1e-8) return normal.normalize();
+  }
+  return new THREE.Vector3(...fallback).normalize();
+}
+
+function getFaceBasisU(
+  triangles: [THREE.Vector3, THREE.Vector3, THREE.Vector3][],
+  normal: THREE.Vector3,
+) {
+  for (const triangle of triangles) {
+    const edges = [
+      new THREE.Vector3().subVectors(triangle[1], triangle[0]),
+      new THREE.Vector3().subVectors(triangle[2], triangle[1]),
+      new THREE.Vector3().subVectors(triangle[0], triangle[2]),
+    ];
+    for (const edge of edges) {
+      edge.addScaledVector(normal, -edge.dot(normal));
+      if (edge.lengthSq() > 1e-8) return edge.normalize();
+    }
+  }
+  return new THREE.Vector3(1, 0, 0);
+}
+
+function scaleFaceVertex(
+  vertex: THREE.Vector3,
+  center: THREE.Vector3,
+  normal: THREE.Vector3,
+  basisU: THREE.Vector3,
+  basisV: THREE.Vector3,
+  scale: [number, number],
+) {
+  const offset = new THREE.Vector3().subVectors(vertex, center);
+  return center
+    .clone()
+    .addScaledVector(basisU, offset.dot(basisU) * scale[0])
+    .addScaledVector(basisV, offset.dot(basisV) * scale[1])
+    .addScaledVector(normal, offset.dot(normal));
+}
+
+function getBoundaryEdges(
+  triangles: [THREE.Vector3, THREE.Vector3, THREE.Vector3][],
+) {
+  const edges = new Map<string, { a: THREE.Vector3; b: THREE.Vector3; count: number }>();
+  for (const triangle of triangles) {
+    for (const [a, b] of [
+      [triangle[0], triangle[1]],
+      [triangle[1], triangle[2]],
+      [triangle[2], triangle[0]],
+    ] as [THREE.Vector3, THREE.Vector3][]) {
+      const key = getEdgeKey(a, b);
+      const edge = edges.get(key);
+      if (edge) {
+        edge.count += 1;
+      } else {
+        edges.set(key, { a, b, count: 1 });
+      }
+    }
+  }
+  return Array.from(edges.values()).filter((edge) => edge.count === 1);
+}
+
+function getEdgeKey(a: THREE.Vector3, b: THREE.Vector3) {
+  const aKey = getVertexKey(a);
+  const bKey = getVertexKey(b);
+  return aKey < bKey ? `${aKey}|${bKey}` : `${bKey}|${aKey}`;
+}
+
+function getVertexKey(vertex: THREE.Vector3) {
+  return `${quantize(vertex.x)},${quantize(vertex.y)},${quantize(vertex.z)}`;
+}
+
+function pushTriangle(
+  positions: number[],
+  a: THREE.Vector3,
+  b: THREE.Vector3,
+  c: THREE.Vector3,
+) {
+  positions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
 }
 
 function mirrorPosition(position: [number, number, number]) {

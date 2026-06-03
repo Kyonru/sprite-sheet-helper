@@ -3,6 +3,7 @@ import { inspector } from "@kyonru/zustand-inspector";
 import type {
   AuthoredExtrudeFace,
   AuthoredExtrudeStep,
+  AuthoredFaceEdit,
   AuthoredModelRecipe,
   AuthoredModelsState,
   AuthoredPart,
@@ -15,8 +16,10 @@ import {
   createAuthoredPart,
   createDefaultHumanoidRecipe,
   createPrimitiveAssetRecipe,
+  deleteAuthoredFace,
   extrudeAuthoredPrimitive,
   mirrorAuthoredSelection,
+  upsertAuthoredFaceEdit,
 } from "@/utils/authored-models";
 
 interface AuthoredModelsActions
@@ -27,6 +30,7 @@ interface AuthoredModelsActions
     primitive?: AuthoredPrimitiveKind,
   ) => string;
   setSelectedRecipe: (recipeId?: string) => void;
+  replaceRecipe: (recipeId: string, recipe: AuthoredModelRecipe) => void;
   updateRecipe: (recipeId: string, props: Partial<AuthoredModelRecipe>) => void;
   updateBone: (
     recipeId: string,
@@ -71,6 +75,17 @@ interface AuthoredModelsActions
     extrusionId: string,
     props: Partial<AuthoredExtrudeStep>,
   ) => void;
+  updateFaceEdit: (
+    recipeId: string,
+    partId: string,
+    face: AuthoredExtrudeFace,
+    props: Partial<Omit<AuthoredFaceEdit, "uuid" | "faceKey">>,
+  ) => void;
+  deleteFace: (
+    recipeId: string,
+    partId: string,
+    face: AuthoredExtrudeFace,
+  ) => void;
   updateSwatch: (
     recipeId: string,
     swatchId: string,
@@ -110,6 +125,18 @@ export const useAuthoredModelsStore = create<AuthoredModelsStore>()(
       },
 
       setSelectedRecipe: (recipeId) => set({ selectedRecipeId: recipeId }),
+
+      replaceRecipe: (recipeId, recipe) =>
+        set((state) => {
+          if (!state.recipes[recipeId]) return state;
+          return {
+            recipes: {
+              ...state.recipes,
+              [recipeId]: touch({ ...recipe, uuid: recipeId }),
+            },
+            selectedRecipeId: recipeId,
+          };
+        }),
 
       updateRecipe: (recipeId, props) =>
         set((state) => {
@@ -287,7 +314,7 @@ export const useAuthoredModelsStore = create<AuthoredModelsStore>()(
           };
         }),
 
-      extrudePart: (recipeId, partId, face, distance, scale = [0.8, 0.8]) => {
+      extrudePart: (recipeId, partId, face, distance, scale = [1, 1]) => {
         const extrusionId = crypto.randomUUID();
         const currentPart = get().recipes[recipeId]?.parts[partId];
         if (!currentPart) return undefined;
@@ -334,6 +361,46 @@ export const useAuthoredModelsStore = create<AuthoredModelsStore>()(
                 parts: {
                   ...recipe.parts,
                   [partId]: { ...part, extrusions },
+                },
+                selectedPartId: partId,
+              }),
+            },
+          };
+        }),
+
+      updateFaceEdit: (recipeId, partId, face, props) =>
+        set((state) => {
+          const recipe = state.recipes[recipeId];
+          const part = recipe?.parts[partId];
+          if (!recipe || !part) return state;
+          return {
+            recipes: {
+              ...state.recipes,
+              [recipeId]: touch({
+                ...recipe,
+                parts: {
+                  ...recipe.parts,
+                  [partId]: upsertAuthoredFaceEdit(part, face, props),
+                },
+                selectedPartId: partId,
+              }),
+            },
+          };
+        }),
+
+      deleteFace: (recipeId, partId, face) =>
+        set((state) => {
+          const recipe = state.recipes[recipeId];
+          const part = recipe?.parts[partId];
+          if (!recipe || !part) return state;
+          return {
+            recipes: {
+              ...state.recipes,
+              [recipeId]: touch({
+                ...recipe,
+                parts: {
+                  ...recipe.parts,
+                  [partId]: deleteAuthoredFace(part, face),
                 },
                 selectedPartId: partId,
               }),

@@ -15,6 +15,10 @@ import { useCamera, useCamerasStore } from "@/store/next/cameras";
 import { LEVA_THEME } from "@/constants/theming";
 import { buildInputs } from "./utils";
 import { ModelDowngradePanel } from "./downgrade";
+import { Button } from "@/components/ui/button";
+import { openAssetToybox } from "@/components/asset-toybox/controller";
+import { useModelsStore } from "@/store/next/models";
+import { BoxIcon } from "lucide-react";
 
 const ObjectDetails = ({ uuid }: { uuid?: string }) => {
   const store = useStoreContext();
@@ -131,8 +135,15 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
 export const ObjectContext = () => {
   const selected = useEntitiesStore((state) => state.selected);
   const entity = useEntity(selected);
+  const model = useModelsStore((state) =>
+    selected ? state.models[selected] : undefined,
+  );
   const { setStore } = useMainPanelContext();
   const objectStore = useCreateStore();
+  const authoredModelId =
+    entity?.type === "model" && model?.source === "authored"
+      ? model.authoredModelId
+      : undefined;
 
   // Use unique store for each object
   // Since we need to share the store for outside components
@@ -146,6 +157,26 @@ export const ObjectContext = () => {
         <section className="relative h-[260px] overflow-hidden rounded-md border bg-background">
           <ObjectDetails uuid={selected} />
         </section>
+        {authoredModelId ? (
+          <section className="grid gap-2 rounded-md border bg-background p-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-0 text-muted-foreground">
+                Asset Toybox
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Reopen this authored object and keep editing its recipe.
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => openAssetToybox(authoredModelId)}
+            >
+              <BoxIcon className="size-3.5" />
+              Edit in Asset Toybox
+            </Button>
+          </section>
+        ) : null}
         {entity?.type === "model" ? (
           <ModelDowngradePanel modelUuid={selected} embedded />
         ) : null}

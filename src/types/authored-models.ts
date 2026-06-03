@@ -26,7 +26,23 @@ export type AuthoredPrimitiveKind =
   | "tube"
   | "wireframe";
 
-export type AuthoredExtrudeFace = "px" | "nx" | "py" | "ny" | "pz" | "nz";
+export type AuthoredAxisExtrudeFace = "px" | "nx" | "py" | "ny" | "pz" | "nz";
+
+export type AuthoredGeometryExtrudeFace = {
+  kind: "geometry";
+  primitive: AuthoredPrimitiveKind;
+  sourceId?: string;
+  space?: "primitive" | "part";
+  index: number;
+  label: string;
+  center: AuthoredVector3;
+  normal: AuthoredVector3;
+  triangles: [AuthoredVector3, AuthoredVector3, AuthoredVector3][];
+};
+
+export type AuthoredExtrudeFace =
+  | AuthoredAxisExtrudeFace
+  | AuthoredGeometryExtrudeFace;
 
 export type AuthoredSelectionKind = "bone" | "part";
 
@@ -34,6 +50,16 @@ export type AuthoredExtrudeStep = {
   uuid: string;
   face: AuthoredExtrudeFace;
   distance: number;
+  position?: AuthoredVector3;
+  rotation?: AuthoredVector3;
+  scale: [number, number];
+};
+
+export type AuthoredFaceEdit = {
+  uuid: string;
+  faceKey: string;
+  position: AuthoredVector3;
+  rotation: AuthoredVector3;
   scale: [number, number];
 };
 
@@ -58,6 +84,8 @@ export type AuthoredPart = {
   color: string;
   visible: boolean;
   extrusions: AuthoredExtrudeStep[];
+  faceEdits?: AuthoredFaceEdit[];
+  deletedFaceKeys?: string[];
 };
 
 export type AuthoredMaterialSwatch = {
