@@ -64,6 +64,9 @@ export default defineConfig({
       }),
     devtools({
       removeDevtoolsOnBuild: true,
+      injectSource: {
+        enabled: false,
+      },
     }),
   ].filter(Boolean),
   resolve: {

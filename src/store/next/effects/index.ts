@@ -17,12 +17,17 @@ import { createMergeKey } from "../history/utils";
 import { withHistory } from "../../common/middlewares/history";
 import type { EffectComponent, EffectType } from "@/types/effects";
 import { isEqual } from "@/utils/object";
+import {
+  EFFECT_PRESETS,
+  type EffectPresetId,
+} from "@/constants/effects";
+import { normalizeEffectOrder } from "@/utils/effects";
 
 type EffectDefaults = {
   [K in EffectType]: Omit<Extract<EffectComponent, { type: K }>, "type">;
 };
 
-const EFFECT_DEFAULTS: EffectDefaults = {
+export const EFFECT_DEFAULTS: EffectDefaults = {
   grid: {
     enabled: true,
     scale: 1,
@@ -241,22 +246,55 @@ const EFFECT_DEFAULTS: EffectDefaults = {
 
 export interface EffectsState {
   effects: Record<string, EffectComponent>;
+  order: string[];
   selected?: string;
 }
 
 interface EffectsActions extends SnapshotEnabledStore<EffectsState> {
-  initEffect: (type: EffectType) => void;
+  initEffect: (
+    type: EffectType,
+    props?: Partial<EffectComponent>,
+    preferredUuid?: string,
+  ) => string;
   setEffect: (uuid: string, props: Partial<EffectComponent>) => void;
   setSelected: (uuid?: string) => void;
   removeEffect: (uuid: string) => void;
+  reorderEffects: (order: string[]) => void;
+  duplicateEffect: (uuid: string) => void;
+  clearEffects: () => void;
+  applyEffectsPreset: (
+    presetId: EffectPresetId,
+    mode: "append" | "replace",
+  ) => void;
 }
 
 const initialState: EffectsState = {
   effects: {},
+  order: [],
   selected: undefined,
 };
 
 interface EffectsStore extends EffectsState, EffectsActions {}
+
+function createEffectComponent(
+  type: EffectType,
+  props: Partial<EffectComponent> = {},
+): EffectComponent {
+  return { type, ...EFFECT_DEFAULTS[type], ...props } as EffectComponent;
+}
+
+function cloneEffectComponent(effect: EffectComponent): EffectComponent {
+  return JSON.parse(JSON.stringify(effect)) as EffectComponent;
+}
+
+function normalizeSelected(
+  effects: Record<string, EffectComponent>,
+  order: string[],
+  selected?: string,
+): string | undefined {
+  if (selected && effects[selected]) return selected;
+  return order[0];
+}
 
 export const useEffectsStore = create<EffectsStore>()(
   inspector(
@@ -264,46 +302,152 @@ export const useEffectsStore = create<EffectsStore>()(
       (set, get) => ({
         ...initialState,
 
-        initEffect: (type) => {
-          const uuid = generateUUID();
-          return set((state) => ({
-            effects: {
+        initEffect: (type, props, preferredUuid) => {
+          const uuid = preferredUuid ?? generateUUID();
+          set((state) => {
+            const effects = {
               ...state.effects,
-              [uuid]: { type, ...EFFECT_DEFAULTS[type] } as EffectComponent,
-            },
-            selected: uuid,
-          }));
+              [uuid]: createEffectComponent(type, props),
+            };
+            const order = normalizeEffectOrder(effects, [
+              ...state.order,
+              uuid,
+            ]);
+
+            return {
+              effects,
+              order,
+              selected: uuid,
+            };
+          });
+          return uuid;
         },
 
-        setSelected: (uuid) => set(() => ({ selected: uuid })),
+        setSelected: (uuid) =>
+          set((state) => ({
+            selected: uuid && state.effects[uuid] ? uuid : undefined,
+          })),
 
         setEffect: (uuid, props) =>
-          set((state) => ({
-            effects: {
-              ...state.effects,
-              [uuid]: { ...state.effects[uuid], ...props } as EffectComponent,
-            },
-          })),
+          set((state) => {
+            const effect = state.effects[uuid];
+            if (!effect) return state;
+            return {
+              effects: {
+                ...state.effects,
+                [uuid]: { ...effect, ...props } as EffectComponent,
+              },
+            };
+          }),
 
         removeEffect: (uuid) =>
           set((state) => {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: _, ...rest } = state.effects;
-            return { effects: rest };
+            const { [uuid]: _, ...effects } = state.effects;
+            const order = normalizeEffectOrder(
+              effects,
+              state.order.filter((id) => id !== uuid),
+            );
+            return {
+              effects,
+              order,
+              selected: normalizeSelected(effects, order, state.selected),
+            };
           }),
 
-        reset: () => set(initialState),
+        reorderEffects: (order) =>
+          set((state) => ({
+            order: normalizeEffectOrder(state.effects, order),
+          })),
 
-        hydrate: (snapshot) =>
+        duplicateEffect: (uuid) =>
+          set((state) => {
+            const effect = state.effects[uuid];
+            if (!effect) return state;
+
+            const nextUuid = generateUUID();
+            const effects = {
+              ...state.effects,
+              [nextUuid]: cloneEffectComponent(effect),
+            };
+            const currentOrder = normalizeEffectOrder(
+              state.effects,
+              state.order,
+            );
+            const sourceIndex = currentOrder.indexOf(uuid);
+            const order =
+              sourceIndex === -1
+                ? [...currentOrder, nextUuid]
+                : [
+                    ...currentOrder.slice(0, sourceIndex + 1),
+                    nextUuid,
+                    ...currentOrder.slice(sourceIndex + 1),
+                  ];
+
+            return {
+              effects,
+              order: normalizeEffectOrder(effects, order),
+              selected: nextUuid,
+            };
+          }),
+
+        clearEffects: () =>
+          set(() => ({
+            effects: {},
+            order: [],
+            selected: undefined,
+          })),
+
+        applyEffectsPreset: (presetId, mode) =>
+          set((state) => {
+            const preset = EFFECT_PRESETS[presetId];
+            const baseEffects = mode === "replace" ? {} : state.effects;
+            const baseOrder =
+              mode === "replace"
+                ? []
+                : normalizeEffectOrder(state.effects, state.order);
+            const effects = { ...baseEffects };
+            const addedIds: string[] = [];
+
+            for (const entry of preset.effects) {
+              const uuid = generateUUID();
+              effects[uuid] = createEffectComponent(entry.type, entry.props);
+              addedIds.push(uuid);
+            }
+
+            const order = normalizeEffectOrder(effects, [
+              ...baseOrder,
+              ...addedIds,
+            ]);
+
+            return {
+              effects,
+              order,
+              selected: addedIds.at(-1) ?? normalizeSelected(effects, order),
+            };
+          }),
+
+        reset: () => set({ ...initialState }),
+
+        hydrate: (snapshot) => {
+          const effects = snapshot.effects ?? {};
+          const order = normalizeEffectOrder(effects, snapshot.order);
           set({
-            effects: snapshot.effects,
-            selected: snapshot.selected,
-          }),
+            effects: {
+              ...effects,
+            },
+            order,
+            selected: normalizeSelected(effects, order, snapshot.selected),
+          });
+        },
 
         getSnapshot: () => {
+          const effects = get().effects;
+          const order = normalizeEffectOrder(effects, get().order);
           return {
-            effects: get().effects,
-            selected: get().selected,
+            effects,
+            order,
+            selected: normalizeSelected(effects, order, get().selected),
           };
         },
       }),

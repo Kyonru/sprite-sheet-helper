@@ -27,9 +27,15 @@ import {
   FolderOpen,
   Terminal,
   BookOpen,
+  Wrench,
+  UserRound,
 } from "lucide-react";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+import {
+  DOC_ORDER,
+  DOC_TASK_GUIDES,
+  docSlug,
+  type DocsTaskGuide,
+} from "@/utils/docs";
 
 type DocsModalState = { open: boolean };
 type Listener = (state: DocsModalState) => void;
@@ -46,8 +52,6 @@ export function openDocs() {
 
 type DocEntry = { id: string; title: string; content: string };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function parseFrontmatter(raw: string) {
   const match = raw.match(/^---\n([\s\S]*?)\n---\n?/);
   if (!match) return { data: {}, content: raw };
@@ -60,24 +64,6 @@ function parseFrontmatter(raw: string) {
     data[key.trim()] = rest.join(":").trim();
   });
   return { data, content };
-}
-
-const DOC_ORDER = [
-  "getting-started",
-  "tutorial",
-  "projects",
-  "animations",
-  "camera-capture",
-  "camera",
-  "effects",
-  "lighting",
-  "exporting",
-  "workflows",
-  "cli",
-];
-
-function docSlug(id: string): string {
-  return id.split("/").pop()?.replace(".md", "") ?? "";
 }
 
 function parseDocs(): DocEntry[] {
@@ -96,7 +82,9 @@ function parseDocs(): DocEntry[] {
   return entries.sort((a, b) => {
     const ia = DOC_ORDER.indexOf(docSlug(a.id));
     const ib = DOC_ORDER.indexOf(docSlug(b.id));
-    return (ia === -1 ? DOC_ORDER.length : ia) - (ib === -1 ? DOC_ORDER.length : ib);
+    return (
+      (ia === -1 ? DOC_ORDER.length : ia) - (ib === -1 ? DOC_ORDER.length : ib)
+    );
   });
 }
 
@@ -112,13 +100,16 @@ const SLUG_ICONS: Record<string, React.ReactNode> = {
   projects: <FolderOpen size={14} />,
   cli: <Terminal size={14} />,
   tutorial: <BookOpen size={14} />,
+  "effects-recipes": <Sparkles size={14} />,
+  "normal-maps": <Download size={14} />,
+  "pose-studio": <UserRound size={14} />,
+  "reproducible-workflows": <GitBranch size={14} />,
+  troubleshooting: <Wrench size={14} />,
 };
 
 function docIcon(id: string): React.ReactNode {
   return SLUG_ICONS[docSlug(id)] ?? <FileText size={14} />;
 }
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export function DocsModalProvider() {
   const [state, setState] = useState<DocsModalState>({ open: false });
@@ -143,14 +134,23 @@ export function DocsModalProvider() {
 
   useEffect(() => {
     _listener = (next) => setState(next);
-    return () => { _listener = null; };
+    return () => {
+      _listener = null;
+    };
   }, []);
 
   useEffect(() => {
-    if (state.open && docs.length > 0) setSelected(docs[0]);
+    if (state.open) setSelected(null);
   }, [state.open, docs]);
 
-  const onClose = () => { setState({ open: false }); setQuery(""); };
+  const onClose = () => {
+    setState({ open: false });
+    setQuery("");
+  };
+  const selectDocBySlug = (slug: string) => {
+    const doc = docs.find((entry) => docSlug(entry.id) === slug);
+    if (doc) setSelected(doc);
+  };
 
   if (!state.open) return null;
 
@@ -164,7 +164,9 @@ export function DocsModalProvider() {
 
           {/* ── Top bar ──────────────────────────────────────────────────── */}
           <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-            <span className="text-sm font-semibold text-foreground">Documentation</span>
+            <span className="text-sm font-semibold text-foreground">
+              Documentation
+            </span>
             <div className="relative flex-1 max-w-xs">
               <Search
                 size={13}
@@ -190,13 +192,32 @@ export function DocsModalProvider() {
 
           {/* ── Body ─────────────────────────────────────────────────────── */}
           <div className="flex flex-1 overflow-hidden">
-
             {/* Sidebar */}
             <div className="w-56 shrink-0 border-r flex flex-col overflow-hidden">
               <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {query ? `${results.length} result${results.length !== 1 ? "s" : ""}` : `${docs.length} pages`}
+                {query
+                  ? `${results.length} result${results.length !== 1 ? "s" : ""}`
+                  : `${docs.length} pages`}
               </p>
               <nav className="flex-1 overflow-y-auto py-1">
+                {!query && (
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    className={[
+                      "w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors",
+                      "border-l-2",
+                      selected === null
+                        ? "border-primary bg-muted text-foreground font-medium"
+                        : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    ].join(" ")}
+                  >
+                    <span className="shrink-0 opacity-60">
+                      <BookOpen size={14} />
+                    </span>
+                    <span className="truncate">Task Guides</span>
+                  </button>
+                )}
                 {results.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-muted-foreground text-center">
                     No results for &ldquo;{query}&rdquo;
@@ -217,7 +238,9 @@ export function DocsModalProvider() {
                             : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                         ].join(" ")}
                       >
-                        <span className="shrink-0 opacity-60">{docIcon(doc.id)}</span>
+                        <span className="shrink-0 opacity-60">
+                          {docIcon(doc.id)}
+                        </span>
                         <span className="truncate">{doc.title}</span>
                       </button>
                     );
@@ -266,7 +289,11 @@ export function DocsModalProvider() {
                             );
                           }
                           return (
-                            <a href={href} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
                               {children}
                             </a>
                           );
@@ -278,9 +305,10 @@ export function DocsModalProvider() {
                   </div>
                 </>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                  Select a page
-                </div>
+                <DocsHome
+                  taskGuides={DOC_TASK_GUIDES}
+                  onSelectGuide={(guide) => selectDocBySlug(guide.docSlug)}
+                />
               )}
             </div>
           </div>
@@ -288,5 +316,50 @@ export function DocsModalProvider() {
       </Dialog>
     </div>,
     document.body,
+  );
+}
+
+function DocsHome({
+  taskGuides,
+  onSelectGuide,
+}: {
+  taskGuides: DocsTaskGuide[];
+  onSelectGuide: (guide: DocsTaskGuide) => void;
+}) {
+  return (
+    <div className="px-6 py-5">
+      <div className="max-w-3xl">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <BookOpen size={16} />
+          <h2 className="text-base font-semibold text-foreground">
+            Task Guides
+          </h2>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Start with what you are trying to do, then jump into the reference
+          pages when you need exact settings.
+        </p>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {taskGuides.map((guide) => (
+          <button
+            key={guide.id}
+            type="button"
+            onClick={() => onSelectGuide(guide)}
+            className="rounded-md border bg-background px-4 py-3 text-left transition-colors hover:bg-muted"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <span className="text-muted-foreground">
+                {SLUG_ICONS[guide.docSlug] ?? <FileText size={14} />}
+              </span>
+              {guide.title}
+            </span>
+            <span className="mt-2 block text-xs text-muted-foreground">
+              {guide.description}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

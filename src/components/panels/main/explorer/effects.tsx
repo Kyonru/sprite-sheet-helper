@@ -1,130 +1,222 @@
-import * as React from "react";
+import { useMemo, useRef, useState } from "react";
 import {
-  UncontrolledTreeEnvironment,
-  Tree,
-  InteractionMode,
-  type TreeDataProvider,
-  type TreeItemIndex,
-  type TreeItem,
-} from "react-complex-tree";
-import { Label } from "@/components/ui/label";
-import { useEffectsStore } from "@/store/next/effects";
-import { cn } from "@/lib/utils";
-import { Trash2Icon } from "lucide-react";
+  CopyIcon,
+  GripVertical,
+  Layers,
+  Sparkles,
+  Trash2Icon,
+} from "lucide-react";
 import { confirm } from "@/components/confirm";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  EFFECT_METADATA_BY_TYPE,
+  EFFECT_CATEGORY_LABELS,
+} from "@/constants/effects";
+import { cn } from "@/lib/utils";
+import { useEffectsStore } from "@/store/next/effects";
+import { getOrderedEffects } from "@/utils/effects";
 
 export const EffectsExplorer = () => {
   const effects = useEffectsStore((state) => state.effects);
+  const order = useEffectsStore((state) => state.order);
+  const selected = useEffectsStore((state) => state.selected);
+  const setEffect = useEffectsStore((state) => state.setEffect);
   const setSelected = useEffectsStore((state) => state.setSelected);
   const removeEffect = useEffectsStore((state) => state.removeEffect);
-  const selected = useEffectsStore((state) => state.selected);
+  const reorderEffects = useEffectsStore((state) => state.reorderEffects);
+  const duplicateEffect = useEffectsStore((state) => state.duplicateEffect);
+  const clearEffects = useEffectsStore((state) => state.clearEffects);
+  const draggingIdRef = useRef<string | null>(null);
+  const lastDragTargetRef = useRef<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  const dataProvider = React.useMemo(() => {
-    const data: Record<string, TreeItem<string>> = {
-      root: {
-        index: "root",
-        isFolder: false,
-        children: Object.keys(effects),
-        data: "Effects",
-      },
-    };
+  const orderedEffects = useMemo(
+    () => getOrderedEffects(effects, order),
+    [effects, order],
+  );
 
-    Object.entries(effects).forEach(([uuid, effect]) => {
-      data[uuid] = {
-        index: uuid,
-        isFolder: false,
-        children: [],
-        data: effect.type,
-      };
-    });
+  const moveDraggingEffect = (targetId: string) => {
+    const activeId = draggingIdRef.current ?? draggingId;
+    if (!activeId || activeId === targetId) return;
+    if (lastDragTargetRef.current === targetId) return;
 
-    class EffectsDataProvider implements TreeDataProvider {
-      data = { ...data };
-      treeChangeListeners: Array<(changedItemIds: TreeItemIndex[]) => void> =
-        [];
+    const ids = orderedEffects.map((entry) => entry.uuid);
+    const from = ids.indexOf(activeId);
+    const to = ids.indexOf(targetId);
+    if (from === -1 || to === -1) return;
 
-      async getTreeItem(itemId: TreeItemIndex) {
-        return this.data[itemId];
-      }
+    const next = [...ids];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    lastDragTargetRef.current = targetId;
+    reorderEffects(next);
+  };
 
-      async onChangeItemChildren(
-        itemId: TreeItemIndex,
-        newChildren: TreeItemIndex[],
-      ) {
-        this.data[itemId].children = newChildren;
-        this.treeChangeListeners.forEach((listener) => listener([itemId]));
-      }
+  const endDrag = () => {
+    draggingIdRef.current = null;
+    lastDragTargetRef.current = null;
+    setDraggingId(null);
+  };
 
-      onDidChangeTreeData(listener: (changedItemIds: TreeItemIndex[]) => void) {
-        this.treeChangeListeners.push(listener);
-        return {
-          dispose: () =>
-            this.treeChangeListeners.splice(
-              this.treeChangeListeners.indexOf(listener),
-              1,
-            ),
-        };
-      }
+  const onRemove = (uuid: string) => {
+    const effect = effects[uuid];
+    const title = effect
+      ? EFFECT_METADATA_BY_TYPE[effect.type].name
+      : "Effect";
 
-      async onRenameItem(item: TreeItem<string>, name: string) {
-        this.data[item.index].data = name;
-      }
-
-      refresh() {
-        this.treeChangeListeners.forEach((listener) => listener(["root"]));
-      }
-    }
-
-    return new EffectsDataProvider();
-  }, [effects]);
-
-  const onDelete = (title: string, data: TreeItem<string>) => {
     confirm.delete(title, {
-      onConfirm: () => {
-        removeEffect(data.index as string);
-      },
+      onConfirm: () => removeEffect(uuid),
     });
   };
 
-  React.useEffect(() => {
-    dataProvider.refresh();
-  }, [dataProvider, effects]);
+  const onClear = () => {
+    confirm.delete("all effects", {
+      onConfirm: clearEffects,
+    });
+  };
 
   return (
-    <UncontrolledTreeEnvironment
-      key={selected}
-      dataProvider={dataProvider}
-      getItemTitle={(item) => item.data}
-      viewState={{
-        "effects-tree": {
-          selectedItems: [selected ? selected : ""],
-        },
-      }}
-      canDragAndDrop={false}
-      canDropOnFolder={false}
-      canReorderItems={true}
-      onSelectItems={(items) => {
-        setSelected(items.length > 0 ? (items[0] as string) : undefined);
-      }}
-      defaultInteractionMode={InteractionMode.ClickItemToExpand}
-      renderItemTitle={({ title, context, item }) => (
-        <div className="w-full flex flex-row items-center justify-between group relative">
-          <Label
-            className={cn({
-              "text-sm font-thin capitalize text-muted-foreground": true,
-              "text-foreground": context.isSelected,
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <Layers size={14} />
+            Effects Stack
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Drag to reorder the post-process chain.
+          </p>
+        </div>
+        <Button
+          size="icon"
+          variant="ghost"
+          title="Clear effects"
+          onClick={onClear}
+          disabled={orderedEffects.length === 0}
+        >
+          <Trash2Icon size={14} />
+        </Button>
+      </div>
+
+      {orderedEffects.length === 0 ? (
+        <div className="grid flex-1 place-items-center px-4 text-center text-sm text-muted-foreground">
+          <div>
+            <Sparkles className="mx-auto mb-2 size-5" />
+            Add a preset or choose an effect from the details panel.
+          </div>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          <ol className="grid gap-1.5">
+            {orderedEffects.map(({ uuid, effect }, index) => {
+              const metadata = EFFECT_METADATA_BY_TYPE[effect.type];
+              const isSelected = selected === uuid;
+              const isDragging = draggingId === uuid;
+
+              return (
+                <li
+                  key={uuid}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", uuid);
+                    draggingIdRef.current = uuid;
+                    lastDragTargetRef.current = null;
+                    setDraggingId(uuid);
+                  }}
+                  onDragEnd={endDrag}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    moveDraggingEffect(uuid);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    moveDraggingEffect(uuid);
+                    endDrag();
+                  }}
+                  className={cn(
+                    "rounded-md border bg-background transition-colors",
+                    isSelected
+                      ? "border-primary bg-primary/10"
+                      : "hover:bg-muted/60",
+                    isDragging && "opacity-50",
+                  )}
+                >
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-2"
+                    onClick={() => setSelected(uuid)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        setSelected(uuid);
+                      }
+                    }}
+                  >
+                    <GripVertical
+                      size={15}
+                      className="cursor-grab text-muted-foreground"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="text-[10px] tabular-nums text-muted-foreground">
+                          {index + 1}
+                        </span>
+                        <span className="truncate text-sm font-medium">
+                          {metadata.name}
+                        </span>
+                      </div>
+                      <div className="truncate text-[11px] text-muted-foreground">
+                        {EFFECT_CATEGORY_LABELS[metadata.category]}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Switch
+                        size="sm"
+                        checked={effect.enabled}
+                        aria-label={`Toggle ${metadata.name}`}
+                        onCheckedChange={(checked) =>
+                          setEffect(uuid, {
+                            enabled: Boolean(checked),
+                          } as Partial<typeof effect>)
+                        }
+                        onClick={(event) => event.stopPropagation()}
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Duplicate effect"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          duplicateEffect(uuid);
+                        }}
+                      >
+                        <CopyIcon size={13} />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Delete effect"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRemove(uuid);
+                        }}
+                      >
+                        <Trash2Icon size={13} />
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              );
             })}
-          >
-            {title}
-          </Label>
-          <Trash2Icon
-            onClick={() => onDelete(title, item)}
-            className="h-4 w-4 opacity-0 group-hover:opacity-100 absolute right-2 top-1/2 -translate-y-1/2 text-destructive cursor-pointer"
-          />
+          </ol>
         </div>
       )}
-    >
-      <Tree treeId="effects-tree" rootItem="root" treeLabel="Effects" />
-    </UncontrolledTreeEnvironment>
+    </div>
   );
 };

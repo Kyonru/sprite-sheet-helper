@@ -33,6 +33,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { Vector2 } from "three";
 import type { EffectComponent } from "@/types/effects";
+import { getOrderedEffects } from "@/utils/effects";
 
 function EffectNode({ effect }: { effect: EffectComponent }) {
   const refs = useRefsStore((state) => state.refs);
@@ -292,17 +293,22 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
 
 export function PostProcessingEffectsComposer() {
   const effects = useEffectsStore((state) => state.effects);
+  const order = useEffectsStore((state) => state.order);
   const setComposer = useSceneStore((state) => state.setComposer);
+  const orderedEffects = useMemo(
+    () => getOrderedEffects(effects, order),
+    [effects, order],
+  );
 
   return (
     <EffectComposer
       multisampling={8}
-      autoClear={false}
+      autoClear
       ref={(ref) => {
         setComposer(ref);
       }}
     >
-      {Object.entries(effects).map(([uuid, effect]) => (
+      {orderedEffects.map(({ uuid, effect }) => (
         <EffectNode key={uuid} effect={effect} />
       ))}
     </EffectComposer>
