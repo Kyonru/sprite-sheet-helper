@@ -20,6 +20,7 @@ import type {
   AuthoredAxisExtrudeFace,
   AuthoredBone,
   AuthoredExtrudeFace,
+  AuthoredFaceEditMode,
   AuthoredGeometryExtrudeFace,
   AuthoredModelRecipe,
   AuthoredPart,
@@ -33,7 +34,14 @@ import {
   getAuthoredFaceEdit,
   getAuthoredFaceKey,
   getAuthoredPartFaceTargets,
+  getAuthoredPartTopology,
+  getAdjacentFacePairs,
+  transformAuthoredComponentSelection,
   type AuthoredPrimitiveFaceTarget,
+  type AuthoredPartTopology,
+  type AuthoredTopologyEdge,
+  type AuthoredTopologyFace,
+  type AuthoredTopologyVertex,
 } from "@/utils/authored-models";
 import { downloadFile } from "@/utils/assets";
 import {
@@ -51,12 +59,16 @@ import {
   EyeOffIcon,
   FlipHorizontalIcon,
   HammerIcon,
+  HexagonIcon,
+  MinusIcon,
   Move3DIcon,
   PlusIcon,
   Redo2Icon,
   Rotate3DIcon,
   RotateCcwIcon,
   Scale3DIcon,
+  SplinePointerIcon,
+  SquareIcon,
   Trash2Icon,
   Undo2Icon,
 } from "lucide-react";
@@ -121,6 +133,14 @@ const EXTRUDE_FACES: { value: AuthoredAxisExtrudeFace; label: string }[] = [
 ];
 
 type ToyboxTransformMode = "translate" | "scale" | "rotate" | "extrude";
+type ToyboxSelectionMode = "object" | "face" | "edge" | "vertex";
+
+type ToyboxComponentSelection = {
+  partId?: string;
+  faceKeys: string[];
+  edgeKeys: string[];
+  vertexKeys: string[];
+};
 
 const TOYBOX_HISTORY_LIMIT = 80;
 
@@ -144,6 +164,21 @@ const TRANSFORM_TOOLS: {
     value: "extrude",
     label: "Extrude",
     icon: <HammerIcon className="size-4" />,
+  },
+];
+
+const SELECTION_TOOLS: {
+  value: ToyboxSelectionMode;
+  label: string;
+  icon: ReactNode;
+}[] = [
+  { value: "object", label: "Object", icon: <BoxIcon className="size-4" /> },
+  { value: "face", label: "Faces", icon: <SquareIcon className="size-4" /> },
+  { value: "edge", label: "Edges", icon: <HexagonIcon className="size-4" /> },
+  {
+    value: "vertex",
+    label: "Vertices",
+    icon: <SplinePointerIcon className="size-4" />,
   },
 ];
 
@@ -212,21 +247,39 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
   const updateExtrusion = useAuthoredModelsStore(
     (state) => state.updateExtrusion,
   );
-  const updateFaceEdit = useAuthoredModelsStore((state) => state.updateFaceEdit);
+  const updateFaceEdit = useAuthoredModelsStore(
+    (state) => state.updateFaceEdit,
+  );
+  const updateVertexEdits = useAuthoredModelsStore(
+    (state) => state.updateVertexEdits,
+  );
+  const mergeFaces = useAuthoredModelsStore((state) => state.mergeFaces);
+  const unmergeFaceGroup = useAuthoredModelsStore(
+    (state) => state.unmergeFaceGroup,
+  );
   const updateSwatch = useAuthoredModelsStore((state) => state.updateSwatch);
   const resetPose = useAuthoredModelsStore((state) => state.resetPose);
   const [transformMode, setTransformMode] =
     useState<ToyboxTransformMode>("translate");
+  const [selectionMode, setSelectionMode] =
+    useState<ToyboxSelectionMode>("object");
   const [showSkeleton, setShowSkeleton] = useState(true);
+  const [showVertices, setShowVertices] = useState(false);
+  const [showEdges, setShowEdges] = useState(false);
+  const [componentSelection, setComponentSelection] =
+    useState<ToyboxComponentSelection>({
+      faceKeys: [],
+      edgeKeys: [],
+      vertexKeys: [],
+    });
   const [extrudeFace, setExtrudeFace] = useState<AuthoredExtrudeFace>("pz");
   const [extrudeDistance, setExtrudeDistance] = useState(0.2);
-  const [extrudeScale, setExtrudeScale] = useState<[number, number]>([
-    1, 1,
-  ]);
+  const [extrudeScale, setExtrudeScale] = useState<[number, number]>([1, 1]);
   const [autoExtrudeFaceTransforms, setAutoExtrudeFaceTransforms] =
     useState(false);
   const [commandPressed, setCommandPressed] = useState(false);
   const [shiftPressed, setShiftPressed] = useState(false);
+  const [altPressed, setAltPressed] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [, bumpHistoryVersion] = useState(0);
   const recipeRef = useRef(recipe);
@@ -247,8 +300,63 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
     recipe.parts[recipe.selectedPartId ?? ""] ??
     recipe.parts[recipe.partOrder[0]];
   const firstSwatch = recipe.swatches[recipe.swatchOrder[0]];
+  const selectedComponentPart = componentSelection.partId
+    ? recipe.parts[componentSelection.partId]
+    : selectedPart;
+  const selectedComponentTopology = useMemo(
+    () =>
+      selectedComponentPart
+        ? getAuthoredPartTopology(selectedComponentPart)
+        : undefined,
+    [selectedComponentPart],
+  );
+  const selectedComponentFaces = useMemo(
+    () =>
+      selectedComponentTopology?.faces.filter((face) =>
+        componentSelection.faceKeys.includes(face.key),
+      ) ?? [],
+    [componentSelection.faceKeys, selectedComponentTopology],
+  );
+  const selectedMergedGroupId =
+    selectedComponentFaces.length === 1
+      ? selectedComponentFaces[0].mergedGroupId
+      : undefined;
+  const canMergeFaces =
+    selectedComponentTopology &&
+    componentSelection.faceKeys.length === 2 &&
+    getAdjacentFacePairs(selectedComponentTopology).some(
+      ([first, second]) =>
+        componentSelection.faceKeys.includes(first) &&
+        componentSelection.faceKeys.includes(second),
+    );
+  const selectedComponentCount =
+    selectionMode === "face"
+      ? componentSelection.faceKeys.length
+      : selectionMode === "edge"
+        ? componentSelection.edgeKeys.length
+        : selectionMode === "vertex"
+          ? componentSelection.vertexKeys.length
+          : selectedPart
+            ? 1
+            : 0;
   const canUndo = historyRef.current.past.length > 0;
   const canRedo = historyRef.current.future.length > 0;
+
+  useEffect(() => {
+    if (selectionMode !== "face" && transformMode === "extrude") {
+      setTransformMode("translate");
+    }
+  }, [selectionMode, transformMode]);
+
+  useEffect(() => {
+    if (componentSelection.partId && !recipe.parts[componentSelection.partId]) {
+      setComponentSelection({
+        faceKeys: [],
+        edgeKeys: [],
+        vertexKeys: [],
+      });
+    }
+  }, [componentSelection.partId, recipe.parts]);
 
   useEffect(() => {
     recipeRef.current = recipe;
@@ -301,6 +409,16 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
     [getCurrentRecipe, pushHistorySnapshot],
   );
 
+  const clearComponentSelection = useCallback(
+    () =>
+      setComponentSelection({
+        faceKeys: [],
+        edgeKeys: [],
+        vertexKeys: [],
+      }),
+    [],
+  );
+
   const undo = useCallback(() => {
     const previous = historyRef.current.past.pop();
     if (!previous) return;
@@ -323,6 +441,7 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
     const updateModifiers = (event: KeyboardEvent) => {
       setCommandPressed(event.metaKey);
       setShiftPressed(event.shiftKey);
+      setAltPressed(event.altKey);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       updateModifiers(event);
@@ -340,21 +459,37 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
       }
       if (
         (event.key === "Delete" || event.key === "Backspace") &&
-        selectedPart &&
-        isGeometryExtrudeFace(extrudeFace) &&
         !editableTarget
       ) {
-        event.preventDefault();
-        runWithHistory(() => {
-          deleteFace(recipe.uuid, selectedPart.uuid, extrudeFace);
-          setExtrudeFace("pz");
-        });
+        if (
+          selectionMode === "face" &&
+          selectedComponentPart &&
+          selectedComponentFaces.length > 0
+        ) {
+          event.preventDefault();
+          runWithHistory(() => {
+            selectedComponentFaces.forEach((face) =>
+              deleteFace(recipe.uuid, selectedComponentPart.uuid, face.face),
+            );
+            clearComponentSelection();
+            setExtrudeFace("pz");
+          });
+          return;
+        }
+        if (selectedPart && isGeometryExtrudeFace(extrudeFace)) {
+          event.preventDefault();
+          runWithHistory(() => {
+            deleteFace(recipe.uuid, selectedPart.uuid, extrudeFace);
+            setExtrudeFace("pz");
+          });
+        }
       }
     };
     const handleKeyUp = (event: KeyboardEvent) => updateModifiers(event);
     const clearModifiers = () => {
       setCommandPressed(false);
       setShiftPressed(false);
+      setAltPressed(false);
     };
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
@@ -365,12 +500,16 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
       window.removeEventListener("blur", clearModifiers);
     };
   }, [
+    clearComponentSelection,
     deleteFace,
     extrudeFace,
     recipe.uuid,
     redo,
     runWithHistory,
+    selectedComponentFaces,
+    selectedComponentPart,
     selectedPart,
+    selectionMode,
     undo,
   ]);
 
@@ -388,6 +527,75 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
         swatchId: firstSwatch?.uuid,
         color: firstSwatch?.color,
       });
+    });
+  };
+
+  const setSelectionModeWithDefaults = (mode: ToyboxSelectionMode) => {
+    setSelectionMode(mode);
+    if (mode === "vertex") setShowVertices(true);
+    if (mode === "edge") setShowEdges(true);
+    if (mode === "face") setShowVertices(false);
+    if (mode !== "face" && transformMode === "extrude") {
+      setTransformMode("translate");
+    }
+  };
+
+  const selectComponent = useCallback(
+    (
+      partId: string,
+      kind: Exclude<ToyboxSelectionMode, "object">,
+      key: string,
+      additive: boolean,
+      face?: AuthoredGeometryExtrudeFace,
+    ) => {
+      selectPart(recipe.uuid, partId);
+      if (face) setExtrudeFace(face);
+      setComponentSelection((current) => {
+        const samePart = current.partId === partId;
+        const base =
+          additive && samePart
+            ? current
+            : { partId, faceKeys: [], edgeKeys: [], vertexKeys: [] };
+        const field =
+          kind === "face"
+            ? "faceKeys"
+            : kind === "edge"
+              ? "edgeKeys"
+              : "vertexKeys";
+        const values = base[field];
+        const nextValues =
+          additive && values.includes(key)
+            ? values.filter((value) => value !== key)
+            : additive
+              ? [...values, key]
+              : [key];
+        return { ...base, partId, [field]: nextValues };
+      });
+    },
+    [recipe.uuid, selectPart],
+  );
+
+  const runMergeFaces = () => {
+    if (!selectedComponentPart || !canMergeFaces) return;
+    runWithHistory(() => {
+      mergeFaces(
+        recipe.uuid,
+        selectedComponentPart.uuid,
+        componentSelection.faceKeys,
+      );
+      clearComponentSelection();
+    });
+  };
+
+  const runUnmergeFace = () => {
+    if (!selectedComponentPart || !selectedMergedGroupId) return;
+    runWithHistory(() => {
+      unmergeFaceGroup(
+        recipe.uuid,
+        selectedComponentPart.uuid,
+        selectedMergedGroupId,
+      );
+      clearComponentSelection();
     });
   };
 
@@ -508,6 +716,19 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
             <Redo2Icon className="size-4" />
           </Button>
           <div className="mx-1 h-5 w-px bg-border" />
+          {SELECTION_TOOLS.map((tool) => (
+            <Button
+              key={tool.value}
+              size="icon"
+              variant={selectionMode === tool.value ? "default" : "ghost"}
+              className="size-8"
+              title={`${tool.label} selection`}
+              onClick={() => setSelectionModeWithDefaults(tool.value)}
+            >
+              {tool.icon}
+            </Button>
+          ))}
+          <div className="mx-1 h-5 w-px bg-border" />
           {TRANSFORM_TOOLS.map((tool) => (
             <Button
               key={tool.value}
@@ -515,44 +736,74 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
               variant={transformMode === tool.value ? "default" : "ghost"}
               className="size-8"
               title={tool.label}
+              disabled={tool.value === "extrude" && selectionMode !== "face"}
               onClick={() => setTransformMode(tool.value)}
             >
               {tool.icon}
             </Button>
           ))}
         </div>
-        {recipe.boneOrder.length > 0 ? (
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-md border bg-background/90 p-1 shadow-sm backdrop-blur">
           <Button
             size="icon"
-            variant={showSkeleton ? "default" : "ghost"}
-            className="absolute right-3 top-3 z-10 size-8 border bg-background/90 shadow-sm backdrop-blur"
-            title={showSkeleton ? "Hide skeleton" : "Show skeleton"}
-            onClick={() => setShowSkeleton((value) => !value)}
+            variant={showVertices ? "default" : "ghost"}
+            className="size-8"
+            title={showVertices ? "Hide vertices" : "Show vertices"}
+            onClick={() => setShowVertices((value) => !value)}
           >
-            {showSkeleton ? (
-              <EyeIcon className="size-4" />
-            ) : (
-              <EyeOffIcon className="size-4" />
-            )}
+            <PlusIcon className="size-4" />
           </Button>
-        ) : null}
+          <Button
+            size="icon"
+            variant={showEdges ? "default" : "ghost"}
+            className="size-8"
+            title={showEdges ? "Hide edges" : "Show edges"}
+            onClick={() => setShowEdges((value) => !value)}
+          >
+            <MinusIcon className="size-4" />
+          </Button>
+          {recipe.boneOrder.length > 0 ? (
+            <Button
+              size="icon"
+              variant={showSkeleton ? "default" : "ghost"}
+              className="size-8"
+              title={showSkeleton ? "Hide skeleton" : "Show skeleton"}
+              onClick={() => setShowSkeleton((value) => !value)}
+            >
+              {showSkeleton ? (
+                <EyeIcon className="size-4" />
+              ) : (
+                <EyeOffIcon className="size-4" />
+              )}
+            </Button>
+          ) : null}
+        </div>
         <ToyboxViewport
           recipe={recipe}
           selectedPartId={selectedPart?.uuid}
           selectedBoneId={selectedBone?.uuid}
+          selectionMode={selectionMode}
+          componentSelection={componentSelection}
           transformMode={transformMode}
           showSkeleton={showSkeleton}
+          showVertices={showVertices}
+          showEdges={showEdges}
           extrudeFace={extrudeFace}
           extrudeDistance={extrudeDistance}
           autoExtrudeFaceTransforms={
             autoExtrudeFaceTransforms || commandPressed
           }
           constrainFaceTransformsToNormal={shiftPressed}
+          faceEditMode={altPressed ? "detached" : "connected"}
           onHistoryGestureStart={beginHistoryGesture}
           onHistoryGestureEnd={commitHistoryGesture}
           onPartTransformChange={(partId, props) =>
             updatePart(recipe.uuid, partId, props)
           }
+          onComponentSelect={selectComponent}
+          onComponentTransform={(partId, nextPart) => {
+            updateVertexEdits(recipe.uuid, partId, nextPart.vertexEdits ?? []);
+          }}
           onVisualExtrude={(face) => {
             if (!selectedPart) return undefined;
             const distance = clampExtrudeDistance(extrudeDistance);
@@ -581,18 +832,17 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
           }}
           onAutoExtrudeFaceTransform={(face) => {
             if (!selectedPart) return undefined;
-            return extrudePart(recipe.uuid, selectedPart.uuid, face, 0.01, [
-              1, 1,
-            ]);
+            return extrudePart(
+              recipe.uuid,
+              selectedPart.uuid,
+              face,
+              0.01,
+              [1, 1],
+            );
           }}
           onConnectedExtrudeTransform={(extrusionId, props) => {
             if (!selectedPart) return;
-            updateExtrusion(
-              recipe.uuid,
-              selectedPart.uuid,
-              extrusionId,
-              props,
-            );
+            updateExtrusion(recipe.uuid, selectedPart.uuid, extrusionId, props);
           }}
         />
       </section>
@@ -647,6 +897,47 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
                       {part.name}
                     </Button>
                   ))}
+                </div>
+              </PanelBlock>
+
+              <PanelBlock title="Component Editing">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <Metric
+                    label="Mode"
+                    value={selectionModeLabel(selectionMode)}
+                  />
+                  <Metric label="Selected" value={selectedComponentCount} />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!canMergeFaces}
+                    onClick={runMergeFaces}
+                  >
+                    Merge
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!selectedMergedGroupId}
+                    onClick={runUnmergeFace}
+                  >
+                    Unmerge
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={selectedComponentCount === 0}
+                    onClick={clearComponentSelection}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <div className="rounded-md border bg-background px-2 py-1.5 text-[11px] text-muted-foreground">
+                  Shift-click selects multiple components. Delete removes
+                  selected faces. Alt detaches a single face edit; Cmd extrudes
+                  a face edit.
                 </div>
               </PanelBlock>
 
@@ -750,7 +1041,9 @@ function AssetToyboxEditor({ recipe }: { recipe: AuthoredModelRecipe }) {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => runWithHistory(() => resetPose(recipe.uuid))}
+                      onClick={() =>
+                        runWithHistory(() => resetPose(recipe.uuid))
+                      }
                     >
                       <RotateCcwIcon className="size-3.5" />
                       Reset pose
@@ -838,12 +1131,17 @@ function ToyboxViewport({
   recipe,
   selectedPartId,
   selectedBoneId,
+  selectionMode,
+  componentSelection,
   transformMode,
   showSkeleton,
+  showVertices,
+  showEdges,
   extrudeFace,
   extrudeDistance,
   autoExtrudeFaceTransforms,
   constrainFaceTransformsToNormal,
+  faceEditMode,
   onPartTransformChange,
   onVisualExtrude,
   onVisualFaceSelect,
@@ -853,16 +1151,23 @@ function ToyboxViewport({
   onConnectedExtrudeTransform,
   onHistoryGestureStart,
   onHistoryGestureEnd,
+  onComponentSelect,
+  onComponentTransform,
 }: {
   recipe: AuthoredModelRecipe;
   selectedPartId?: string;
   selectedBoneId?: string;
+  selectionMode: ToyboxSelectionMode;
+  componentSelection: ToyboxComponentSelection;
   transformMode: ToyboxTransformMode;
   showSkeleton: boolean;
+  showVertices: boolean;
+  showEdges: boolean;
   extrudeFace: AuthoredExtrudeFace;
   extrudeDistance: number;
   autoExtrudeFaceTransforms: boolean;
   constrainFaceTransformsToNormal: boolean;
+  faceEditMode: AuthoredFaceEditMode;
   onPartTransformChange: (partId: string, props: Partial<AuthoredPart>) => void;
   onVisualExtrude: (face: AuthoredExtrudeFace) => string | undefined;
   onVisualFaceSelect: (face: AuthoredExtrudeFace) => void;
@@ -870,6 +1175,7 @@ function ToyboxViewport({
   onFaceTransformChange: (
     face: AuthoredGeometryExtrudeFace,
     props: {
+      mode?: AuthoredFaceEditMode;
       position?: AuthoredVector3;
       rotation?: AuthoredVector3;
       scale?: [number, number];
@@ -884,9 +1190,19 @@ function ToyboxViewport({
   ) => void;
   onHistoryGestureStart: () => void;
   onHistoryGestureEnd: () => void;
+  onComponentSelect: (
+    partId: string,
+    kind: Exclude<ToyboxSelectionMode, "object">,
+    key: string,
+    additive: boolean,
+    face?: AuthoredGeometryExtrudeFace,
+  ) => void;
+  onComponentTransform: (partId: string, nextPart: AuthoredPart) => void;
 }) {
   const [draggingExtrude, setDraggingExtrude] = useState(false);
   const [draggingFaceTransform, setDraggingFaceTransform] = useState(false);
+  const [draggingComponentTransform, setDraggingComponentTransform] =
+    useState(false);
   const built = useMemo(
     () =>
       buildAuthoredModelObject(recipe, {
@@ -917,10 +1233,54 @@ function ToyboxViewport({
       <ambientLight intensity={1.4} />
       <directionalLight position={[2, 4, 3]} intensity={2.2} />
       <primitive object={built.object} />
+      {recipe.partOrder.map((partId) => {
+        const part = recipe.parts[partId];
+        const object = built.partObjects[partId];
+        if (!part || !object) return null;
+        return (
+          <PartComponentOverlay
+            key={partId}
+            target={object}
+            part={part}
+            selectionMode={
+              transformMode === "extrude" ? "object" : selectionMode
+            }
+            selection={componentSelection}
+            showVertices={showVertices || selectionMode === "vertex"}
+            showEdges={showEdges || selectionMode === "edge"}
+            onSelect={onComponentSelect}
+          />
+        );
+      })}
+      {selectionMode !== "object" &&
+      componentSelection.partId &&
+      !(
+        selectionMode === "face" &&
+        faceEditMode === "detached" &&
+        componentSelection.faceKeys.length <= 1
+      ) &&
+      transformMode !== "extrude" ? (
+        <ComponentTransformControls
+          target={built.partObjects[componentSelection.partId]}
+          part={recipe.parts[componentSelection.partId]}
+          selection={componentSelection}
+          mode={transformMode}
+          onChange={(nextPart) =>
+            componentSelection.partId &&
+            onComponentTransform(componentSelection.partId, nextPart)
+          }
+          onDragStateChange={setDraggingComponentTransform}
+          onGestureStart={onHistoryGestureStart}
+          onGestureEnd={onHistoryGestureEnd}
+        />
+      ) : null}
       {selectedPartId &&
       selectedObject &&
       selectedPart &&
       selectedFaceTarget &&
+      selectionMode === "face" &&
+      faceEditMode === "detached" &&
+      componentSelection.faceKeys.length <= 1 &&
       transformMode !== "extrude" ? (
         <FaceTransformControls
           target={selectedObject}
@@ -929,6 +1289,7 @@ function ToyboxViewport({
           mode={transformMode}
           autoExtrude={autoExtrudeFaceTransforms}
           constrainToNormal={constrainFaceTransformsToNormal}
+          faceEditMode={faceEditMode}
           onChange={onFaceTransformChange}
           onAutoExtrudeStart={onAutoExtrudeFaceTransform}
           onConnectedExtrudeChange={onConnectedExtrudeTransform}
@@ -940,6 +1301,7 @@ function ToyboxViewport({
       {selectedPartId &&
       selectedObject &&
       (!selectedFaceTarget || transformMode === "extrude") &&
+      selectionMode === "object" &&
       transformMode !== "extrude" ? (
         <TransformControls
           object={selectedObject}
@@ -976,12 +1338,15 @@ function ToyboxViewport({
           }}
         />
       ) : null}
-      {selectedObject && selectedPart ? (
+      {selectionMode === "face" &&
+      transformMode === "extrude" &&
+      selectedObject &&
+      selectedPart ? (
         <ExtrudeFaceTool
           target={selectedObject}
           part={selectedPart}
           selectedFace={extrudeFace}
-          toolMode={transformMode}
+          toolMode={selectionMode === "face" ? transformMode : "translate"}
           initialDistance={extrudeDistance}
           onFaceSelect={onVisualFaceSelect}
           onExtrudeStart={onVisualExtrude}
@@ -994,7 +1359,11 @@ function ToyboxViewport({
       <Grid infiniteGrid sectionColor="#5b6472" cellColor="#373d48" />
       <OrbitControls
         makeDefault
-        enabled={!draggingExtrude && !draggingFaceTransform}
+        enabled={
+          !draggingExtrude &&
+          !draggingFaceTransform &&
+          !draggingComponentTransform
+        }
       />
     </Canvas>
   );
@@ -1010,6 +1379,376 @@ const EXTRUDE_FACE_COLORS = [
   "#a78bfa",
   "#f472b6",
 ];
+
+function PartComponentOverlay({
+  target,
+  part,
+  selectionMode,
+  selection,
+  showVertices,
+  showEdges,
+  onSelect,
+}: {
+  target: THREE.Object3D;
+  part: AuthoredPart;
+  selectionMode: ToyboxSelectionMode;
+  selection: ToyboxComponentSelection;
+  showVertices: boolean;
+  showEdges: boolean;
+  onSelect: (
+    partId: string,
+    kind: Exclude<ToyboxSelectionMode, "object">,
+    key: string,
+    additive: boolean,
+    face?: AuthoredGeometryExtrudeFace,
+  ) => void;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const topology = useMemo(() => getAuthoredPartTopology(part), [part]);
+  const activePart = selection.partId === part.uuid;
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+    target.updateWorldMatrix(true, false);
+    target.getWorldPosition(groupRef.current.position);
+    target.getWorldQuaternion(groupRef.current.quaternion);
+    target.getWorldScale(groupRef.current.scale);
+  });
+
+  return (
+    <group ref={groupRef}>
+      {selectionMode === "face"
+        ? topology.faces.map((face, index) => (
+            <ComponentFaceOverlay
+              key={face.key}
+              topologyFace={face}
+              color={EXTRUDE_FACE_COLORS[index % EXTRUDE_FACE_COLORS.length]}
+              selected={activePart && selection.faceKeys.includes(face.key)}
+              onSelect={(event) =>
+                onSelect(
+                  part.uuid,
+                  "face",
+                  face.key,
+                  event.nativeEvent.shiftKey,
+                  face.face,
+                )
+              }
+            />
+          ))
+        : null}
+      {showEdges
+        ? topology.edges.map((edge) => (
+            <ComponentEdgeOverlay
+              key={edge.key}
+              edge={edge}
+              interactive={selectionMode === "edge"}
+              selected={activePart && selection.edgeKeys.includes(edge.key)}
+              onSelect={(event) =>
+                onSelect(
+                  part.uuid,
+                  "edge",
+                  edge.key,
+                  event.nativeEvent.shiftKey,
+                )
+              }
+            />
+          ))
+        : null}
+      {showVertices
+        ? topology.vertices.map((vertex) => (
+            <ComponentVertexOverlay
+              key={vertex.key}
+              vertex={vertex}
+              interactive={selectionMode === "vertex"}
+              selected={activePart && selection.vertexKeys.includes(vertex.key)}
+              onSelect={(event) =>
+                onSelect(
+                  part.uuid,
+                  "vertex",
+                  vertex.key,
+                  event.nativeEvent.shiftKey,
+                )
+              }
+            />
+          ))
+        : null}
+    </group>
+  );
+}
+
+function ComponentFaceOverlay({
+  topologyFace,
+  color,
+  selected,
+  onSelect,
+}: {
+  topologyFace: AuthoredTopologyFace;
+  color: string;
+  selected: boolean;
+  onSelect: (event: ThreeEvent<PointerEvent>) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const geometry = useMemo(
+    () => createExtrudeFaceOverlayGeometry(topologyFace.face),
+    [topologyFace.face],
+  );
+  return (
+    <mesh
+      geometry={geometry}
+      renderOrder={60}
+      onPointerOver={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerOut={(event) => {
+        event.stopPropagation();
+        setHovered(false);
+      }}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        onSelect(event);
+      }}
+    >
+      <meshBasicMaterial
+        color={selected ? "#facc15" : hovered ? "#fde68a" : color}
+        depthTest={false}
+        side={THREE.DoubleSide}
+        transparent
+        opacity={selected || hovered ? 0.48 : 0.16}
+      />
+    </mesh>
+  );
+}
+
+function ComponentEdgeOverlay({
+  edge,
+  interactive,
+  selected,
+  onSelect,
+}: {
+  edge: AuthoredTopologyEdge;
+  interactive: boolean;
+  selected: boolean;
+  onSelect: (event: ThreeEvent<PointerEvent>) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const start = useMemo(() => new THREE.Vector3(...edge.start), [edge.start]);
+  const end = useMemo(() => new THREE.Vector3(...edge.end), [edge.end]);
+  const center = useMemo(
+    () => new THREE.Vector3(...edge.center),
+    [edge.center],
+  );
+  const direction = useMemo(
+    () => new THREE.Vector3().subVectors(end, start),
+    [end, start],
+  );
+  const length = Math.max(0.001, direction.length());
+  const quaternion = useMemo(
+    () =>
+      new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        direction.clone().normalize(),
+      ),
+    [direction],
+  );
+
+  return (
+    <mesh
+      position={center}
+      quaternion={quaternion}
+      renderOrder={70}
+      onPointerOver={
+        interactive
+          ? (event) => {
+              event.stopPropagation();
+              setHovered(true);
+            }
+          : undefined
+      }
+      onPointerOut={
+        interactive
+          ? (event) => {
+              event.stopPropagation();
+              setHovered(false);
+            }
+          : undefined
+      }
+      onPointerDown={
+        interactive
+          ? (event) => {
+              event.stopPropagation();
+              onSelect(event);
+            }
+          : undefined
+      }
+    >
+      <cylinderGeometry args={[0.01, 0.01, length, 6]} />
+      <meshBasicMaterial
+        color={selected ? "#facc15" : hovered ? "#fde68a" : "#38bdf8"}
+        depthTest={false}
+        transparent
+        opacity={selected || hovered ? 0.95 : 0.62}
+      />
+    </mesh>
+  );
+}
+
+function ComponentVertexOverlay({
+  vertex,
+  interactive,
+  selected,
+  onSelect,
+}: {
+  vertex: AuthoredTopologyVertex;
+  interactive: boolean;
+  selected: boolean;
+  onSelect: (event: ThreeEvent<PointerEvent>) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <mesh
+      position={vertex.position}
+      renderOrder={80}
+      onPointerOver={
+        interactive
+          ? (event) => {
+              event.stopPropagation();
+              setHovered(true);
+            }
+          : undefined
+      }
+      onPointerOut={
+        interactive
+          ? (event) => {
+              event.stopPropagation();
+              setHovered(false);
+            }
+          : undefined
+      }
+      onPointerDown={
+        interactive
+          ? (event) => {
+              event.stopPropagation();
+              onSelect(event);
+            }
+          : undefined
+      }
+    >
+      <sphereGeometry args={[selected || hovered ? 0.035 : 0.025, 10, 8]} />
+      <meshBasicMaterial
+        color={selected ? "#facc15" : hovered ? "#fde68a" : "#a78bfa"}
+        depthTest={false}
+        transparent
+        opacity={selected || hovered ? 1 : 0.78}
+      />
+    </mesh>
+  );
+}
+
+function ComponentTransformControls({
+  target,
+  part,
+  selection,
+  mode,
+  onChange,
+  onDragStateChange,
+  onGestureStart,
+  onGestureEnd,
+}: {
+  target?: THREE.Object3D;
+  part?: AuthoredPart;
+  selection: ToyboxComponentSelection;
+  mode: Exclude<ToyboxTransformMode, "extrude">;
+  onChange: (part: AuthoredPart) => void;
+  onDragStateChange: (dragging: boolean) => void;
+  onGestureStart: () => void;
+  onGestureEnd: () => void;
+}) {
+  const controlObject = useMemo(() => new THREE.Object3D(), []);
+  const draggingRef = useRef(false);
+  const baselinePartRef = useRef<AuthoredPart | null>(null);
+  const topology = useMemo(
+    () => (part ? getAuthoredPartTopology(part) : undefined),
+    [part],
+  );
+  const center = useMemo(
+    () =>
+      topology ? getComponentSelectionCenter(topology, selection) : undefined,
+    [selection, topology],
+  );
+
+  useEffect(() => {
+    if (!target || !center || draggingRef.current) return;
+    target.updateWorldMatrix(true, false);
+    controlObject.position.copy(
+      target.localToWorld(new THREE.Vector3(...center)),
+    );
+    controlObject.quaternion.copy(
+      target.getWorldQuaternion(new THREE.Quaternion()),
+    );
+    controlObject.scale.set(1, 1, 1);
+    controlObject.updateMatrixWorld(true);
+  }, [center, controlObject, target]);
+
+  const emitChange = useCallback(() => {
+    const baselinePart = baselinePartRef.current;
+    if (!target || !baselinePart) return;
+    target.updateWorldMatrix(true, false);
+    controlObject.updateMatrixWorld(true);
+    const localCenter = target.worldToLocal(controlObject.position.clone());
+    const targetQuaternion = target.getWorldQuaternion(new THREE.Quaternion());
+    const controlQuaternion = controlObject.getWorldQuaternion(
+      new THREE.Quaternion(),
+    );
+    const localQuaternion = targetQuaternion
+      .invert()
+      .multiply(controlQuaternion);
+    const localEuler = new THREE.Euler().setFromQuaternion(localQuaternion);
+    const nextPart = transformAuthoredComponentSelection(
+      baselinePart,
+      selection,
+      {
+        center: [localCenter.x, localCenter.y, localCenter.z],
+        rotation: [localEuler.x, localEuler.y, localEuler.z],
+        scale: [
+          Math.max(0.01, controlObject.scale.x),
+          Math.max(0.01, controlObject.scale.y),
+          Math.max(0.01, controlObject.scale.z),
+        ],
+      },
+    );
+    onChange(nextPart);
+  }, [controlObject, onChange, selection, target]);
+
+  if (!target || !part || !center) return null;
+
+  return (
+    <>
+      <primitive object={controlObject} visible={false} />
+      <TransformControls
+        object={controlObject}
+        mode={mode}
+        onMouseDown={() => {
+          baselinePartRef.current = structuredClone(part);
+          draggingRef.current = true;
+          onDragStateChange(true);
+          onGestureStart();
+        }}
+        onObjectChange={() => {
+          if (!draggingRef.current) return;
+          emitChange();
+        }}
+        onMouseUp={() => {
+          emitChange();
+          baselinePartRef.current = null;
+          draggingRef.current = false;
+          onDragStateChange(false);
+          onGestureEnd();
+        }}
+      />
+    </>
+  );
+}
 
 function ExtrudeFaceTool({
   target,
@@ -1037,10 +1776,7 @@ function ExtrudeFaceTool({
   onGestureEnd: () => void;
 }) {
   const groupRef = useRef<THREE.Group>(null);
-  const faceTargets = useMemo(
-    () => getAuthoredPartFaceTargets(part),
-    [part],
-  );
+  const faceTargets = useMemo(() => getAuthoredPartFaceTargets(part), [part]);
   const selectedFaceKey = getAuthoredFaceKey(selectedFace);
   const [hoveredFaceKey, setHoveredFaceKey] = useState<string | null>(null);
   const [activeFaceKey, setActiveFaceKey] = useState<string | null>(null);
@@ -1190,7 +1926,9 @@ function ExtrudeFaceOverlay({
       onPointerCancel={onPointerCancel}
     >
       <meshBasicMaterial
-        color={isActive || isSelected ? "#facc15" : isHovered ? "#fde68a" : color}
+        color={
+          isActive || isSelected ? "#facc15" : isHovered ? "#fde68a" : color
+        }
         depthTest={false}
         side={THREE.DoubleSide}
         transparent
@@ -1207,6 +1945,7 @@ function FaceTransformControls({
   mode,
   autoExtrude,
   constrainToNormal,
+  faceEditMode,
   onChange,
   onAutoExtrudeStart,
   onConnectedExtrudeChange,
@@ -1220,17 +1959,17 @@ function FaceTransformControls({
   mode: Exclude<ToyboxTransformMode, "extrude">;
   autoExtrude: boolean;
   constrainToNormal: boolean;
+  faceEditMode: AuthoredFaceEditMode;
   onChange: (
     face: AuthoredGeometryExtrudeFace,
     props: {
+      mode?: AuthoredFaceEditMode;
       position?: AuthoredVector3;
       rotation?: AuthoredVector3;
       scale?: [number, number];
     },
   ) => void;
-  onAutoExtrudeStart: (
-    face: AuthoredGeometryExtrudeFace,
-  ) => string | undefined;
+  onAutoExtrudeStart: (face: AuthoredGeometryExtrudeFace) => string | undefined;
   onConnectedExtrudeChange: (
     extrusionId: string,
     props: Partial<AuthoredPart["extrusions"][number]>,
@@ -1268,13 +2007,20 @@ function FaceTransformControls({
       );
       return;
     }
-    if (mode === "translate") onChange(face, { position: next.position });
-    if (mode === "rotate") onChange(face, { rotation: next.rotation });
-    if (mode === "scale") onChange(face, { scale: next.scale });
+    if (mode === "translate") {
+      onChange(face, { mode: faceEditMode, position: next.position });
+    }
+    if (mode === "rotate") {
+      onChange(face, { mode: faceEditMode, rotation: next.rotation });
+    }
+    if (mode === "scale") {
+      onChange(face, { mode: faceEditMode, scale: next.scale });
+    }
   }, [
     controlObject,
     constrainToNormal,
     face,
+    faceEditMode,
     mode,
     onChange,
     onConnectedExtrudeChange,
@@ -1353,10 +2099,10 @@ function readFaceControlObject(
       localPosition.z - face.center[2],
     ] as AuthoredVector3,
     rotation: [localEuler.x, localEuler.y, localEuler.z] as AuthoredVector3,
-    scale: [
-      Math.max(0.05, object.scale.x),
-      Math.max(0.05, object.scale.y),
-    ] as [number, number],
+    scale: [Math.max(0.05, object.scale.x), Math.max(0.05, object.scale.y)] as [
+      number,
+      number,
+    ],
   };
 }
 
@@ -1392,7 +2138,11 @@ function maybeConstrainFaceTransformToNormal(
   const normalOffset = normal.multiplyScalar(offset.dot(normal));
   return {
     ...next,
-    position: [normalOffset.x, normalOffset.y, normalOffset.z] as AuthoredVector3,
+    position: [
+      normalOffset.x,
+      normalOffset.y,
+      normalOffset.z,
+    ] as AuthoredVector3,
   };
 }
 
@@ -1423,6 +2173,41 @@ function isEditableKeyboardTarget(target: EventTarget | null) {
     tagName === "select" ||
     target.isContentEditable
   );
+}
+
+function getComponentSelectionCenter(
+  topology: AuthoredPartTopology,
+  selection: ToyboxComponentSelection,
+) {
+  const vertexKeys = new Set(selection.vertexKeys);
+  const edgeKeys = new Set(selection.edgeKeys);
+  const faceKeys = new Set(selection.faceKeys);
+
+  for (const edge of topology.edges) {
+    if (!edgeKeys.has(edge.key)) continue;
+    edge.vertexKeys.forEach((vertexKey) => vertexKeys.add(vertexKey));
+  }
+
+  for (const face of topology.faces) {
+    if (!faceKeys.has(face.key)) continue;
+    face.vertexKeys.forEach((vertexKey) => vertexKeys.add(vertexKey));
+  }
+
+  const vertices = topology.vertices.filter((vertex) =>
+    vertexKeys.has(vertex.key),
+  );
+  if (vertices.length === 0) return undefined;
+  const sum: AuthoredVector3 = [0, 0, 0];
+  for (const vertex of vertices) {
+    sum[0] += vertex.position[0];
+    sum[1] += vertex.position[1];
+    sum[2] += vertex.position[2];
+  }
+  return [
+    sum[0] / vertices.length,
+    sum[1] / vertices.length,
+    sum[2] / vertices.length,
+  ] as AuthoredVector3;
 }
 
 function PartInspector({
@@ -1551,7 +2336,9 @@ function PartInspector({
         <div className="grid grid-cols-[1fr_1fr] gap-2">
           <Select
             value={
-              geometryFace ? "geometry" : (extrudeFace as AuthoredAxisExtrudeFace)
+              geometryFace
+                ? "geometry"
+                : (extrudeFace as AuthoredAxisExtrudeFace)
             }
             onValueChange={(value) => {
               if (value === "geometry") return;
@@ -1563,9 +2350,7 @@ function PartInspector({
             </SelectTrigger>
             <SelectContent className="z-1000">
               {geometryFace ? (
-                <SelectItem value="geometry">
-                  {geometryFace.label}
-                </SelectItem>
+                <SelectItem value="geometry">{geometryFace.label}</SelectItem>
               ) : null}
               {EXTRUDE_FACES.map((face) => (
                 <SelectItem key={face.value} value={face.value}>
@@ -1604,8 +2389,8 @@ function PartInspector({
           <div className="min-w-0">
             <div className="text-xs font-medium">Auto extrude edits</div>
             <div className="text-[11px] text-muted-foreground">
-              Move, rotate, or scale as a connected extrusion. Hold Cmd for one
-              drag, Shift to move along normal.
+              Face edits keep vertices connected. Hold Cmd to extrude, Alt to
+              detach the face, Shift to move along normal.
             </div>
           </div>
           <Switch
@@ -1708,9 +2493,7 @@ function NumberInput({
   );
 }
 
-function createExtrudeFaceOverlayGeometry(
-  face: AuthoredGeometryExtrudeFace,
-) {
+function createExtrudeFaceOverlayGeometry(face: AuthoredGeometryExtrudeFace) {
   const positions: number[] = [];
   const normal = new THREE.Vector3(...face.normal).normalize();
   const offset = 0.006;
@@ -1762,7 +2545,7 @@ function PanelBlock({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-md border bg-background p-2">
       <div className="text-[11px] text-muted-foreground">{label}</div>
@@ -1783,6 +2566,13 @@ function boneDepth(recipe: AuthoredModelRecipe, bone: AuthoredBone) {
 
 function primitiveLabel(primitive: AuthoredPrimitiveKind) {
   return primitive[0].toUpperCase() + primitive.slice(1);
+}
+
+function selectionModeLabel(mode: ToyboxSelectionMode) {
+  if (mode === "object") return "Object";
+  if (mode === "face") return "Face";
+  if (mode === "edge") return "Edge";
+  return "Vertex";
 }
 
 function recipesEqualForHistory(

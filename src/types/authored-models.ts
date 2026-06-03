@@ -44,6 +44,8 @@ export type AuthoredExtrudeFace =
   | AuthoredAxisExtrudeFace
   | AuthoredGeometryExtrudeFace;
 
+export type AuthoredFaceEditMode = "connected" | "detached";
+
 export type AuthoredSelectionKind = "bone" | "part";
 
 export type AuthoredExtrudeStep = {
@@ -58,9 +60,21 @@ export type AuthoredExtrudeStep = {
 export type AuthoredFaceEdit = {
   uuid: string;
   faceKey: string;
+  mode?: AuthoredFaceEditMode;
   position: AuthoredVector3;
   rotation: AuthoredVector3;
   scale: [number, number];
+};
+
+export type AuthoredVertexEdit = {
+  vertexKey: string;
+  offset: AuthoredVector3;
+};
+
+export type AuthoredMergedFaceGroup = {
+  uuid: string;
+  faceKeys: string[];
+  label?: string;
 };
 
 export type AuthoredBone = {
@@ -85,7 +99,9 @@ export type AuthoredPart = {
   visible: boolean;
   extrusions: AuthoredExtrudeStep[];
   faceEdits?: AuthoredFaceEdit[];
+  vertexEdits?: AuthoredVertexEdit[];
   deletedFaceKeys?: string[];
+  mergedFaceGroups?: AuthoredMergedFaceGroup[];
 };
 
 export type AuthoredMaterialSwatch = {

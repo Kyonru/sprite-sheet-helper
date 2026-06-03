@@ -6,12 +6,14 @@ import type {
   AuthoredGeometryExtrudeFace,
   AuthoredExtrudeOptions,
   AuthoredMaterialSwatch,
+  AuthoredMergedFaceGroup,
   AuthoredMirrorSelection,
   AuthoredModelRecipe,
   AuthoredPart,
   AuthoredPose,
   AuthoredPrimitiveKind,
   AuthoredVector3,
+  AuthoredVertexEdit,
   BuildAuthoredModelOptions,
   BuiltAuthoredModel,
   CreateDefaultHumanoidOptions,
@@ -25,10 +27,60 @@ export const AUTHORED_WORLD_BONE_ID = "__world";
 
 export type AuthoredPrimitiveFaceTarget = {
   face: AuthoredGeometryExtrudeFace;
+  mergedGroupId?: string;
 };
 
 type AuthoredPartFaceTargetOptions = {
   applyEdits?: boolean;
+  applyMerges?: boolean;
+};
+
+type AuthoredTopologyTarget = {
+  base: AuthoredPrimitiveFaceTarget;
+  displayed: AuthoredPrimitiveFaceTarget;
+  mergedGroupId?: string;
+};
+
+export type AuthoredTopologyVertex = {
+  key: string;
+  position: AuthoredVector3;
+  faceKeys: string[];
+  edgeKeys: string[];
+};
+
+export type AuthoredTopologyEdge = {
+  key: string;
+  vertexKeys: [string, string];
+  start: AuthoredVector3;
+  end: AuthoredVector3;
+  center: AuthoredVector3;
+  faceKeys: string[];
+};
+
+export type AuthoredTopologyFace = {
+  key: string;
+  face: AuthoredGeometryExtrudeFace;
+  vertexKeys: string[];
+  edgeKeys: string[];
+  mergedGroupId?: string;
+};
+
+export type AuthoredPartTopology = {
+  vertices: AuthoredTopologyVertex[];
+  edges: AuthoredTopologyEdge[];
+  faces: AuthoredTopologyFace[];
+};
+
+export type AuthoredComponentSelection = {
+  vertexKeys?: string[];
+  edgeKeys?: string[];
+  faceKeys?: string[];
+};
+
+export type AuthoredComponentTransform = {
+  center: AuthoredVector3;
+  rotation: AuthoredVector3;
+  scale: AuthoredVector3;
 };
 
 const DEFAULT_SWATCHES: AuthoredMaterialSwatch[] = [
@@ -388,7 +440,9 @@ export function mirrorAuthoredSelection(
         face: mirrorFace(extrusion.face),
       })),
       faceEdits: (source.faceEdits ?? []).map(mirrorFaceEdit),
+      vertexEdits: (source.vertexEdits ?? []).map(mirrorVertexEdit),
       deletedFaceKeys: [...(source.deletedFaceKeys ?? [])],
+      mergedFaceGroups: structuredClone(source.mergedFaceGroups ?? []),
     };
   }
 
@@ -467,8 +521,18 @@ export function getAuthoredPartFaceTargets(
     (target) => !deletedFaceKeys.has(getAuthoredFaceKey(target.face)),
   );
 
-  if (options.applyEdits === false) return visibleTargets;
-  return visibleTargets.map((target) => applyFaceEditToTarget(target, part));
+  if (options.applyEdits === false) {
+    return options.applyMerges === false
+      ? visibleTargets
+      : applyMergedFaceGroupsToTargets(visibleTargets, part);
+  }
+  const editedTargets = applyVertexEditsToTargets(
+    applyFaceEditsToTargets(visibleTargets, part),
+    part,
+  );
+  return options.applyMerges === false
+    ? editedTargets
+    : applyMergedFaceGroupsToTargets(editedTargets, part);
 }
 
 export function getAuthoredFaceKey(face: AuthoredExtrudeFace) {
@@ -499,6 +563,7 @@ export function upsertAuthoredFaceEdit(
   const nextEdit: AuthoredFaceEdit = {
     uuid: existing?.uuid ?? generateUUID(),
     faceKey,
+    mode: props.mode ?? existing?.mode ?? "detached",
     position: props.position ?? existing?.position ?? [0, 0, 0],
     rotation: props.rotation ?? existing?.rotation ?? [0, 0, 0],
     scale: props.scale ?? existing?.scale ?? [1, 1],
@@ -522,6 +587,241 @@ export function deleteAuthoredFace(
     deletedFaceKeys: Array.from(deletedFaceKeys),
     faceEdits: (part.faceEdits ?? []).filter((edit) => edit.faceKey !== faceKey),
   };
+}
+
+export function updateAuthoredVertexEdits(
+  part: AuthoredPart,
+  edits: AuthoredVertexEdit[],
+): AuthoredPart {
+  return { ...part, vertexEdits: normalizeVertexEdits(edits) };
+}
+
+export function mergeAuthoredFaces(
+  part: AuthoredPart,
+  faceKeys: string[],
+): AuthoredPart {
+  const uniqueFaceKeys = uniqueStrings(faceKeys);
+  if (uniqueFaceKeys.length !== 2) return part;
+  const existingGroups = part.mergedFaceGroups ?? [];
+  if (
+    existingGroups.some((group) =>
+      group.faceKeys.some((faceKey) => uniqueFaceKeys.includes(faceKey)),
+    )
+  ) {
+    return part;
+  }
+  const topology = getAuthoredPartTopology(part, {
+    applyEdits: true,
+    applyMerges: false,
+  });
+  const adjacent = getAdjacentFacePairs(topology).some(
+    ([first, second]) =>
+      uniqueFaceKeys.includes(first) && uniqueFaceKeys.includes(second),
+  );
+  if (!adjacent) return part;
+  const group: AuthoredMergedFaceGroup = {
+    uuid: generateUUID(),
+    faceKeys: uniqueFaceKeys,
+    label: "Merged face",
+  };
+  return {
+    ...part,
+    mergedFaceGroups: [...existingGroups, group],
+  };
+}
+
+export function unmergeAuthoredFaceGroup(
+  part: AuthoredPart,
+  groupId: string,
+): AuthoredPart {
+  return {
+    ...part,
+    mergedFaceGroups: (part.mergedFaceGroups ?? []).filter(
+      (group) => group.uuid !== groupId,
+    ),
+  };
+}
+
+export function getAuthoredPartTopology(
+  part: AuthoredPart,
+  options: AuthoredPartFaceTargetOptions = {},
+): AuthoredPartTopology {
+  const baseTargets = getAuthoredPartFaceTargets(part, {
+    applyEdits: false,
+    applyMerges: false,
+  });
+  const displayedTargets =
+    options.applyEdits === false
+      ? baseTargets
+      : applyVertexEditsToTargets(
+          applyFaceEditsToTargets(baseTargets, part),
+          part,
+        );
+  const displayedByFaceKey = new Map(
+    displayedTargets.map((target) => [getAuthoredFaceKey(target.face), target]),
+  );
+  const pairs: AuthoredTopologyTarget[] = baseTargets.map((base) => ({
+    base,
+    displayed: displayedByFaceKey.get(getAuthoredFaceKey(base.face)) ?? base,
+  }));
+  const topologyTargets =
+    options.applyMerges === false
+      ? pairs
+      : applyMergedFaceGroupsToTopologyTargets(pairs, part);
+  const vertices = new Map<string, AuthoredTopologyVertex>();
+  const edges = new Map<string, AuthoredTopologyEdge>();
+  const faces: AuthoredTopologyFace[] = [];
+
+  for (const target of topologyTargets) {
+    const faceKey = getAuthoredFaceKey(target.base.face);
+    const vertexKeys = uniqueStrings(
+      target.base.face.triangles
+        .flat()
+        .map((vertex) => getTopologyVertexKey(part, target.base.face, vertex)),
+    );
+    const edgeKeys: string[] = [];
+    const baseVertices = target.base.face.triangles.flat();
+    const displayedVertices = target.displayed.face.triangles.flat();
+
+    for (let index = 0; index < baseVertices.length; index += 1) {
+      const baseVertex = baseVertices[index];
+      const displayedVertex = displayedVertices[index] ?? baseVertex;
+      const vertexKey = getTopologyVertexKey(part, target.base.face, baseVertex);
+      const existing = vertices.get(vertexKey);
+      if (existing) {
+        if (!existing.faceKeys.includes(faceKey)) existing.faceKeys.push(faceKey);
+      } else {
+        vertices.set(vertexKey, {
+          key: vertexKey,
+          position: displayedVertex,
+          faceKeys: [faceKey],
+          edgeKeys: [],
+        });
+      }
+    }
+
+    for (const edge of getTopologyFaceBoundaryEdges(part, target)) {
+      edgeKeys.push(edge.key);
+      const existing = edges.get(edge.key);
+      if (existing) {
+        if (!existing.faceKeys.includes(faceKey)) existing.faceKeys.push(faceKey);
+      } else {
+        edges.set(edge.key, {
+          key: edge.key,
+          vertexKeys: edge.vertexKeys,
+          start: edge.start,
+          end: edge.end,
+          center: [
+            (edge.start[0] + edge.end[0]) / 2,
+            (edge.start[1] + edge.end[1]) / 2,
+            (edge.start[2] + edge.end[2]) / 2,
+          ],
+          faceKeys: [faceKey],
+        });
+      }
+    }
+
+    faces.push({
+      key: faceKey,
+      face: target.displayed.face,
+      vertexKeys,
+      edgeKeys: uniqueStrings(edgeKeys),
+      mergedGroupId: target.mergedGroupId,
+    });
+  }
+
+  for (const edge of edges.values()) {
+    for (const vertexKey of edge.vertexKeys) {
+      const vertex = vertices.get(vertexKey);
+      if (vertex && !vertex.edgeKeys.includes(edge.key)) {
+        vertex.edgeKeys.push(edge.key);
+      }
+    }
+  }
+
+  return {
+    vertices: Array.from(vertices.values()).sort((a, b) =>
+      a.key.localeCompare(b.key),
+    ),
+    edges: Array.from(edges.values()).sort((a, b) =>
+      a.key.localeCompare(b.key),
+    ),
+    faces,
+  };
+}
+
+export function getAdjacentFacePairs(topology: AuthoredPartTopology) {
+  const pairs: [string, string][] = [];
+  for (const edge of topology.edges) {
+    const faceKeys = uniqueStrings(edge.faceKeys);
+    if (faceKeys.length < 2) continue;
+    for (let i = 0; i < faceKeys.length; i += 1) {
+      for (let j = i + 1; j < faceKeys.length; j += 1) {
+        pairs.push([faceKeys[i], faceKeys[j]]);
+      }
+    }
+  }
+  return pairs;
+}
+
+export function transformAuthoredComponentSelection(
+  part: AuthoredPart,
+  selection: AuthoredComponentSelection,
+  transform: AuthoredComponentTransform,
+): AuthoredPart {
+  const topology = getAuthoredPartTopology(part);
+  const vertexKeys = getSelectedTopologyVertexKeys(topology, selection);
+  if (vertexKeys.length === 0) return part;
+
+  const selectedVertices = vertexKeys
+    .map((vertexKey) =>
+      topology.vertices.find((vertex) => vertex.key === vertexKey),
+    )
+    .filter(Boolean) as AuthoredTopologyVertex[];
+  if (selectedVertices.length === 0) return part;
+
+  const sourceCenter = getAuthoredVectorCenter(
+    selectedVertices.map((vertex) => vertex.position),
+  );
+  const targetCenter = vectorFromArray(transform.center);
+  const rotation = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(...transform.rotation),
+  );
+  const scale = new THREE.Vector3(...transform.scale);
+  const existingEdits = new Map(
+    (part.vertexEdits ?? []).map((edit) => [edit.vertexKey, edit.offset]),
+  );
+  const selectedSet = new Set(vertexKeys);
+  const nextEdits = (part.vertexEdits ?? []).filter(
+    (edit) => !selectedSet.has(edit.vertexKey),
+  );
+
+  for (const vertex of selectedVertices) {
+    const currentPosition = vectorFromArray(vertex.position);
+    const transformedPosition = targetCenter
+      .clone()
+      .add(
+        currentPosition
+          .clone()
+          .sub(vectorFromArray(sourceCenter))
+          .multiply(scale)
+          .applyQuaternion(rotation),
+      );
+    const existingOffset = vectorFromArray(
+      existingEdits.get(vertex.key) ?? [0, 0, 0],
+    );
+    const nextOffset = existingOffset.add(
+      transformedPosition.clone().sub(currentPosition),
+    );
+    if (nextOffset.lengthSq() > 1e-12) {
+      nextEdits.push({
+        vertexKey: vertex.key,
+        offset: vectorToArray(nextOffset),
+      });
+    }
+  }
+
+  return updateAuthoredVertexEdits(part, nextEdits);
 }
 
 function extractGeometryFaceTargets(
@@ -637,7 +937,9 @@ export function createAuthoredPart(
     visible: true,
     extrusions: [],
     faceEdits: [],
+    vertexEdits: [],
     deletedFaceKeys: [],
+    mergedFaceGroups: [],
   };
 }
 
@@ -970,28 +1272,202 @@ function createGeometryFaceExtrusionGeometry(
   return geometry;
 }
 
-function applyFaceEditToTarget(
-  target: AuthoredPrimitiveFaceTarget,
+function applyFaceEditsToTargets(
+  targets: AuthoredPrimitiveFaceTarget[],
   part: AuthoredPart,
-): AuthoredPrimitiveFaceTarget {
-  const edit = getAuthoredFaceEdit(part, target.face);
-  if (!edit) return target;
+): AuthoredPrimitiveFaceTarget[] {
+  const editsByFaceKey = new Map(
+    (part.faceEdits ?? []).map((edit) => [edit.faceKey, edit]),
+  );
+  if (editsByFaceKey.size === 0) return targets;
 
-  const triangles = target.face.triangles.map((triangle) =>
-    transformFaceTriangle(triangle, target.face, edit),
+  const connectedVertices = new Map<string, AuthoredVector3>();
+
+  for (const target of targets) {
+    const edit = editsByFaceKey.get(getAuthoredFaceKey(target.face));
+    if (edit?.mode !== "connected") continue;
+    for (const sourceTriangle of target.face.triangles) {
+      const transformedTriangle = transformFaceTriangle(
+        sourceTriangle,
+        target.face,
+        edit,
+      );
+      sourceTriangle.forEach((vertex, index) => {
+        connectedVertices.set(
+          getAuthoredVertexKey(vertex),
+          transformedTriangle[index],
+        );
+      });
+    }
+  }
+
+  return targets.map((target) => {
+    const edit = editsByFaceKey.get(getAuthoredFaceKey(target.face));
+    if (edit && edit.mode !== "connected") {
+      return createEditedFaceTarget(
+        target,
+        target.face.triangles.map((triangle) =>
+          transformFaceTriangle(triangle, target.face, edit),
+        ),
+      );
+    }
+
+    if (connectedVertices.size === 0) return target;
+    let changed = false;
+    const triangles = target.face.triangles.map((triangle) =>
+      triangle.map((vertex) => {
+        const connectedVertex = connectedVertices.get(getAuthoredVertexKey(vertex));
+        if (!connectedVertex) return vertex;
+        changed = true;
+        return connectedVertex;
+      }) as [AuthoredVector3, AuthoredVector3, AuthoredVector3],
+    );
+    return changed ? createEditedFaceTarget(target, triangles) : target;
+  });
+}
+
+export function applyVertexEditsToTargets(
+  targets: AuthoredPrimitiveFaceTarget[],
+  part: AuthoredPart,
+): AuthoredPrimitiveFaceTarget[] {
+  const edits = new Map(
+    (part.vertexEdits ?? []).map((edit) => [edit.vertexKey, edit.offset]),
   );
-  const center = getTriangleCenter(
-    triangles.map((triangle) =>
-      triangle.map(vectorFromArray),
-    ) as [THREE.Vector3, THREE.Vector3, THREE.Vector3][],
+  if (edits.size === 0) return targets;
+  return targets.map((target) => {
+    let changed = false;
+    const triangles = target.face.triangles.map((triangle) =>
+      triangle.map((vertex) => {
+        const offset = edits.get(getAuthoredVertexKey(vertex));
+        if (!offset) return vertex;
+        changed = true;
+        return [
+          vertex[0] + offset[0],
+          vertex[1] + offset[1],
+          vertex[2] + offset[2],
+        ] as AuthoredVector3;
+      }) as [AuthoredVector3, AuthoredVector3, AuthoredVector3],
+    );
+    return changed ? createEditedFaceTarget(target, triangles) : target;
+  });
+}
+
+function applyMergedFaceGroupsToTargets(
+  targets: AuthoredPrimitiveFaceTarget[],
+  part: AuthoredPart,
+): AuthoredPrimitiveFaceTarget[] {
+  const groups = part.mergedFaceGroups ?? [];
+  if (groups.length === 0) return targets;
+
+  const targetByFaceKey = new Map(
+    targets.map((target) => [getAuthoredFaceKey(target.face), target]),
   );
-  const normal = new THREE.Vector3(...target.face.normal)
-    .applyQuaternion(
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(...edit.rotation)),
-    )
-    .normalize();
+  const deletedFaceKeys = new Set(part.deletedFaceKeys ?? []);
+  const hiddenFaceKeys = new Set<string>();
+  const mergedTargets: AuthoredPrimitiveFaceTarget[] = [];
+
+  for (const group of groups) {
+    const groupTargets = group.faceKeys
+      .map((faceKey) => targetByFaceKey.get(faceKey))
+      .filter(Boolean) as AuthoredPrimitiveFaceTarget[];
+    if (groupTargets.length < 2) continue;
+    const face = createMergedGeometryFace(group, groupTargets);
+    if (deletedFaceKeys.has(getAuthoredFaceKey(face))) continue;
+    group.faceKeys.forEach((faceKey) => hiddenFaceKeys.add(faceKey));
+    mergedTargets.push({
+      mergedGroupId: group.uuid,
+      face,
+    });
+  }
+
+  return [
+    ...targets.filter(
+      (target) => !hiddenFaceKeys.has(getAuthoredFaceKey(target.face)),
+    ),
+    ...mergedTargets,
+  ];
+}
+
+function applyMergedFaceGroupsToTopologyTargets(
+  targets: AuthoredTopologyTarget[],
+  part: AuthoredPart,
+): AuthoredTopologyTarget[] {
+  const groups = part.mergedFaceGroups ?? [];
+  if (groups.length === 0) return targets;
+
+  const targetByFaceKey = new Map(
+    targets.map((target) => [getAuthoredFaceKey(target.base.face), target]),
+  );
+  const deletedFaceKeys = new Set(part.deletedFaceKeys ?? []);
+  const hiddenFaceKeys = new Set<string>();
+  const mergedTargets: AuthoredTopologyTarget[] = [];
+
+  for (const group of groups) {
+    const groupTargets = group.faceKeys
+      .map((faceKey) => targetByFaceKey.get(faceKey))
+      .filter(Boolean) as AuthoredTopologyTarget[];
+    if (groupTargets.length < 2) continue;
+    const baseFace = createMergedGeometryFace(
+      group,
+      groupTargets.map((target) => target.base),
+    );
+    const displayedFace = createMergedGeometryFace(
+      group,
+      groupTargets.map((target) => target.displayed),
+    );
+    if (deletedFaceKeys.has(getAuthoredFaceKey(baseFace))) continue;
+    group.faceKeys.forEach((faceKey) => hiddenFaceKeys.add(faceKey));
+    mergedTargets.push({
+      mergedGroupId: group.uuid,
+      base: { face: baseFace, mergedGroupId: group.uuid },
+      displayed: { face: displayedFace, mergedGroupId: group.uuid },
+    });
+  }
+
+  return [
+    ...targets.filter(
+      (target) => !hiddenFaceKeys.has(getAuthoredFaceKey(target.base.face)),
+    ),
+    ...mergedTargets,
+  ];
+}
+
+function createMergedGeometryFace(
+  group: AuthoredMergedFaceGroup,
+  targets: AuthoredPrimitiveFaceTarget[],
+): AuthoredGeometryExtrudeFace {
+  const triangles = targets.flatMap((target) => target.face.triangles);
+  const vectorTriangles = triangles.map((triangle) =>
+    triangle.map(vectorFromArray),
+  ) as [THREE.Vector3, THREE.Vector3, THREE.Vector3][];
+  const center = getTriangleCenter(vectorTriangles);
+  const normal = getScaledFaceNormal(vectorTriangles, targets[0].face.normal);
 
   return {
+    kind: "geometry",
+    primitive: targets[0].face.primitive,
+    sourceId: `merged:${group.uuid}`,
+    space: "part",
+    index: 0,
+    label: group.label ?? "Merged face",
+    center: vectorToArray(center),
+    normal: vectorToArray(normal),
+    triangles,
+  };
+}
+
+function createEditedFaceTarget(
+  target: AuthoredPrimitiveFaceTarget,
+  triangles: [AuthoredVector3, AuthoredVector3, AuthoredVector3][],
+): AuthoredPrimitiveFaceTarget {
+  const vectorTriangles = triangles.map((triangle) =>
+    triangle.map(vectorFromArray),
+  ) as [THREE.Vector3, THREE.Vector3, THREE.Vector3][];
+  const center = getTriangleCenter(vectorTriangles);
+  const normal = getScaledFaceNormal(vectorTriangles, target.face.normal);
+
+  return {
+    ...target,
     face: {
       ...target.face,
       center: vectorToArray(center),
@@ -1041,6 +1517,133 @@ function getFaceAxes(face: AuthoredAxisExtrudeFace) {
   return { normal: 2, a: 0, b: 1 } as const;
 }
 
+function getSelectedTopologyVertexKeys(
+  topology: AuthoredPartTopology,
+  selection: AuthoredComponentSelection,
+) {
+  const vertexKeys = new Set(selection.vertexKeys ?? []);
+  const selectedEdgeKeys = new Set(selection.edgeKeys ?? []);
+  const selectedFaceKeys = new Set(selection.faceKeys ?? []);
+
+  for (const edge of topology.edges) {
+    if (!selectedEdgeKeys.has(edge.key)) continue;
+    edge.vertexKeys.forEach((vertexKey) => vertexKeys.add(vertexKey));
+  }
+
+  for (const face of topology.faces) {
+    if (!selectedFaceKeys.has(face.key)) continue;
+    face.vertexKeys.forEach((vertexKey) => vertexKeys.add(vertexKey));
+  }
+
+  return Array.from(vertexKeys).sort();
+}
+
+function normalizeVertexEdits(edits: AuthoredVertexEdit[]) {
+  const normalized = new Map<string, AuthoredVertexEdit>();
+  for (const edit of edits) {
+    const offset = edit.offset.map((value) =>
+      Math.abs(value) < 1e-10 ? 0 : value,
+    ) as AuthoredVector3;
+    if (offset.every((value) => value === 0)) {
+      normalized.delete(edit.vertexKey);
+      continue;
+    }
+    normalized.set(edit.vertexKey, { vertexKey: edit.vertexKey, offset });
+  }
+  return Array.from(normalized.values()).sort((a, b) =>
+    a.vertexKey.localeCompare(b.vertexKey),
+  );
+}
+
+function getAuthoredVectorCenter(vectors: AuthoredVector3[]) {
+  if (vectors.length === 0) return [0, 0, 0] as AuthoredVector3;
+  const sum: AuthoredVector3 = [0, 0, 0];
+  for (const vector of vectors) {
+    sum[0] += vector[0];
+    sum[1] += vector[1];
+    sum[2] += vector[2];
+  }
+  return [
+    sum[0] / vectors.length,
+    sum[1] / vectors.length,
+    sum[2] / vectors.length,
+  ] as AuthoredVector3;
+}
+
+function getTopologyFaceBoundaryEdges(
+  part: AuthoredPart,
+  target: AuthoredTopologyTarget,
+) {
+  const edges = new Map<
+    string,
+    {
+      key: string;
+      vertexKeys: [string, string];
+      start: AuthoredVector3;
+      end: AuthoredVector3;
+      count: number;
+    }
+  >();
+  for (let triangleIndex = 0; triangleIndex < target.base.face.triangles.length; triangleIndex += 1) {
+    const baseTriangle = target.base.face.triangles[triangleIndex];
+    const displayedTriangle =
+      target.displayed.face.triangles[triangleIndex] ?? baseTriangle;
+    for (const [startIndex, endIndex] of [
+      [0, 1],
+      [1, 2],
+      [2, 0],
+    ] as [number, number][]) {
+      const startKey = getTopologyVertexKey(
+        part,
+        target.base.face,
+        baseTriangle[startIndex],
+      );
+      const endKey = getTopologyVertexKey(
+        part,
+        target.base.face,
+        baseTriangle[endIndex],
+      );
+      const key = getAuthoredEdgeKey(startKey, endKey);
+      const existing = edges.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        const start = displayedTriangle[startIndex] ?? baseTriangle[startIndex];
+        const end = displayedTriangle[endIndex] ?? baseTriangle[endIndex];
+        edges.set(key, {
+          key,
+          vertexKeys:
+            startKey < endKey ? [startKey, endKey] : [endKey, startKey],
+          start,
+          end,
+          count: 1,
+        });
+      }
+    }
+  }
+  return Array.from(edges.values()).filter((edge) => edge.count === 1);
+}
+
+function getTopologyVertexKey(
+  part: AuthoredPart,
+  face: AuthoredGeometryExtrudeFace,
+  vertex: AuthoredVector3,
+) {
+  const key = getAuthoredVertexKey(vertex);
+  const edit = getAuthoredFaceEdit(part, face);
+  return edit?.mode === "detached" ? `${key}@${getAuthoredFaceKey(face)}` : key;
+}
+
+function getAuthoredEdgeKey(firstVertexKey: string, secondVertexKey: string) {
+  return firstVertexKey < secondVertexKey
+    ? `${firstVertexKey}|${secondVertexKey}`
+    : `${secondVertexKey}|${firstVertexKey}`;
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values)).sort();
+}
+
 function mirrorFace(face: AuthoredExtrudeFace): AuthoredExtrudeFace {
   if (face === "px") return "nx";
   if (face === "nx") return "px";
@@ -1066,6 +1669,14 @@ function mirrorFaceEdit(edit: AuthoredFaceEdit): AuthoredFaceEdit {
     faceKey: `${edit.faceKey}:mirrored`,
     position: mirrorPosition(edit.position),
     rotation: mirrorRotation(edit.rotation),
+  };
+}
+
+function mirrorVertexEdit(edit: AuthoredVertexEdit): AuthoredVertexEdit {
+  return {
+    ...edit,
+    vertexKey: getAuthoredVertexKey(mirrorPosition(keyToVector(edit.vertexKey))),
+    offset: mirrorPosition(edit.offset),
   };
 }
 
@@ -1206,6 +1817,15 @@ function getEdgeKey(a: THREE.Vector3, b: THREE.Vector3) {
 
 function getVertexKey(vertex: THREE.Vector3) {
   return `${quantize(vertex.x)},${quantize(vertex.y)},${quantize(vertex.z)}`;
+}
+
+function getAuthoredVertexKey(vertex: AuthoredVector3) {
+  return `${quantize(vertex[0])},${quantize(vertex[1])},${quantize(vertex[2])}`;
+}
+
+function keyToVector(key: string): AuthoredVector3 {
+  const [x = 0, y = 0, z = 0] = key.split(",").map(Number);
+  return [x, y, z];
 }
 
 function pushTriangle(

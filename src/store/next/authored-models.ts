@@ -9,6 +9,7 @@ import type {
   AuthoredPart,
   AuthoredPrimitiveKind,
   AuthoredVector3,
+  AuthoredVertexEdit,
 } from "@/types/authored-models";
 import type { SnapshotEnabledStore } from "@/types/ecs";
 import {
@@ -18,8 +19,11 @@ import {
   createPrimitiveAssetRecipe,
   deleteAuthoredFace,
   extrudeAuthoredPrimitive,
+  mergeAuthoredFaces,
   mirrorAuthoredSelection,
+  unmergeAuthoredFaceGroup,
   upsertAuthoredFaceEdit,
+  updateAuthoredVertexEdits,
 } from "@/utils/authored-models";
 
 interface AuthoredModelsActions
@@ -80,6 +84,17 @@ interface AuthoredModelsActions
     partId: string,
     face: AuthoredExtrudeFace,
     props: Partial<Omit<AuthoredFaceEdit, "uuid" | "faceKey">>,
+  ) => void;
+  updateVertexEdits: (
+    recipeId: string,
+    partId: string,
+    edits: AuthoredVertexEdit[],
+  ) => void;
+  mergeFaces: (recipeId: string, partId: string, faceKeys: string[]) => void;
+  unmergeFaceGroup: (
+    recipeId: string,
+    partId: string,
+    groupId: string,
   ) => void;
   deleteFace: (
     recipeId: string,
@@ -381,6 +396,66 @@ export const useAuthoredModelsStore = create<AuthoredModelsStore>()(
                 parts: {
                   ...recipe.parts,
                   [partId]: upsertAuthoredFaceEdit(part, face, props),
+                },
+                selectedPartId: partId,
+              }),
+            },
+          };
+        }),
+
+      updateVertexEdits: (recipeId, partId, edits) =>
+        set((state) => {
+          const recipe = state.recipes[recipeId];
+          const part = recipe?.parts[partId];
+          if (!recipe || !part) return state;
+          return {
+            recipes: {
+              ...state.recipes,
+              [recipeId]: touch({
+                ...recipe,
+                parts: {
+                  ...recipe.parts,
+                  [partId]: updateAuthoredVertexEdits(part, edits),
+                },
+                selectedPartId: partId,
+              }),
+            },
+          };
+        }),
+
+      mergeFaces: (recipeId, partId, faceKeys) =>
+        set((state) => {
+          const recipe = state.recipes[recipeId];
+          const part = recipe?.parts[partId];
+          if (!recipe || !part) return state;
+          return {
+            recipes: {
+              ...state.recipes,
+              [recipeId]: touch({
+                ...recipe,
+                parts: {
+                  ...recipe.parts,
+                  [partId]: mergeAuthoredFaces(part, faceKeys),
+                },
+                selectedPartId: partId,
+              }),
+            },
+          };
+        }),
+
+      unmergeFaceGroup: (recipeId, partId, groupId) =>
+        set((state) => {
+          const recipe = state.recipes[recipeId];
+          const part = recipe?.parts[partId];
+          if (!recipe || !part) return state;
+          return {
+            recipes: {
+              ...state.recipes,
+              [recipeId]: touch({
+                ...recipe,
+                parts: {
+                  ...recipe.parts,
+                  [partId]: unmergeAuthoredFaceGroup(part, groupId),
                 },
                 selectedPartId: partId,
               }),
