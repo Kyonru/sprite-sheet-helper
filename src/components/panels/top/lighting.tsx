@@ -33,13 +33,14 @@ export const LightMenu = () => {
   const selectTab = useMainPanelStore((state) => state.setTab);
   return (
     <MenubarMenu>
-      <MenubarTrigger>
+      <MenubarTrigger aria-label="Lighting" data-testid="lighting-menu-trigger">
         <SunIcon className="w-4 h-4" />
       </MenubarTrigger>
       <MenubarContent className="z-999">
         <MenubarGroup className="overflow-y-scroll">
           {LIGHTS.map((light) => (
             <MenubarItem
+              data-testid={`lighting-menu-item-${light.key}`}
               onClick={() => {
                 addLight(light.key, light.name);
                 selectTab("explorer");

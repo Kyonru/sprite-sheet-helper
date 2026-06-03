@@ -186,17 +186,61 @@ async function waitForPreviewServer(
 
 export async function createWorkflowE2EContext(port: number) {
   const server = await startPreviewServer(port);
-  const browser = await launchBrowser();
+  const headful = parseEnvBoolean("E2E_HEADFUL");
+  const requestedSlowMo = parseEnvNumber("E2E_SLOW_MO");
+  const slowMo = parseEnvBoolean("E2E_PUPPETEER_SLOW_MO")
+    ? requestedSlowMo
+    : undefined;
+  const devtools = parseEnvBoolean("E2E_DEVTOOLS");
+  const browser = await launchBrowser({
+    headful,
+    slowMo,
+    devtools,
+    protocolTimeout:
+      parseEnvNumber("E2E_PROTOCOL_TIMEOUT") ??
+      (headful || requestedSlowMo || devtools ? 900000 : undefined),
+  });
 
   return {
     browser,
     server,
     async close() {
       try {
+        const pauseMs = parseEnvNumber("E2E_PAUSE_MS");
+        if (pauseMs && pauseMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, pauseMs));
+        }
         await browser.close();
       } finally {
         server.kill("SIGTERM");
       }
     },
   };
+}
+
+export async function pauseForVisibleE2EStep(label: string): Promise<void> {
+  if (parseEnvBoolean("E2E_DEBUG") || parseEnvBoolean("E2E_DEBUG_STEPS")) {
+    console.log(`[e2e] ${label}`);
+  }
+
+  const pauseMs =
+    parseEnvNumber("E2E_STEP_PAUSE_MS") ??
+    (parseEnvBoolean("E2E_PUPPETEER_SLOW_MO")
+      ? undefined
+      : parseEnvNumber("E2E_SLOW_MO"));
+  if (pauseMs && pauseMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, pauseMs));
+  }
+}
+
+export function parseEnvBoolean(name: string): boolean {
+  const value = process.env[name]?.toLowerCase();
+  return value === "true" || value === "1" || value === "yes";
+}
+
+export function parseEnvNumber(name: string): number | undefined {
+  const value = process.env[name];
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }

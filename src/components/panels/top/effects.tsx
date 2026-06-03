@@ -23,7 +23,7 @@ export const EffectsMenu = () => {
   const selectTab = useMainPanelStore((state) => state.setTab);
   return (
     <MenubarMenu>
-      <MenubarTrigger>
+      <MenubarTrigger aria-label="Effects" data-testid="effects-menu-trigger">
         <SparklesIcon className="w-4 h-4" />
       </MenubarTrigger>
       <MenubarContent className="z-999">
@@ -34,7 +34,7 @@ export const EffectsMenu = () => {
         <MenubarGroup>
           {EFFECT_CATEGORY_ORDER.map((category) => (
             <MenubarSub key={category}>
-              <MenubarSubTrigger>
+              <MenubarSubTrigger data-testid={`effects-category-${category}`}>
                 {EFFECT_CATEGORY_LABELS[category]}
               </MenubarSubTrigger>
               <MenubarSubContent className="z-999">
@@ -42,6 +42,7 @@ export const EffectsMenu = () => {
                   (effect) => effect.category === category,
                 ).map((effect) => (
                   <MenubarItem
+                    data-testid={`effects-menu-item-${effect.key}`}
                     onSelect={() => {
                       initEffect(effect.key);
                       selectTab("effects");

@@ -361,7 +361,7 @@ export const WorkflowsMenu = () => {
   return (
     <>
       <MenubarMenu>
-        <MenubarTrigger>
+        <MenubarTrigger aria-label="Workflows" data-testid="workflow-menu-trigger">
           <WorkflowIcon className="w-4 h-4" />
         </MenubarTrigger>
         <MenubarContent className="z-999">
@@ -375,6 +375,7 @@ export const WorkflowsMenu = () => {
             {presets.map((workflow) => (
               <MenubarItem
                 key={workflow.id}
+                data-testid={`workflow-preset-${workflow.id}`}
                 onSelect={() => onSelectWorkflow(workflow)}
                 disabled={isRunning}
               >
@@ -434,6 +435,7 @@ export const WorkflowsMenu = () => {
                     <Button
                       key={dir.label}
                       type="button"
+                      data-testid={`workflow-direction-${dir.label}`}
                       variant={isSelected ? "default" : "outline"}
                       size="xs"
                       disabled={isRunning}
@@ -600,6 +602,7 @@ export const WorkflowsMenu = () => {
                         <Button
                           type="button"
                           size="xs"
+                          data-testid="workflow-camera-apply-all-mode"
                           variant={
                             cameraDraft.previewAppliesTo === "all"
                               ? "default"
@@ -617,6 +620,7 @@ export const WorkflowsMenu = () => {
                         <Button
                           type="button"
                           size="xs"
+                          data-testid="workflow-camera-apply-selected-mode"
                           variant={
                             cameraDraft.previewAppliesTo === "selected"
                               ? "default"
@@ -644,6 +648,7 @@ export const WorkflowsMenu = () => {
                           </Label>
                           <Input
                             id="workflow-camera-distance"
+                            data-testid="workflow-camera-distance-input"
                             type="number"
                             min={0.1}
                             step={0.1}
@@ -659,6 +664,7 @@ export const WorkflowsMenu = () => {
                           />
                         </div>
                         <Slider
+                          data-testid="workflow-camera-distance-slider"
                           value={[selectedPreviewCamera.distance]}
                           min={0.5}
                           max={20}
@@ -677,6 +683,7 @@ export const WorkflowsMenu = () => {
                           </Label>
                           <Input
                             id="workflow-camera-elevation"
+                            data-testid="workflow-camera-elevation-input"
                             type="number"
                             min={1}
                             max={179}
@@ -695,6 +702,7 @@ export const WorkflowsMenu = () => {
                           />
                         </div>
                         <Slider
+                          data-testid="workflow-camera-elevation-slider"
                           value={[selectedPreviewCamera.phi]}
                           min={1}
                           max={179}
@@ -713,6 +721,7 @@ export const WorkflowsMenu = () => {
                           </Label>
                           <Input
                             id="workflow-camera-theta"
+                            data-testid="workflow-camera-theta-input"
                             type="number"
                             min={0}
                             max={359}
@@ -729,6 +738,7 @@ export const WorkflowsMenu = () => {
                           />
                         </div>
                         <Slider
+                          data-testid="workflow-camera-theta-slider"
                           value={[selectedPreviewCamera.theta]}
                           min={0}
                           max={359}
@@ -767,6 +777,7 @@ export const WorkflowsMenu = () => {
                         type="button"
                         variant="outline"
                         size="sm"
+                        data-testid="workflow-camera-reset-button"
                         disabled={isRunning}
                         onClick={resetDraft}
                       >
@@ -777,6 +788,7 @@ export const WorkflowsMenu = () => {
                         type="button"
                         variant="outline"
                         size="sm"
+                        data-testid="workflow-camera-main-defaults-button"
                         disabled={isRunning}
                         onClick={applyToMainCameraDefaults}
                       >
@@ -787,6 +799,7 @@ export const WorkflowsMenu = () => {
                         type="button"
                         variant="outline"
                         size="sm"
+                        data-testid="workflow-camera-save-selected-button"
                         disabled={isRunning}
                         onClick={saveSelectedOverride}
                       >
@@ -797,6 +810,7 @@ export const WorkflowsMenu = () => {
                         type="button"
                         variant="outline"
                         size="sm"
+                        data-testid="workflow-camera-apply-selected-to-all-button"
                         disabled={isRunning}
                         onClick={applySelectedToAll}
                       >

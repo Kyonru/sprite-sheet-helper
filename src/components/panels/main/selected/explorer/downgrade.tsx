@@ -176,6 +176,7 @@ export function ModelDowngradePanel({
               value={recipe.triangleBudget}
               min={1}
               step={50}
+              inputTestId="downgrade-triangle-budget-input"
               onChange={(triangleBudget) => updateRecipe({ triangleBudget })}
             />
             <NumberField
@@ -183,6 +184,7 @@ export function ModelDowngradePanel({
               value={recipe.textureSize}
               min={16}
               step={16}
+              inputTestId="downgrade-texture-size-input"
               onChange={(textureSize) => updateRecipe({ textureSize })}
             />
             <NumberField
@@ -190,6 +192,7 @@ export function ModelDowngradePanel({
               value={recipe.paletteColors}
               min={2}
               step={1}
+              inputTestId="downgrade-palette-colors-input"
               onChange={(paletteColors) => updateRecipe({ paletteColors })}
             />
             <NumberField
@@ -197,6 +200,7 @@ export function ModelDowngradePanel({
               value={recipe.snapVertices}
               min={0}
               step={0.0025}
+              inputTestId="downgrade-snap-vertices-input"
               onChange={(snapVertices) => updateRecipe({ snapVertices })}
             />
             <NumberField
@@ -204,6 +208,7 @@ export function ModelDowngradePanel({
               value={recipe.animationFps}
               min={1}
               step={1}
+              inputTestId="downgrade-animation-fps-input"
               onChange={(animationFps) => updateRecipe({ animationFps })}
             />
           </div>
@@ -303,15 +308,32 @@ export function ModelDowngradePanel({
       </section>
 
       <section className="grid grid-cols-2 gap-2">
-        <Button size="sm" variant="outline" disabled={busy} onClick={runAnalyze}>
+        <Button
+          size="sm"
+          variant="outline"
+          data-testid="downgrade-analyze-button"
+          disabled={busy}
+          onClick={runAnalyze}
+        >
           <BarChart3Icon className="size-3.5" />
           Analyze
         </Button>
-        <Button size="sm" variant="outline" disabled={busy} onClick={runPreview}>
+        <Button
+          size="sm"
+          variant="outline"
+          data-testid="downgrade-preview-button"
+          disabled={busy}
+          onClick={runPreview}
+        >
           <EyeIcon className="size-3.5" />
           Preview Clone
         </Button>
-        <Button size="sm" disabled={busy} onClick={runApply}>
+        <Button
+          size="sm"
+          data-testid="downgrade-apply-button"
+          disabled={busy}
+          onClick={runApply}
+        >
           <WandSparklesIcon className="size-3.5" />
           Apply
         </Button>
@@ -363,12 +385,14 @@ function NumberField({
   value,
   min,
   step,
+  inputTestId,
   onChange,
 }: {
   label: string;
   value: number;
   min: number;
   step: number;
+  inputTestId?: string;
   onChange: (value: number) => void;
 }) {
   return (
@@ -376,6 +400,7 @@ function NumberField({
       <span className="truncate">{label}</span>
       <Input
         type="number"
+        data-testid={inputTestId}
         min={min}
         step={step}
         value={value}

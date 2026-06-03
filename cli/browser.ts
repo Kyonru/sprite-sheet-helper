@@ -3,6 +3,9 @@ import type { Browser, Page } from "puppeteer";
 
 export type BrowserOptions = {
   headful?: boolean;
+  slowMo?: number;
+  devtools?: boolean;
+  protocolTimeout?: number;
 };
 
 export type PageOptions = {
@@ -15,6 +18,9 @@ export type PageOptions = {
 export async function launchBrowser(options: BrowserOptions = {}): Promise<Browser> {
   const browser = await puppeteer.launch({
     headless: options.headful ? false : true,
+    slowMo: options.slowMo,
+    devtools: options.devtools,
+    protocolTimeout: options.protocolTimeout,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -30,6 +36,9 @@ export async function openPage(
   options: PageOptions = {},
 ): Promise<Page> {
   const page = await browser.newPage();
+  const timeoutMs = options.timeoutMs ?? 30000;
+  page.setDefaultTimeout(timeoutMs);
+  page.setDefaultNavigationTimeout(timeoutMs);
   await page.setViewport({ width: 1280, height: 800 });
 
   if (options.debug) {
@@ -49,11 +58,11 @@ export async function openPage(
 
   await page.goto(`http://localhost:${port}`, {
     waitUntil: "networkidle0",
-    timeout: options.timeoutMs ?? 30000,
+    timeout: timeoutMs,
   });
 
   await page.waitForFunction(() => "__SSH_BRIDGE__" in window, {
-    timeout: options.timeoutMs ?? 15000,
+    timeout: Math.max(timeoutMs, 15000),
   });
 
   return page;

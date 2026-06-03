@@ -264,7 +264,10 @@ export function WorkflowCameraPreview({
   onTargetChange,
 }: WorkflowCameraPreviewProps) {
   return (
-    <div className="relative h-[360px] overflow-hidden rounded-md border bg-muted/20">
+    <div
+      className="relative h-[360px] overflow-hidden rounded-md border bg-muted/20"
+      data-testid="workflow-camera-preview"
+    >
       <Canvas
         camera={{
           position: camera.position,

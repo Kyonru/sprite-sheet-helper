@@ -334,12 +334,14 @@ function NumberField({
   value,
   min = 0,
   step = 1,
+  inputTestId,
   onChange,
 }: {
   label: string;
   value: number;
   min?: number;
   step?: number;
+  inputTestId?: string;
   onChange: (value: number) => void;
 }) {
   return (
@@ -347,6 +349,7 @@ function NumberField({
       <span className="text-muted-foreground">{label}</span>
       <Input
         type="number"
+        data-testid={inputTestId}
         min={min}
         step={step}
         value={value}
@@ -762,6 +765,7 @@ export function ExportWorkbench() {
       <footer className="shrink-0 border-t p-3">
         <Button
           className="w-full gap-2"
+          data-testid="prepare-export-button"
           onClick={() => setPreflightOpen(true)}
           disabled={exporting}
         >
@@ -875,6 +879,7 @@ export function ExportWorkbench() {
                         <button
                           key={exporter.id}
                           type="button"
+                          data-testid={`export-format-${exporter.id}`}
                           onClick={() => setMode(exporter.id)}
                           className={cn(
                             "min-h-20 rounded-md border px-3 py-2.5 text-left transition-colors",
@@ -919,6 +924,7 @@ export function ExportWorkbench() {
                     <div className="grid gap-2 md:grid-cols-2">
                       <Button
                         type="button"
+                        data-testid="atlas-layout-rows-button"
                         variant={
                           atlasLayout === "rows" ? "secondary" : "outline"
                         }
@@ -937,6 +943,7 @@ export function ExportWorkbench() {
                       </Button>
                       <Button
                         type="button"
+                        data-testid="atlas-layout-packed-button"
                         variant={
                           atlasLayout === "packed" ? "secondary" : "outline"
                         }
@@ -958,6 +965,7 @@ export function ExportWorkbench() {
                       <NumberField
                         label="Padding"
                         value={atlasPadding}
+                        inputTestId="atlas-padding-input"
                         onChange={(value) =>
                           setAtlasOptions({ padding: value })
                         }
@@ -965,6 +973,7 @@ export function ExportWorkbench() {
                       <NumberField
                         label="Extrude"
                         value={atlasBleed}
+                        inputTestId="atlas-extrude-input"
                         onChange={(value) =>
                           setAtlasOptions({ extrude: value })
                         }
@@ -973,6 +982,7 @@ export function ExportWorkbench() {
                         label="Max atlas"
                         value={maxAtlasSize}
                         min={1}
+                        inputTestId="atlas-max-size-input"
                         onChange={(value) =>
                           setAtlasOptions({ maxAtlasSize: value })
                         }
@@ -998,6 +1008,7 @@ export function ExportWorkbench() {
                           <Button
                             key={scale}
                             type="button"
+                            data-testid={`atlas-scale-${scale}x-button`}
                             variant={
                               atlasScale === scale ? "secondary" : "outline"
                             }
@@ -1137,6 +1148,7 @@ export function ExportWorkbench() {
                 Cancel
               </Button>
               <Button
+                data-testid="preflight-export-button"
                 onClick={startExport}
                 disabled={validation.blocking || exporting}
               >
