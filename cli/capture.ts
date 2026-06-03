@@ -5,7 +5,7 @@ const TWO_PI = Math.PI * 2;
 
 export async function captureFrames(
   page: Page,
-  { modelUuid, frames, fps, width, height, normalMap }: CaptureOptions,
+  { modelUuid, frames, fps, width, height, normalMap, silent }: CaptureOptions,
 ): Promise<void> {
   await page.evaluate(
     (w: number, h: number, f: number, n?: boolean) => {
@@ -36,7 +36,7 @@ export async function captureFrames(
     () => window.__SSH_BRIDGE__.stores.images.getState().selectedRow as string,
   );
 
-  process.stdout.write(`Capturing ${frames} frames`);
+  if (!silent) process.stdout.write(`Capturing ${frames} frames`);
 
   for (let i = 0; i < frames; i++) {
     const angle = (TWO_PI / frames) * i;
@@ -71,8 +71,8 @@ export async function captureFrames(
       i + 1,
     );
 
-    process.stdout.write(".");
+    if (!silent) process.stdout.write(".");
   }
 
-  process.stdout.write(" done\n");
+  if (!silent) process.stdout.write(" done\n");
 }

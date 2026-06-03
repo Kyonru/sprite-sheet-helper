@@ -60,6 +60,11 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 | --port           | number | 4174        | Local preview server port                 |
 | --workflow       | string | —           | Workflow preset ID (see workflows below)  |
 | --cameraDistance | number | 5           | Camera distance from model origin         |
+| --cameraAngle    | number | —           | Camera elevation override in degrees      |
+| --phi            | number | —           | Compatibility alias for `--cameraAngle`   |
+| --directionRotationOffset | number | — | Rotate all workflow directions in degrees |
+| --target         | string | —           | Camera target as `x,y,z`                  |
+| --directionOverride | string | —       | Per-direction override, e.g. `N:phi=45,theta=0,distance=3,target=0,0.8,0` |
 | --normalMap      | string | false       | Capture and export a matching normal atlas |
 | --atlasLayout    | string | rows        | `rows` or deterministic `packed` layout   |
 | --atlasPadding   | number | 0           | Empty pixels around each frame slot       |
@@ -67,7 +72,25 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 | --atlasScale     | number | 1           | Scale atlas frame dimensions (`1`, `2`, `4`, or custom) |
 | --maxAtlasSize   | number | 2048        | Maximum atlas page width and height       |
 | --multiPage      | string | false       | Allow generic spritesheet page splitting  |
-| --phi            | number | —           | Camera elevation angle in degrees         |
+| --config         | string | —           | Run jobs from a JSON config file          |
+| --job            | string | —           | Run a single job from a config file       |
+| --dryRun         | flag   | false       | Print resolved jobs without running       |
+| --json           | flag   | false       | Emit a machine-readable summary           |
+| --quiet          | flag   | false       | Suppress progress logs                    |
+| --debug          | flag   | false       | Show browser console output               |
+| --headful        | flag   | false       | Launch Chromium with a visible window     |
+| --timeout        | number | —           | Per-job timeout in milliseconds           |
+| --exportTimeout  | number | 60000       | Export download timeout                   |
+| --workflowTimeout | number | —          | Workflow completion timeout               |
+
+Discovery commands:
+
+```bash
+sprite-sheet-helper --help
+sprite-sheet-helper --list-formats
+sprite-sheet-helper --list-workflows
+sprite-sheet-helper --version
+```
 
 ## Export Formats
 
@@ -116,6 +139,54 @@ sprite-sheet-helper character.glb \
 
 Multi-page generic output writes `spritesheet.png`, `spritesheet_2.png`, and matching `spritesheet_normal.png`, `spritesheet_normal_2.png` files when normal maps are enabled. The JSON includes `meta.pages` and `quad.page` for page-aware loading. Engine exporters block multi-page plans until their generated code supports multiple texture pages.
 
+## JSON Output And Dry Runs
+
+Use `--json` when the CLI is part of a build pipeline:
+
+```bash
+sprite-sheet-helper character.glb --workflow topdown-4dir --json
+```
+
+The command prints one JSON summary containing status, jobs, written files, warnings, and elapsed time. Browser console logs are hidden unless `--debug` is enabled.
+
+Use `--dryRun` to inspect normalized settings without launching the preview server:
+
+```bash
+sprite-sheet-helper character.glb --workflow isometric --cameraAngle 40 --dryRun
+```
+
+## Batch Configs
+
+JSON configs let you store repeatable jobs without adding a new dependency or file format.
+
+```json
+{
+  "defaults": {
+    "format": "spritesheet",
+    "frames": 4,
+    "width": 64,
+    "height": 64
+  },
+  "jobs": [
+    {
+      "id": "hero-topdown",
+      "input": "assets/hero.glb",
+      "output": "dist/hero",
+      "workflow": "topdown-4dir"
+    }
+  ]
+}
+```
+
+Run every job, or filter to one:
+
+```bash
+sprite-sheet-helper --config sprites.json
+sprite-sheet-helper --config sprites.json --job hero-topdown
+```
+
+Config paths are resolved relative to the config file. Command-line flags override job values, job values override config defaults, and config defaults override built-in defaults.
+
 ## Workflows
 
 Passing `--workflow` switches the CLI into multi-angle mode. It automatically iterates over every animation embedded in the model and every camera direction in the preset, producing a fully labeled sprite atlas in a single command — no manual camera rotation required.
@@ -125,6 +196,27 @@ sprite-sheet-helper character.glb --workflow topdown-8dir
 ```
 
 The CLI waits for the workflow completion event before exporting. If the workflow reports an error, is cancelled, or times out, the command exits with an error instead of exporting a partial atlas.
+
+### Workflow Camera Controls
+
+The CLI can use the same camera options as the workflow preview dialog:
+
+```bash
+sprite-sheet-helper character.glb \
+  --workflow isometric \
+  --cameraDistance 3 \
+  --cameraAngle 40 \
+  --directionRotationOffset 15 \
+  --target 0,0.8,0
+```
+
+Use `--directionOverride` for a single direction:
+
+```bash
+sprite-sheet-helper character.glb \
+  --workflow topdown-4dir \
+  --directionOverride "N:phi=45,theta=0,distance=3,target=0,0.8,0"
+```
 
 ### Available Workflow Presets
 

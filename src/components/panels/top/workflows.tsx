@@ -59,6 +59,13 @@ type WorkflowCameraDraft = {
   directionOverrides: NonNullable<WorkflowRunOptions["directionOverrides"]>;
 };
 
+type StartWorkflowPayload =
+  | WorkflowId
+  | {
+      workflowId?: WorkflowId;
+      options?: WorkflowRunOptions;
+    };
+
 function cloneTarget(target: WorkflowCameraTarget): WorkflowCameraTarget {
   return [target[0], target[1], target[2]];
 }
@@ -335,12 +342,13 @@ export const WorkflowsMenu = () => {
   }, [onSelectWorkflow]);
 
   useEffect(() => {
-    const onStartWorkflow = (workflowId?: WorkflowId) => {
+    const onStartWorkflow = (payload?: StartWorkflowPayload) => {
+      const workflowId = typeof payload === "string" ? payload : payload?.workflowId;
       const workflow = workflowId
         ? WORKFLOW_PRESETS.find((w) => w.id === workflowId)
         : selectedWorkflow;
       if (!workflow) return;
-      runWorkflow(workflow);
+      runWorkflow(workflow, typeof payload === "object" ? payload.options : undefined);
     };
 
     PubSub.on(EventType.START_WORKFLOW, onStartWorkflow);

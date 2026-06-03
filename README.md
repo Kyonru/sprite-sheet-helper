@@ -115,6 +115,10 @@ sprite-sheet-helper <input> [options]
 | `--port` | `4174` | Port for the local preview server |
 | `--workflow` | — | Workflow preset ID (see table below) |
 | `--cameraDistance` | `5` | Camera distance from the model (used with `--workflow`) |
+| `--cameraAngle` / `--phi` | — | Workflow camera elevation override in degrees |
+| `--directionRotationOffset` | — | Rotate every workflow direction by this many degrees |
+| `--target` | — | Camera target as `x,y,z` |
+| `--directionOverride` | — | Per-direction camera override, e.g. `N:phi=45,theta=0,distance=3` |
 | `--normalMap` | `false` | Capture and export a matching normal atlas |
 | `--atlasLayout` | `rows` | Atlas layout: `rows` or `packed` |
 | `--atlasPadding` | `0` | Empty pixels around each frame slot |
@@ -122,8 +126,26 @@ sprite-sheet-helper <input> [options]
 | `--atlasScale` | `1` | Scale atlas frame dimensions |
 | `--maxAtlasSize` | `2048` | Maximum atlas page width and height |
 | `--multiPage` | `false` | Allow generic spritesheet page splitting |
+| `--config` | — | Run one or more JSON-configured jobs |
+| `--job` | — | Run a single job from a config file |
+| `--dryRun` | `false` | Print resolved jobs without launching the browser |
+| `--json` | `false` | Emit a machine-readable summary |
+| `--quiet` | `false` | Suppress progress logs |
+| `--debug` | `false` | Show browser console output |
+| `--headful` | `false` | Launch Chromium with a visible window |
+| `--timeout` | — | Per-job timeout in milliseconds |
+| `--exportTimeout` | `60000` | Export download timeout in milliseconds |
+| `--workflowTimeout` | — | Workflow completion timeout in milliseconds |
 
 Format aliases: `bevy-rust` → `bevy`, `love2d` → `love2d-lua`
+
+Quick discovery commands:
+
+```bash
+sprite-sheet-helper --help
+sprite-sheet-helper --list-formats
+sprite-sheet-helper --list-workflows
+```
 
 ### Examples
 
@@ -139,6 +161,33 @@ sprite-sheet-helper character.fbx --format gif --frames 12 --fps 12 --output ./e
 
 # Packed generic atlas with page splitting
 sprite-sheet-helper character.glb --format spritesheet --atlasLayout packed --multiPage true --maxAtlasSize 1024
+
+# Workflow camera override with JSON output
+sprite-sheet-helper character.glb --workflow topdown-4dir --cameraAngle 45 --target 0,0.8,0 --json
+```
+
+### Batch config
+
+```json
+{
+  "defaults": { "format": "spritesheet", "frames": 4 },
+  "jobs": [
+    {
+      "id": "hero-topdown",
+      "input": "assets/hero.glb",
+      "output": "dist/hero",
+      "workflow": "topdown-4dir"
+    }
+  ]
+}
+```
+
+Run all jobs, one job, or inspect the resolved settings:
+
+```bash
+sprite-sheet-helper --config sprites.json
+sprite-sheet-helper --config sprites.json --job hero-topdown
+sprite-sheet-helper --config sprites.json --dryRun
 ```
 
 ### Example output — `--format love2d`
@@ -184,6 +233,9 @@ sprite-sheet-helper character.glb --workflow <id> [options]
 | `--width` | `64` | Frame width in pixels |
 | `--height` | `64` | Frame height in pixels |
 | `--cameraDistance` | `5` | Distance of the camera from the model origin |
+| `--cameraAngle` / `--phi` | preset | Camera elevation override in degrees |
+| `--directionRotationOffset` | `0` | Rotate preset directions |
+| `--target` | `0,0,0` | Camera target as `x,y,z` |
 | `--format` | `spritesheet` | Export format applied to the full multi-sequence output |
 | `--output` | `./out` | Output directory |
 
@@ -201,6 +253,9 @@ sprite-sheet-helper character.glb --workflow platformer --cameraDistance 3 --fra
 
 # Top-down 4-dir, exported as a Bevy plugin
 sprite-sheet-helper character.glb --workflow topdown-4dir --format bevy --output ./bevy-assets
+
+# Reframe and rotate a workflow before capture
+sprite-sheet-helper character.glb --workflow isometric --cameraAngle 40 --directionRotationOffset 15 --target 0,0.8,0
 ```
 
 ### Example output — `topdown-4dir` with a model that has `idle` and `walk` clips

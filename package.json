@@ -14,9 +14,9 @@
   "scripts": {
     "dev": "npm run build:packages && vite",
     "dev:tauri": "npm run tauri build -- --debug",
-    "build": "npm run build:packages && tsc -b && tsc -p tsconfig.cli.json && vite build",
+    "build": "npm run build:packages && tsc -b && vite build && tsc -p tsconfig.cli.json",
     "build:packages": "npm run build --workspace @kyonru/zustand-inspector",
-    "build:cli": "npm run build:packages && tsc -b && tsc -p tsconfig.cli.json && cross-env CLI_BUILD=true vite build",
+    "build:cli": "npm run build:packages && tsc -b && cross-env CLI_BUILD=true vite build && tsc -p tsconfig.cli.json",
     "build:tauri": "npm run build:packages && cross-env TAURI_BUILD=true tsc -b && cross-env TAURI_BUILD=true vite build",
     "cli:local": "npm run build:cli && node ./dist/cli/index.js",
     "cli": "node ./dist/cli/index.js",

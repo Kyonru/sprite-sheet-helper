@@ -3,6 +3,7 @@ import type { CaptureOptions } from "./types.js";
 
 interface WorkflowOptions extends CaptureOptions {
   workflow: string;
+  workflowTimeout?: number;
 }
 
 type WorkflowResult = {
@@ -19,7 +20,13 @@ export async function captureWorkflow(
     height,
     workflow: workflowId,
     cameraDistance,
+    cameraAngle,
+    directionRotationOffset,
+    target,
+    directionOverrides,
     normalMap,
+    workflowTimeout,
+    silent,
   }: WorkflowOptions,
 ): Promise<void> {
   await page.evaluate(
@@ -30,6 +37,7 @@ export async function captureWorkflow(
       frameCount: number,
       cam?: number,
       n?: boolean,
+      cameraAngle?: number,
     ) => {
       const { settings, images } = window.__SSH_BRIDGE__.stores;
       settings.getState().setExportWidth(w);
@@ -38,6 +46,9 @@ export async function captureWorkflow(
 
       if (cam !== undefined) {
         settings.getState().setCameraDistance(cam);
+      }
+      if (cameraAngle !== undefined) {
+        settings.getState().setCameraAngle(cameraAngle);
       }
       images.getState().setIntervals(Math.round(1000 / f));
       images.getState().setIterations(frameCount);
@@ -48,6 +59,7 @@ export async function captureWorkflow(
     frames,
     cameraDistance,
     normalMap,
+    cameraAngle,
   );
 
   await page.evaluate(
@@ -81,16 +93,29 @@ export async function captureWorkflow(
     );
   });
 
+  const workflowRunOptions = {
+    ...(cameraDistance === undefined ? {} : { cameraDistance }),
+    ...(cameraAngle === undefined ? {} : { cameraAngle }),
+    ...(directionRotationOffset === undefined ? {} : { directionRotationOffset }),
+    ...(target === undefined ? {} : { target }),
+    ...(directionOverrides === undefined ? {} : { directionOverrides }),
+  };
+
   await page.evaluate(
-    (workflow: string) =>
+    (workflow: string, options: Record<string, unknown>) =>
       window.__SSH_BRIDGE__.PubSub.emit(
         window.__SSH_BRIDGE__.PubSub.EVENT_TYPE.START_WORKFLOW,
-        workflow,
+        {
+          workflowId: workflow,
+          options,
+        },
       ),
     workflowId,
+    workflowRunOptions,
   );
 
-  const timeoutMs = Math.max(60000, Math.round((frames * 1000) / fps) + 900000);
+  const timeoutMs =
+    workflowTimeout ?? Math.max(60000, Math.round((frames * 1000) / fps) + 900000);
   let timeout: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeout = setTimeout(
@@ -111,5 +136,5 @@ export async function captureWorkflow(
     );
   }
 
-  process.stdout.write(" done\n");
+  if (!silent) process.stdout.write(" done\n");
 }

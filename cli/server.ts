@@ -6,7 +6,10 @@ import { dirname, resolve as pathResolve } from "path";
 // dist/cli/ is two levels below the project root
 const ROOT = pathResolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
-export async function startServer(port: number): Promise<ChildProcess> {
+export async function startServer(
+  port: number,
+  timeoutMs?: number,
+): Promise<ChildProcess> {
   const proc = spawn(
     "npx",
     ["vite", "preview", "--port", String(port), "--host", "127.0.0.1"],
@@ -16,7 +19,7 @@ export async function startServer(port: number): Promise<ChildProcess> {
     },
   );
 
-  await waitForReady(port, proc);
+  await waitForReady(port, proc, timeoutMs);
   return proc;
 }
 

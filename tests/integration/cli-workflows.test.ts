@@ -17,6 +17,7 @@ type FakeBridge = {
         setExportHeight: (value: number) => void;
         setExportNormalMap: (value: boolean) => void;
         setCameraDistance: (value: number) => void;
+        setCameraAngle: (value: number) => void;
       };
     };
     images: {
@@ -42,6 +43,7 @@ class FakeWorkflowPage {
   private listeners = new Map<string, (payload: WorkflowResult) => void>();
   private bridge: FakeBridge;
   public iterations = 0;
+  public startWorkflowPayload?: unknown;
 
   constructor(private result?: WorkflowResult) {
     this.bridge = {
@@ -52,6 +54,7 @@ class FakeWorkflowPage {
             setExportHeight: () => undefined,
             setExportNormalMap: () => undefined,
             setCameraDistance: () => undefined,
+            setCameraAngle: () => undefined,
           }),
         },
         images: {
@@ -72,7 +75,10 @@ class FakeWorkflowPage {
         once: (event, listener) => {
           this.listeners.set(event, listener);
         },
-        emit: (event) => {
+        emit: (event, payload) => {
+          if (event === "start_workflow") {
+            this.startWorkflowPayload = payload;
+          }
           if (event !== "start_workflow" || !this.result) return;
           this.listeners.get("stop_workflow")?.(this.result);
         },
@@ -122,6 +128,35 @@ describe("captureWorkflow CLI wait", () => {
       captureWorkflow(page as unknown as Page, options),
     ).resolves.toBeUndefined();
     expect(page.iterations).toBe(options.frames);
+  });
+
+  it("passes workflow camera options through the start event", async () => {
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const page = new FakeWorkflowPage({ status: "done" });
+
+    await captureWorkflow(page as unknown as Page, {
+      ...options,
+      cameraAngle: 0,
+      directionRotationOffset: 45,
+      target: [0, 0.8, 0],
+      directionOverrides: {
+        Forward: { phi: 30, theta: 10, distance: 3, target: [1, 2, 3] },
+      },
+      workflowTimeout: 12345,
+    });
+
+    expect(page.startWorkflowPayload).toEqual({
+      workflowId: "topdown-1dir",
+      options: {
+        cameraDistance: 2,
+        cameraAngle: 0,
+        directionRotationOffset: 45,
+        target: [0, 0.8, 0],
+        directionOverrides: {
+          Forward: { phi: 30, theta: 10, distance: 3, target: [1, 2, 3] },
+        },
+      },
+    });
   });
 
   it("rejects when the browser workflow is cancelled", async () => {

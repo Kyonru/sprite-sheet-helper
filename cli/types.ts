@@ -5,7 +5,12 @@ export interface CaptureOptions {
   width: number;
   height: number;
   cameraDistance?: number;
+  cameraAngle?: number;
+  directionRotationOffset?: number;
+  target?: CliWorkflowCameraTarget;
+  directionOverrides?: CliWorkflowDirectionOverrides;
   normalMap?: boolean;
+  silent?: boolean;
 }
 
 export interface CliAtlasOptions {
@@ -16,3 +21,17 @@ export interface CliAtlasOptions {
   maxAtlasSize?: number;
   allowMultiPage?: boolean;
 }
+
+export type CliWorkflowCameraTarget = [number, number, number];
+
+export type CliWorkflowDirectionOverride = {
+  phi?: number;
+  theta?: number;
+  distance?: number;
+  target?: CliWorkflowCameraTarget;
+};
+
+export type CliWorkflowDirectionOverrides = Record<
+  string,
+  CliWorkflowDirectionOverride
+>;

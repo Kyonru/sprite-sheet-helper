@@ -8,6 +8,7 @@ import type { Page } from "puppeteer";
 export async function injectModel(
   page: Page,
   modelPath: string,
+  options: { silent?: boolean } = {},
 ): Promise<string> {
   const bytes = await readFile(modelPath);
   const base64 = bytes.toString("base64");
@@ -78,7 +79,9 @@ export async function injectModel(
     });
   }, uuid);
 
-  console.log(`[sprite-sheet-helper] Model injected`);
+  if (!options.silent) {
+    console.log("[sprite-sheet-helper] Model injected");
+  }
 
   // Extra frame to let the scene render with the model visible
   await page.evaluate(
