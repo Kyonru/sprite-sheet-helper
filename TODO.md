@@ -73,19 +73,6 @@
 - Performance optimizations
 - Sprite pixel editing (out of scope for now)
 
-3. Atlas Quality Pipeline
-   Roadmap already points here, and it directly affects production usefulness.
-
-Big improvements:
-
-Bin-packing instead of fixed grid.
-Padding / extrude / bleed controls.
-Max atlas size.
-Multi-atlas pages.
-1x/2x/4x scale export.
-Standardized metadata across exporters.
-This would make the tool feel much more “ship a game with this” instead of “generate a quick sheet”.
-
 4. Import / Round-Trip Workflow
    The roadmap’s “Import anything -> Transform -> Export everywhere” is the strongest product direction.
 
@@ -97,18 +84,6 @@ Import TexturePacker/Aseprite/Libresprite JSON.
 Re-export to every existing engine format.
 Show an import mapping/review step before committing frames.
 This could become a killer feature.
-
-5. Effects Panel
-   Effects are documented heavily, but the UI could become more visual and guided.
-
-Possible redesign:
-
-Stack-based effect list with drag reorder.
-Presets like “Pixel Art”, “Toon”, “Depth Debug”, “Game Boy”.
-Before/after preview.
-Warnings when effects may hurt normal-map capture or reproducibility.
-Better grouping: color, stylization, lighting, debug, post-process. 6. Documentation
-Docs exist and have search, which is great, but they could become more task-oriented.
 
 I’d improve:
 
@@ -140,3 +115,129 @@ export manifest with hashes
 CI artifact summary
 better error categories and exit codes.
 My strongest pick for next major polish: Export Workbench + Sequence Manager. Those are the surfaces users hit after every capture, and improving them would make the whole app feel calmer, clearer, and more production-ready.
+
+1. Style Presets
+Add presets that apply a full asset recipe:
+
+PS1 Character
+Low triangle budget, vertex snapping, affine-style texture shader, nearest texture filtering, low-res palette texture, harsh vertex lighting.
+
+Low Poly Clean
+Decimated geometry, flat normals, simplified materials, clean colors, optional baked AO.
+
+Pixel Art 3D
+Low-res texture atlas, hard edges, stepped animation FPS, orthographic render defaults.
+
+Retro Horror
+PS1 preset plus dark vertex lighting, fog, dither/post-process, low draw distance.
+
+Each preset should expose targets like:
+
+triangleBudget: 800
+textureSize: 128
+paletteColors: 32
+flatShading: true
+snapVertices: 0.025
+animationFps: 10
+2. Downgrade Existing Models
+This is probably the highest-value first feature.
+
+Pipeline:
+
+Import FBX/GLB.
+Analyze:
+triangle count
+material count
+texture sizes
+bones
+animation count
+User picks a preset.
+Non-destructive preview generates a downgraded clone.
+User can apply/export.
+Operations:
+
+mesh decimation
+merge duplicate vertices
+remove tiny mesh islands
+triangulate faces
+flat-shade normals
+vertex position quantization
+texture resize
+palette quantization
+nearest filtering
+material simplification
+animation keyframe reduction
+stepped animation playback
+3. Create Low Poly Assets In-App
+Add a simple procedural/modeling layer, not Blender-level, but useful:
+
+primitive builder: cube, plane, cylinder, cone, sphere, capsule
+kitbash parts: head, torso, limbs, weapon, shield, crate, tree, rock
+mirror editing for characters
+color/material swatches
+simple extrude/scale/move tools
+auto-rig for basic humanoid proportions later
+Think “toybox modeler,” not full DCC app.
+
+4. Generate Assets
+I’d keep generation deterministic first:
+
+seeded random character generator
+seeded prop generator
+seeded environment object generator
+template-based creatures, weapons, trees, crates, rocks
+sliders for silhouette, chunkiness, asymmetry, height, armor, weapon type
+AI/text-to-3D could be an optional later path, but the reliable local version should come first.
+
+Example prompt-like UI without AI:
+
+Low poly knight, short, wide shoulders, bronze armor, axe, PS1 texture
+
+Internally that maps to templates, proportions, mesh parts, colors, and texture generation.
+
+5. Texture Pipeline
+For PS1/low-poly, texture handling matters as much as geometry:
+
+bake material colors into one atlas
+downscale to 32/64/128/256
+palette limit: 8/16/32/64 colors
+ordered dithering
+nearest filtering
+optional UV jitter/affine shader preview
+generate simple pixel textures from masks/noise
+bake vertex colors from texture for ultra-low-poly mode
+6. Preview Modes
+The viewport should have a style comparison mode:
+
+Original
+Downgraded
+PS1 Shader
+Sprite Render Preview
+And metrics:
+
+Triangles: 18,240 -> 786
+Materials: 12 -> 2
+Textures: 2048px -> 128px
+Animations: 60fps -> 10fps stepped
+7. Export Integration
+After a model is created/downgraded/generated:
+
+send to scene
+send to Pose Studio
+send to workflow capture
+export spritesheet/normal map
+export model as GLB/FBX later
+This makes it part of the whole pipeline instead of a separate gimmick.
+
+Recommended Implementation Order
+
+Add Model Style Presets and a readonly analysis panel.
+Add downgrade preview for imported models.
+Add texture resize/palette/dither pipeline.
+Add PS1 viewport shader/material preview.
+Add procedural low-poly asset generator.
+Add editable kitbash/model creation tools.
+Add AI/text generation only after the deterministic pipeline feels good.
+The killer feature would be: import any modern FBX/GLB, choose PS1 Character, drag a triangle/texture quality slider, then immediately capture it into sprite workflows. That fits this app beautifully.
+
+

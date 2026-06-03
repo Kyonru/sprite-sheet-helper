@@ -29,7 +29,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MATERIAL_PRESETS } from "@/constants/materials";
 import { cn } from "@/lib/utils";
 import { useEntitiesStore } from "@/store/next/entities";
 import {
@@ -40,7 +39,6 @@ import type {
   MaterialAsset,
   MaterialInventoryItem,
   MaterialMapKind,
-  MaterialPresetId,
 } from "@/types/materials";
 
 type MaterialsWorkbenchState = {
@@ -235,10 +233,6 @@ export function MaterialsPanel({
     );
   };
 
-  const createFromPreset = (presetId: MaterialPresetId) => {
-    createMaterial({ presetId, name: MATERIAL_PRESETS[presetId].name });
-  };
-
   if (modelOptions.length === 0) {
     return (
       <div className="grid h-full place-items-center rounded-md border bg-muted/20 px-6 text-center text-sm text-muted-foreground">
@@ -369,25 +363,11 @@ export function MaterialsPanel({
             <PlusIcon className="size-3.5" />
             New Material
           </Button>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(128px,1fr))] gap-2">
-            {Object.values(MATERIAL_PRESETS).map((preset) => (
-              <Button
-                key={preset.id}
-                size="sm"
-                variant="outline"
-                className="min-w-0 justify-start overflow-hidden py-2 text-left"
-                onClick={() => createFromPreset(preset.id)}
-              >
-                <SparklesIcon className="size-3.5 shrink-0" />
-                <span className="truncate">{preset.name}</span>
-              </Button>
-            ))}
-          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {Object.values(materials).length === 0 ? (
             <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-              Create a material or apply a preset to start editing.
+              Create a material to start editing.
             </div>
           ) : (
             <div className="grid gap-1.5">
