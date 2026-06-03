@@ -177,13 +177,13 @@ mirror editing for characters
 color/material swatches
 simple extrude/scale/move tools
 auto-rig for basic humanoid proportions later
-Think “toybox modeler,” not full DCC app.
+Think “toybox modeler,”
 
 Different way of building character
 
 You start with a visible bone structure and then you can create figures on top of that, allowing creating insteresting humanoid figures using basic figures strudes and stuff, then later being able to add material and textures
 
-4. Generate Assets
+1. Generate Assets
 I’d keep generation deterministic first:
 
 seeded random character generator

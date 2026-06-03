@@ -13,6 +13,7 @@ import { HelpMenu } from "./help";
 import { WorkflowsMenu } from "./workflows";
 import { PoseMenu } from "./pose";
 import { MaterialsMenu } from "./materials";
+import { CreateMenu } from "./create";
 
 const TransformOptions = [
   {
@@ -68,6 +69,7 @@ const TopPanel = () => {
     <Menubar className="w-full rounded-none justify-between">
       <div className="flex items-center flex-row">
         <FileMenu />
+        <CreateMenu />
         <CameraMenu />
         <LightMenu />
         <MaterialsMenu />

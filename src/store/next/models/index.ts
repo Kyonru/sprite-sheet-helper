@@ -52,6 +52,11 @@ export interface ModelsState {
 
 interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
   loadFromFile: (uuid: string, file: File) => Promise<void>;
+  createAuthoredModel: (
+    uuid: string,
+    authoredModelId: string,
+    name: string,
+  ) => void;
   reloadModel: (uuid: string) => Promise<void>;
   removeModel: (uuid: string) => void;
   setClips: (
@@ -130,6 +135,7 @@ export const useModelsStore = create<ModelsStore>()(
                 type: file.type,
                 fileSize: file.size,
                 format,
+                source: "file",
                 loadState: "loading",
                 errorMessage: null,
               },
@@ -143,6 +149,24 @@ export const useModelsStore = create<ModelsStore>()(
             setLoadState(uuid, "error", (e as Error).message);
           }
         },
+
+        createAuthoredModel: (uuid, authoredModelId, name) =>
+          set((state) => ({
+            models: {
+              ...state.models,
+              [uuid]: {
+                source: "authored",
+                authoredModelId,
+                fileName: `${name}.authored`,
+                filePath: "",
+                fileSize: 0,
+                type: "application/x-sprite-sheet-helper-authored",
+                format: "authored",
+                loadState: "loaded",
+                errorMessage: null,
+              },
+            },
+          })),
 
         reloadModel: async (uuid) => {
           const { models, setLoadState } = get();
@@ -238,15 +262,17 @@ export const useModelsStore = create<ModelsStore>()(
           return {
             models: Object.fromEntries(
               Object.entries(get().models).map(([uuid, m]) => [
-                uuid,
-                {
-                  fileName: m.fileName,
-                  filePath: m.filePath,
-                  type: m.type,
-                  fileSize: m.fileSize,
-                  format: m.format,
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any,
+              uuid,
+              {
+                fileName: m.fileName,
+                filePath: m.filePath,
+                type: m.type,
+                fileSize: m.fileSize,
+                format: m.format,
+                source: m.source ?? "file",
+                authoredModelId: m.authoredModelId,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              } as any,
               ]),
             ),
 

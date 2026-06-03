@@ -1,5 +1,6 @@
 import { EventType, PubSub } from "@/lib/events";
 import { useModel, useModelsStore } from "@/store/next/models";
+import { useAuthoredModelsStore } from "@/store/next/authored-models";
 import { useModelDowngradesStore } from "@/store/next/model-downgrades";
 import { useRefsStore } from "@/store/next/refs";
 import type { ModelComponent as ModelComponentType } from "@/types/ecs";
@@ -26,9 +27,15 @@ import {
   EMPTY_MATERIAL_INVENTORY,
   useMaterialsStore,
 } from "@/store/next/materials";
+import { buildAuthoredModelObject } from "@/utils/authored-models";
 
 export function Based({ uuid, ...props }: { uuid: string }) {
   const model = useModel(uuid);
+  const authoredRecipe = useAuthoredModelsStore((state) =>
+    model?.source === "authored" && model.authoredModelId
+      ? state.recipes[model.authoredModelId]
+      : undefined,
+  );
   const setRef = useRefsStore((state) => state.setRef);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const setClips = useModelsStore((state) => state.setClips);
@@ -67,6 +74,7 @@ export function Based({ uuid, ...props }: { uuid: string }) {
 
   useEffect(() => {
     const openFile = async () => {
+      if (model?.source === "authored") return;
       if (!model?.file) return;
 
       const format = model.file.name
@@ -117,6 +125,32 @@ export function Based({ uuid, ...props }: { uuid: string }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, setClips, setMixerRef, uuid]);
+
+  useEffect(() => {
+    if (model?.source !== "authored" || !authoredRecipe) return;
+
+    const built = buildAuthoredModelObject(authoredRecipe);
+    const inventory = buildMaterialInventory(built.object, uuid);
+
+    setObject(built.object);
+    setModelInventory(uuid, inventory);
+    mixerRef.current = null;
+    setOriginalRuntimeModel(uuid, {
+      object: built.object,
+      mixer: null,
+      clips: [],
+    });
+    setClips(uuid, []);
+    setMixerRef(uuid, null);
+    PubSub.emit(EventType.MODEL_READY, { uuid });
+  }, [
+    authoredRecipe,
+    model?.source,
+    setClips,
+    setMixerRef,
+    setModelInventory,
+    uuid,
+  ]);
 
   useEffect(() => {
     const runtime = getRuntimeModel(uuid, activeVariant);

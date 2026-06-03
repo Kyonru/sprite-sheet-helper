@@ -18,6 +18,7 @@ import { useSettingsStore } from "../settings";
 import { useEffectsStore } from "../effects";
 import { useMaterialsStore } from "../materials";
 import { useModelDowngradesStore } from "../model-downgrades";
+import { useAuthoredModelsStore } from "../authored-models";
 import { setAppTitle } from "@/utils/app.web";
 import { EventType, PubSub } from "@/lib/events";
 import { downloadFile } from "@/utils/assets";
@@ -53,6 +54,7 @@ const stores = {
   effects: useEffectsStore,
   materials: useMaterialsStore,
   modelDowngrades: useModelDowngradesStore,
+  authoredModels: useAuthoredModelsStore,
 };
 
 type StoreKey = keyof typeof stores;
@@ -151,6 +153,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         const modelsFolder = zip.folder("models")!;
 
         for (const [uuid, model] of Object.entries(snapshot.models.models)) {
+          if (model.source === "authored") continue;
           try {
             const fileData = await getFileFromFS(uuid, "models");
             if (fileData) {
@@ -199,6 +202,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       applySnapshot: async (snapshot, zip) => {
         // Restore model binaries from zip into OPFS before hydrating stores
         for (const [uuid, model] of Object.entries(snapshot.models.models)) {
+          if (model.source === "authored") continue;
           const zipEntry = zip.file(`models/${uuid}.${model.format}`);
           if (zipEntry) {
             const arrayBuffer = await zipEntry.async("arraybuffer");

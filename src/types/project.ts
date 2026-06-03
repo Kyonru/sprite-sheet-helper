@@ -10,6 +10,7 @@ import type { SettingsState } from "@/store/next/settings";
 import type { TargetsState } from "@/store/next/targets";
 import type { TransformsState } from "@/store/next/transforms";
 import type { MaterialsSnapshot } from "./materials";
+import type { AuthoredModelsState } from "./authored-models";
 
 export interface ProjectSnapshot_v1 {
   version: 1;
@@ -37,10 +38,16 @@ export interface ProjectSnapshot_v3 extends Omit<ProjectSnapshot_v2, "version"> 
   modelDowngrades: ModelDowngradesState;
 }
 
+export interface ProjectSnapshot_v4 extends Omit<ProjectSnapshot_v3, "version"> {
+  version: 4;
+  authoredModels: AuthoredModelsState;
+}
+
 // Union type — extend as you add versions
 export type ProjectSnapshotVersion =
   | ProjectSnapshot_v1
   | ProjectSnapshot_v2
-  | ProjectSnapshot_v3;
+  | ProjectSnapshot_v3
+  | ProjectSnapshot_v4;
 
-export const CURRENT_VERSION = 3;
+export const CURRENT_VERSION = 4;

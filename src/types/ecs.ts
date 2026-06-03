@@ -16,16 +16,8 @@ export interface Transform {
   scale: [number, number, number];
 }
 
-export interface ModelComponent {
-  file: File;
-  filePath: string;
-  fileName: string;
-  type: string;
-  fileSize: number;
-  format: "gltf" | "glb" | "fbx" | "obj" | "stl";
-  loadState: "idle" | "loading" | "loaded" | "error";
-  errorMessage: string | null;
-}
+export type ModelSource = "file" | "authored";
+export type ModelFormat = "gltf" | "glb" | "fbx" | "obj" | "stl" | "authored";
 
 // The full serializable snapshot
 export interface ProjectSnapshot {
@@ -42,11 +34,15 @@ export interface ProjectSnapshot {
 export type ModelLoadState = "idle" | "loading" | "loaded" | "error";
 
 export interface ModelComponent {
+  source?: ModelSource;
+  authoredModelId?: string;
+  file?: File;
   // file info
   fileName: string;
   filePath: string; // local path or object URL
   fileSize: number;
-  format: "gltf" | "glb" | "fbx" | "obj" | "stl";
+  type?: string;
+  format: ModelFormat;
 
   // runtime (not serialized)
   loadState: ModelLoadState;

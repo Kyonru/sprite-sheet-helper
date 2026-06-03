@@ -28,6 +28,7 @@ import { AboutModalProvider } from "./components/about-modal";
 import { ShaderEditorProvider } from "./components/custom-shader-modal";
 import { CameraAnimationCaptureProvider } from "./components/camera-animation-capture";
 import { MaterialsWorkbenchProvider } from "./components/materials/material-workbench";
+import { AssetToyboxProvider } from "./components/asset-toybox/asset-toybox-workbench";
 import { initShortcutRegistry } from "./lib/shortcut-registry";
 import { useKeyboardShortcuts } from "./hooks/next/use-keyboard-shortcuts";
 import { EventType, PubSub } from "./lib/events";
@@ -115,6 +116,7 @@ function App() {
       <ShaderEditorProvider />
       <CameraAnimationCaptureProvider />
       <MaterialsWorkbenchProvider />
+      <AssetToyboxProvider />
       <Toaster richColors />
     </ThemeProvider>
   );
