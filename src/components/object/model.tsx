@@ -8,10 +8,18 @@ import {
 } from "@/utils/animation-clips";
 import { fitObjectToCamera } from "@/utils/camera";
 import { parseModel } from "@/utils/model";
+import {
+  applyMaterialAssignments,
+  buildMaterialInventory,
+} from "@/utils/material-runtime";
 import { useFrame } from "@react-three/fiber";
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useMainPanelContext } from "../panels/main/context";
+import {
+  EMPTY_MATERIAL_INVENTORY,
+  useMaterialsStore,
+} from "@/store/next/materials";
 
 export function Based({ uuid, ...props }: { uuid: string }) {
   const model = useModel(uuid);
@@ -21,6 +29,15 @@ export function Based({ uuid, ...props }: { uuid: string }) {
   const setMixerRef = useModelsStore((state) => state.setMixerRef);
 
   const [object, setObject] = useState<THREE.Object3D | null>(null);
+  const materials = useMaterialsStore((state) => state.materials);
+  const assignments = useMaterialsStore((state) => state.assignments);
+  const textures = useMaterialsStore((state) => state.textures);
+  const inventory = useMaterialsStore(
+    (state) => state.inventories[uuid] ?? EMPTY_MATERIAL_INVENTORY,
+  );
+  const setModelInventory = useMaterialsStore(
+    (state) => state.setModelInventory,
+  );
   const animation = useModelsStore((state) => uuid && state.animations[uuid]);
   const clips = useModelsStore((state) => state.clips);
   const durations = useModelsStore((state) => state.durations);
@@ -50,8 +67,10 @@ export function Based({ uuid, ...props }: { uuid: string }) {
 
       try {
         const parsed = await parseModel(model.file, format);
+        const inventory = buildMaterialInventory(parsed.object, uuid);
 
         setObject(parsed.object);
+        setModelInventory(uuid, inventory);
         mixerRef.current = parsed.mixer;
 
         const camera = controls?.camera;
@@ -74,6 +93,26 @@ export function Based({ uuid, ...props }: { uuid: string }) {
     openFile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, setClips, setMixerRef, uuid]);
+
+  useEffect(() => {
+    if (!object) return;
+    let cancelled = false;
+    applyMaterialAssignments(
+      object,
+      uuid,
+      inventory,
+      materials,
+      assignments,
+      textures,
+    ).catch((error) => {
+      if (!cancelled) {
+        console.error("[sprite-sheet-helper] material apply failed:", error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [assignments, inventory, materials, object, textures, uuid]);
 
   useEffect(() => {
     const resetAnimations = () => {

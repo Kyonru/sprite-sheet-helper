@@ -16,10 +16,12 @@ import { useLightsStore } from "../lights";
 import { useImagesStore } from "../images";
 import { useSettingsStore } from "../settings";
 import { useEffectsStore } from "../effects";
+import { useMaterialsStore } from "../materials";
 import { setAppTitle } from "@/utils/app.web";
 import { EventType, PubSub } from "@/lib/events";
 import { downloadFile } from "@/utils/assets";
 import saveAs from "@/lib/file/save-as.web";
+import { saveFileToFS } from "@/utils/file-system/fs.web";
 
 export interface ProjectState {
   version: number;
@@ -48,6 +50,7 @@ const stores = {
   cameras: useCamerasStore,
   history: useHistoryStore,
   effects: useEffectsStore,
+  materials: useMaterialsStore,
 };
 
 type StoreKey = keyof typeof stores;
@@ -156,6 +159,19 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           }
         }
 
+        for (const [uuid, texture] of Object.entries(
+          snapshot.materials.textures,
+        )) {
+          try {
+            const fileData = await getFileFromFS(uuid, "materials");
+            if (fileData) {
+              zip.file(`materials/${texture.filePath}`, fileData);
+            }
+          } catch {
+            toast.warning(`Could not bundle material texture: ${texture.name}`);
+          }
+        }
+
         zip.file("project.json", JSON.stringify(snapshot, null, 2));
         return zip.generateAsync({ type: "blob" });
       },
@@ -191,6 +207,18 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
             // Make sure to load the model into the store
             useModelsStore.getState().loadFromFile(uuid, file);
           }
+        }
+
+        for (const [uuid, texture] of Object.entries(
+          snapshot.materials.textures,
+        )) {
+          const zipEntry = zip.file(`materials/${texture.filePath}`);
+          if (!zipEntry) continue;
+          const arrayBuffer = await zipEntry.async("arraybuffer");
+          const file = new File([arrayBuffer], texture.fileName, {
+            type: texture.mimeType,
+          });
+          await saveFileToFS(uuid, file, "materials");
         }
 
         // Hydrate all stores

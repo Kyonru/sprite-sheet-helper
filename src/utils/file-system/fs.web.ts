@@ -1,4 +1,4 @@
-type FileSystemDirectory = "models" | "general";
+type FileSystemDirectory = "models" | "materials" | "general";
 
 const getDir = async (
   dir: FileSystemDirectory,

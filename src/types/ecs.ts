@@ -1,3 +1,5 @@
+import type { MaterialComponent, MaterialsSnapshot } from "./materials";
+
 export type ObjectType = "transform" | "model" | "camera" | "light" | "effect";
 
 export interface Entity {
@@ -12,14 +14,6 @@ export interface Transform {
   position: [number, number, number];
   rotation: [number, number, number];
   scale: [number, number, number];
-}
-
-export interface MaterialComponent {
-  color: string;
-  opacity: number;
-  roughness: number;
-  metalness: number;
-  wireframe: boolean;
 }
 
 export interface ModelComponent {
@@ -41,36 +35,8 @@ export interface ProjectSnapshot {
   entities: Record<string, Entity>;
   children: Record<string, Record<string, boolean>>;
   transforms: Record<string, Transform>;
-  materials: Record<string, MaterialComponent>;
+  materials: MaterialsSnapshot;
   models: Record<string, ModelComponent>;
-}
-
-export interface MaterialComponent {
-  // base
-  color: string;
-  opacity: number;
-  transparent: boolean;
-
-  // pbr
-  roughness: number;
-  metalness: number;
-
-  // maps (file paths or data URLs)
-  map: string | null; // diffuse/albedo
-  normalMap: string | null;
-  roughnessMap: string | null;
-  metalnessMap: string | null;
-  aoMap: string | null;
-  emissiveMap: string | null;
-
-  // emissive
-  emissive: string;
-  emissiveIntensity: number;
-
-  // other
-  wireframe: boolean;
-  side: "front" | "back" | "double";
-  depthWrite: boolean;
 }
 
 export type ModelLoadState = "idle" | "loading" | "loaded" | "error";
@@ -174,3 +140,5 @@ export type SnapshotEnabledStore<T> = {
   hydrate: (snapshot: T) => void;
   reset: () => void;
 };
+
+export type { MaterialComponent };

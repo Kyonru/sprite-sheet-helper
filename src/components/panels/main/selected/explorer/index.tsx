@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { AnimationContext } from "./animation";
 import { useLight } from "@/store/next/lights";
 import { TargetContext } from "./target";
+import { MaterialContext } from "./material";
 
 const getTabs = (kind?: string, type?: string) => {
   const tabs: {
@@ -18,10 +19,10 @@ const getTabs = (kind?: string, type?: string) => {
       value: "animation",
       label: "Animation",
     });
-    // tabs.push({
-    //   value: "material",
-    //   label: "Material",
-    // });
+    tabs.push({
+      value: "material",
+      label: "Material",
+    });
   }
 
   if (kind === "camera") {
@@ -48,6 +49,10 @@ const TypeBasedTabs = ({ type }: { type: string }) => {
 
   if (type === "target") {
     return <TargetContext />;
+  }
+
+  if (type === "material") {
+    return <MaterialContext />;
   }
 
   return null;

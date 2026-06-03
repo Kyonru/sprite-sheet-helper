@@ -8,6 +8,7 @@ import type { ModelsState } from "@/store/next/models";
 import type { SettingsState } from "@/store/next/settings";
 import type { TargetsState } from "@/store/next/targets";
 import type { TransformsState } from "@/store/next/transforms";
+import type { MaterialsSnapshot } from "./materials";
 
 export interface ProjectSnapshot_v1 {
   version: 1;
@@ -25,7 +26,12 @@ export interface ProjectSnapshot_v1 {
   effects: EffectsState;
 }
 
-// Union type — extend as you add versions
-export type ProjectSnapshotVersion = ProjectSnapshot_v1;
+export interface ProjectSnapshot_v2 extends Omit<ProjectSnapshot_v1, "version"> {
+  version: 2;
+  materials: MaterialsSnapshot;
+}
 
-export const CURRENT_VERSION = 1;
+// Union type — extend as you add versions
+export type ProjectSnapshotVersion = ProjectSnapshot_v1 | ProjectSnapshot_v2;
+
+export const CURRENT_VERSION = 2;

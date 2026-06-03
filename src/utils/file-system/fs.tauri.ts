@@ -8,7 +8,7 @@ import {
   mkdir,
 } from "@tauri-apps/plugin-fs";
 
-type FileSystemDirectory = "models" | "general";
+type FileSystemDirectory = "models" | "materials" | "general";
 
 const ensureDir = async (dir: FileSystemDirectory) => {
   const dirExists = await exists(dir, {

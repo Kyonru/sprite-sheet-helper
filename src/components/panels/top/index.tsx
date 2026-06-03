@@ -12,6 +12,7 @@ import { CameraMenu } from "./camera";
 import { HelpMenu } from "./help";
 import { WorkflowsMenu } from "./workflows";
 import { PoseMenu } from "./pose";
+import { MaterialsMenu } from "./materials";
 
 const TransformOptions = [
   {
@@ -69,6 +70,7 @@ const TopPanel = () => {
         <FileMenu />
         <CameraMenu />
         <LightMenu />
+        <MaterialsMenu />
         <EffectsMenu />
         <PoseMenu />
         <WorkflowsMenu />
