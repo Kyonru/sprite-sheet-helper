@@ -5,6 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.4.0]
+
+### Added
+
+- Standalone Zustand inspector workspace package
+- Normal map capture/export, CLI flag support, coverage status, and placeholder warnings
+- Export Workbench with format cards, engine logos, atlas preflight, output preview, and local export history
+- Production atlas options: packed/rows layouts, padding, extrusion, scale presets, max atlas size, manifests, and generic multi-page spritesheets
+- Vitest + Puppeteer test harness with workflow reproducibility and committed golden export suitcase tests
+- Pose Studio workbench with capture/edit/save flow, direct FK editing, IK handles, history, calibration, and better pose retargeting feedback
+- First-class material editing with reusable material assets, texture maps, retro texture variants, project persistence, and live render application
+- Model downgrade tools with analysis, preview/apply/reset, low-poly/PS1-style recipes, animation reduction, and GLB export
+- Asset Toybox for authored low-poly models, skeleton/primitive creation, face extrusion, mirror editing, component editing, and GLB export
+- Workflow camera preview with direction selection, distance/elevation/rotation controls, target framing, and non-destructive draft settings
+
+### Improved
+
+- Auto-capture workflows now have deterministic sequencing, timeout handling, cancellation, progress details, and safer CLI waiting
+- Sequence preview/carousel restored in the export workbench with frame editing, row editing, normal status, playback, zoom, and tighter layout behavior
+- Effects panel redesigned around stack ordering, grouped effect browser, presets, guidance warnings, and cleaner details editing
+- Settings, export preflight, docs, and troubleshooting pages refreshed for the new export, workflow, normal-map, and effects flows
+- Project snapshots now migrate newer material, downgrade, and authored-model state
+
+### Fixed
+
+- Fixed normal-map export reliability, missing-normal warnings, and aligned placeholder generation
+- Fixed Pose Studio selection, IK movement, retargeting, history grouping, debug capture, and overlay alignment issues
+- Fixed effects reorder/delete preview refresh issues
+- Fixed carousel playback flicker, play state, zoom retention, and cramped strip behavior
+
 ## [0.3.1]
 
 ### Added
