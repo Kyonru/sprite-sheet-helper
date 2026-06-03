@@ -140,9 +140,10 @@ export const turboRustExporter: Exporter<"turbo"> = {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
+      exporterId: "turbo",
     });
     assertSinglePageAtlas(assets, "Turbo");
-    const { json, base64PNG, normalBase64PNG } = assets;
+    const { json, manifestFile, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "turbo.zip",
@@ -150,6 +151,7 @@ export const turboRustExporter: Exporter<"turbo"> = {
         { name: "spritesheet.png", content: base64PNG, base64: true },
         ...createNormalMapFile(normalBase64PNG),
         { name: "spritesheet.json", content: JSON.stringify(json, null, 2) },
+        manifestFile,
         { name: "spritesheet_turbo.rs", content: createTurboRust(json) },
         { name: "example.rs", content: createTurboExample(json) },
       ],

@@ -166,9 +166,10 @@ export const love2dVanillaExporter: Exporter<"love2d-lua"> = {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
+      exporterId: "love2d-lua",
     });
     assertSinglePageAtlas(assets, "Love2D (Lua)");
-    const { json, base64PNG, normalBase64PNG } = assets;
+    const { json, manifestFile, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "lua.zip",
@@ -176,6 +177,7 @@ export const love2dVanillaExporter: Exporter<"love2d-lua"> = {
         { name: "spritesheet.png", content: base64PNG, base64: true },
         ...createNormalMapFile(normalBase64PNG),
         { name: "spritesheet.json", content: JSON.stringify(json, null, 2) },
+        manifestFile,
         { name: "spritesheet.lua", content: createVanillaLua(json) },
         { name: "main.lua", content: createLuaExample(json) },
       ],
@@ -191,9 +193,10 @@ export const love2dAnim8Exporter: Exporter<"love2d-anim8"> = {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
+      exporterId: "love2d-anim8",
     });
     assertSinglePageAtlas(assets, "Love2D (Anim8)");
-    const { json, base64PNG, normalBase64PNG } = assets;
+    const { json, manifestFile, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "anim8.zip",
@@ -201,6 +204,7 @@ export const love2dAnim8Exporter: Exporter<"love2d-anim8"> = {
         { name: "spritesheet.png", content: base64PNG, base64: true },
         ...createNormalMapFile(normalBase64PNG),
         { name: "spritesheet.json", content: JSON.stringify(json, null, 2) },
+        manifestFile,
         { name: "spritesheet.lua", content: createAnim8Lua(json) },
         { name: "main.lua", content: createLuaExample(json) },
       ],

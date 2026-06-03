@@ -152,15 +152,17 @@ export const raylibExporter: Exporter<"raylib"> = {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
+      exporterId: "raylib",
     });
     assertSinglePageAtlas(assets, "raylib");
-    const { json, base64PNG, normalBase64PNG } = assets;
+    const { json, manifestFile, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "raylib.zip",
       files: [
         { name: "spritesheet.png", content: base64PNG, base64: true },
         ...createNormalMapFile(normalBase64PNG),
+        manifestFile,
         { name: "spritesheet.h", content: createRaylibH(json) },
         { name: "main.c", content: createRaylibExample(json) },
       ],

@@ -3,6 +3,7 @@ import {
   ATLAS_EXPORT_FORMATS,
   MULTI_PAGE_ATLAS_FORMATS,
   createAtlasPlan,
+  getAtlasFrameSlotSize,
   normalizeAtlasOptions,
   type AtlasPlan,
 } from "./atlas";
@@ -90,7 +91,40 @@ export function validateExportRequest({
         severity: "error",
         message: `Sequence "${row.label}" has an invalid frame size.`,
       });
+      continue;
     }
+
+    const slot = getAtlasFrameSlotSize(row, options);
+    if (slot.slotW > options.maxAtlasSize || slot.slotH > options.maxAtlasSize) {
+      messages.push({
+        severity: "error",
+        message: `Sequence "${row.label}" frames are ${slot.slotW}x${slot.slotH}px including padding/extrusion and cannot fit within the ${options.maxAtlasSize}px max atlas size.`,
+      });
+    }
+  }
+
+  if (options.padding > 0 && options.extrude === 0) {
+    messages.push({
+      severity: "warning",
+      message:
+        "Padding without extrusion leaves transparent gaps around frames; add extrusion if the atlas will be sampled with filtering.",
+    });
+  }
+
+  if (options.extrude > 0 && options.padding === 0) {
+    messages.push({
+      severity: "info",
+      message:
+        "Extrusion duplicates edge pixels around each frame. Add padding too if your engine needs additional empty spacing between slots.",
+    });
+  }
+
+  if (![1, 2, 4].includes(options.scale)) {
+    messages.push({
+      severity: "info",
+      message:
+        "Custom atlas scale is enabled. Frame dimensions are rounded to whole pixels.",
+    });
   }
 
   const plan = ATLAS_EXPORT_FORMATS.has(format)

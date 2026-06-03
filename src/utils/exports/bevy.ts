@@ -265,10 +265,12 @@ export const bevyExporter: Exporter<"bevy"> = {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
+      imageName: "assets/spritesheet.png",
       normalImageName: "assets/spritesheet_normal.png",
+      exporterId: "bevy",
     });
     assertSinglePageAtlas(assets, "Bevy");
-    const { json, base64PNG, normalBase64PNG } = assets;
+    const { json, manifestFile, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "bevy.zip",
@@ -278,6 +280,7 @@ export const bevyExporter: Exporter<"bevy"> = {
           normalBase64PNG,
           "assets/spritesheet_normal.png",
         ),
+        manifestFile,
         { name: "src/spritesheet.rs", content: createBevySpritesheetRs(json) },
         { name: "src/main.rs", content: createBevyMainRs(json) },
         { name: "Cargo.toml.snippet", content: createBevyCargoToml() },

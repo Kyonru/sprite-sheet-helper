@@ -122,9 +122,10 @@ export const phaserExporter: Exporter<"phaser"> = {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
+      exporterId: "phaser",
     });
     assertSinglePageAtlas(assets, "PhaserJS");
-    const { json, base64PNG, normalBase64PNG } = assets;
+    const { json, manifestFile, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "phaser.zip",
@@ -135,6 +136,7 @@ export const phaserExporter: Exporter<"phaser"> = {
           name: "spritesheet_atlas.json",
           content: createPhaserAtlasJSON(json),
         },
+        manifestFile,
         { name: "spritesheet_phaser.ts", content: createPhaserTS(json) },
         { name: "example.ts", content: createPhaserExample(json) },
       ],

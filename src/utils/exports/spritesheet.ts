@@ -6,10 +6,12 @@ export const SpritesheetExporter: Exporter<"spritesheet"> = {
   label: "Spritesheet",
 
   async run({ exportedImages, includeNormalMap, atlasOptions }) {
-    const { json, colorPages, normalPages } = await buildSpritesheetAssets(
-      exportedImages,
-      { includeNormalMap, atlasOptions },
-    );
+    const { json, manifestFile, colorPages, normalPages } =
+      await buildSpritesheetAssets(exportedImages, {
+        includeNormalMap,
+        atlasOptions,
+        exporterId: "spritesheet",
+      });
 
     return {
       filename: "spritesheet.zip",
@@ -17,6 +19,7 @@ export const SpritesheetExporter: Exporter<"spritesheet"> = {
         ...colorPages,
         ...normalPages,
         { name: "spritesheet.json", content: JSON.stringify(json, null, 2) },
+        manifestFile,
       ],
     };
   },

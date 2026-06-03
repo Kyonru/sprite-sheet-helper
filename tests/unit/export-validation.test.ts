@@ -77,6 +77,66 @@ describe("export validation", () => {
     });
 
     expect(result.blocking).toBe(true);
-    expect(result.messages[0].message).toContain("exceeds");
+    expect(
+      result.messages.some((message) => message.message.includes("exceeds")),
+    ).toBe(true);
+  });
+
+  it("blocks frames larger than the max atlas size after spacing and scale", () => {
+    const result = validateExportRequest({
+      rows: [
+        exportRow("walk", [frame("c0")], undefined, {
+          frameWidth: 15,
+          frameHeight: 15,
+        }),
+      ],
+      format: "spritesheet",
+      includeNormalMap: false,
+      atlasOptions: {
+        padding: 2,
+        extrude: 2,
+        scale: 2,
+        maxAtlasSize: 32,
+      },
+    });
+
+    expect(result.blocking).toBe(true);
+    expect(
+      result.messages.some((message) =>
+        message.message.includes("including padding/extrusion"),
+      ),
+    ).toBe(true);
+  });
+
+  it("warns about padding without edge extrusion", () => {
+    const result = validateExportRequest({
+      rows: [exportRow("walk", [frame("c0")])],
+      format: "spritesheet",
+      includeNormalMap: false,
+      atlasOptions: { padding: 2, extrude: 0 },
+    });
+
+    expect(result.blocking).toBe(false);
+    expect(
+      result.messages.some((message) =>
+        message.message.includes("Padding without extrusion"),
+      ),
+    ).toBe(true);
+  });
+
+  it("notes custom atlas scales", () => {
+    const result = validateExportRequest({
+      rows: [exportRow("walk", [frame("c0")])],
+      format: "spritesheet",
+      includeNormalMap: false,
+      atlasOptions: { scale: 1.5 },
+    });
+
+    expect(result.blocking).toBe(false);
+    expect(
+      result.messages.some((message) =>
+        message.message.includes("Custom atlas scale"),
+      ),
+    ).toBe(true);
   });
 });

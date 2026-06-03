@@ -382,6 +382,7 @@ function getPreflightOutputFiles({
     ...colorAtlasFiles,
     ...normalFiles,
     "spritesheet.json",
+    "spritesheet.manifest.json",
   ];
   const singlePageNormalFiles = normalFiles.slice(0, 1);
 
@@ -403,6 +404,7 @@ function getPreflightOutputFiles({
         "spritesheet.png",
         ...singlePageNormalFiles,
         "spritesheet_atlas.json",
+        "spritesheet.manifest.json",
         "spritesheet_phaser.ts",
         "example.ts",
       ];
@@ -410,6 +412,7 @@ function getPreflightOutputFiles({
       return [
         "assets/spritesheet.png",
         ...singlePageNormalFiles.map((file) => `assets/${file}`),
+        "assets/spritesheet.manifest.json",
         "src/spritesheet.rs",
         "src/main.rs",
         "Cargo.toml.snippet",
@@ -418,6 +421,7 @@ function getPreflightOutputFiles({
       return [
         "spritesheet.png",
         ...singlePageNormalFiles,
+        "spritesheet.manifest.json",
         "SpriteSheetHelper.gd",
         "ExamplePlayer.gd",
       ];
@@ -427,6 +431,7 @@ function getPreflightOutputFiles({
         "spritesheet.png",
         ...singlePageNormalFiles,
         "spritesheet.json",
+        "spritesheet.manifest.json",
         "spritesheet.lua",
         "main.lua",
       ];
@@ -435,6 +440,7 @@ function getPreflightOutputFiles({
         "spritesheet.png",
         ...singlePageNormalFiles,
         "spritesheet.json",
+        "spritesheet.manifest.json",
         "spritesheet_turbo.rs",
         "example.rs",
       ];
@@ -442,6 +448,7 @@ function getPreflightOutputFiles({
       return [
         "spritesheet.png",
         ...singlePageNormalFiles,
+        "spritesheet.manifest.json",
         "spritesheet.py",
         "main.py",
       ];
@@ -449,6 +456,7 @@ function getPreflightOutputFiles({
       return [
         "spritesheet.png",
         ...singlePageNormalFiles,
+        "spritesheet.manifest.json",
         "spritesheet.h",
         "main.c",
       ];
@@ -456,6 +464,7 @@ function getPreflightOutputFiles({
       return [
         "spritesheet.png",
         ...singlePageNormalFiles,
+        "spritesheet.manifest.json",
         "SpriteSheetAnimator.cs",
         "ExamplePlayer.cs",
       ];
@@ -945,7 +954,7 @@ export function ExportWorkbench() {
                         </span>
                       </Button>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       <NumberField
                         label="Padding"
                         value={atlasPadding}
@@ -954,18 +963,11 @@ export function ExportWorkbench() {
                         }
                       />
                       <NumberField
-                        label="Bleed"
+                        label="Extrude"
                         value={atlasBleed}
                         onChange={(value) =>
                           setAtlasOptions({ extrude: value })
                         }
-                      />
-                      <NumberField
-                        label="Scale"
-                        value={atlasScale}
-                        min={0.1}
-                        step={0.1}
-                        onChange={(value) => setAtlasOptions({ scale: value })}
                       />
                       <NumberField
                         label="Max atlas"
@@ -975,6 +977,49 @@ export function ExportWorkbench() {
                           setAtlasOptions({ maxAtlasSize: value })
                         }
                       />
+                    </div>
+                    <div className="rounded-md border bg-muted/20 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-medium">
+                            Atlas scale
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Export at common pixel scales or enter a custom
+                            multiplier.
+                          </p>
+                        </div>
+                        <span className="rounded-full border bg-background px-2 py-0.5 text-xs font-medium">
+                          {atlasScale}x
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[repeat(3,minmax(0,1fr))_110px]">
+                        {[1, 2, 4].map((scale) => (
+                          <Button
+                            key={scale}
+                            type="button"
+                            variant={
+                              atlasScale === scale ? "secondary" : "outline"
+                            }
+                            size="sm"
+                            onClick={() => setAtlasOptions({ scale })}
+                          >
+                            {scale}x
+                          </Button>
+                        ))}
+                        <Input
+                          type="number"
+                          min={0.1}
+                          step={0.1}
+                          value={atlasScale}
+                          aria-label="Custom atlas scale"
+                          onChange={(event) =>
+                            setAtlasOptions({
+                              scale: Number(event.target.value),
+                            })
+                          }
+                        />
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/20 px-3 py-2">
                       <div className="flex min-w-0 items-start gap-2">
@@ -1033,6 +1078,14 @@ export function ExportWorkbench() {
                           </span>
                         ))}
                       </div>
+                      {validation.blocking && (
+                        <div className="mt-2 flex items-start gap-1.5 rounded-md border border-destructive/20 bg-destructive/10 px-2 py-1.5 text-destructive">
+                          <AlertTriangle size={13} className="mt-0.5" />
+                          <span>
+                            Export is blocked until validation errors are fixed.
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="rounded-md bg-muted/40 px-2 py-2">

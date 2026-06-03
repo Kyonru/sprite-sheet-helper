@@ -90,15 +90,17 @@ export const godotExporter: Exporter<"godot"> = {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
+      exporterId: "godot",
     });
     assertSinglePageAtlas(assets, "Godot");
-    const { json, base64PNG, normalBase64PNG } = assets;
+    const { json, manifestFile, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "godot.zip",
       files: [
         { name: "spritesheet.png", content: base64PNG, base64: true },
         ...createNormalMapFile(normalBase64PNG),
+        manifestFile,
         { name: "SpriteSheetHelper.gd", content: createGodotGD(json) },
         { name: "ExamplePlayer.gd", content: createGodotExample(json) },
       ],

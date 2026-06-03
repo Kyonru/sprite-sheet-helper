@@ -185,15 +185,17 @@ export const unityExporter: Exporter<"unity"> = {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
+      exporterId: "unity",
     });
     assertSinglePageAtlas(assets, "Unity");
-    const { json, base64PNG, normalBase64PNG } = assets;
+    const { json, manifestFile, base64PNG, normalBase64PNG } = assets;
 
     return {
       filename: "unity.zip",
       files: [
         { name: "spritesheet.png", content: base64PNG, base64: true },
         ...createNormalMapFile(normalBase64PNG),
+        manifestFile,
         { name: "SpriteSheetAnimator.cs", content: createUnityCS(json) },
         { name: "ExamplePlayer.cs", content: createUnityExample(json) },
       ],

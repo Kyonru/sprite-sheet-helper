@@ -7,6 +7,16 @@ import {
 import { exportRow, frame } from "../helpers/export-fixtures";
 
 describe("atlas planner", () => {
+  const placementsOverlap = (
+    a: { page: number; slotX: number; slotY: number; slotW: number; slotH: number },
+    b: { page: number; slotX: number; slotY: number; slotW: number; slotH: number },
+  ) =>
+    a.page === b.page &&
+    a.slotX < b.slotX + b.slotW &&
+    a.slotX + a.slotW > b.slotX &&
+    a.slotY < b.slotY + b.slotH &&
+    a.slotY + a.slotH > b.slotY;
+
   it("keeps legacy row layout with default options", () => {
     const rows = [
       exportRow("walk", [frame("a"), frame("b")], undefined, {
@@ -71,6 +81,71 @@ describe("atlas planner", () => {
 
     expect(second).toEqual(first);
     expect(first.pages[0].height).toBeLessThan(40);
+  });
+
+  it("packs with MaxRects without overlap or frame rotation", () => {
+    const rows = [
+      exportRow("tall", [frame("a")], undefined, {
+        frameWidth: 10,
+        frameHeight: 28,
+      }),
+      exportRow("wide", [frame("b")], undefined, {
+        frameWidth: 28,
+        frameHeight: 10,
+      }),
+      exportRow("square", [frame("c")], undefined, {
+        frameWidth: 12,
+        frameHeight: 12,
+      }),
+      exportRow("leg", [frame("d")], undefined, {
+        frameWidth: 6,
+        frameHeight: 20,
+      }),
+    ];
+
+    const plan = createAtlasPlan(rows, {
+      layout: "packed",
+      maxAtlasSize: 40,
+      allowMultiPage: true,
+    });
+
+    for (let index = 0; index < plan.placements.length; index += 1) {
+      const placement = plan.placements[index];
+      const row = rows[placement.rowIndex];
+      expect(placement.w).toBe(row.frameWidth);
+      expect(placement.h).toBe(row.frameHeight);
+      for (let next = index + 1; next < plan.placements.length; next += 1) {
+        expect(placementsOverlap(placement, plan.placements[next])).toBe(false);
+      }
+    }
+  });
+
+  it("splits packed atlases into deterministic pages", () => {
+    const rows = [
+      exportRow(
+        "walk",
+        [frame("a"), frame("b"), frame("c"), frame("d"), frame("e")],
+        undefined,
+        { frameWidth: 16, frameHeight: 16 },
+      ),
+    ];
+
+    const first = createAtlasPlan(rows, {
+      layout: "packed",
+      maxAtlasSize: 32,
+      allowMultiPage: true,
+    });
+    const second = createAtlasPlan(rows, {
+      layout: "packed",
+      maxAtlasSize: 32,
+      allowMultiPage: true,
+    });
+
+    expect(second).toEqual(first);
+    expect(first.pages.map((page) => `${page.width}x${page.height}`)).toEqual([
+      "32x32",
+      "16x16",
+    ]);
   });
 
   it("splits rows into pages when multi-page is enabled", () => {

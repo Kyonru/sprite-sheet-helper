@@ -36,7 +36,46 @@ describe("buildSpritesheetAssets", () => {
 
     expect(result.normalBase64PNG).toBeUndefined();
     expect(result.json.meta.normalImage).toBeUndefined();
+    expect(result.manifest.atlas.pages[0].normalImage).toBeUndefined();
     expect(renderAtlasPagesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits a standardized spritesheet manifest", async () => {
+    const rows = [
+      exportRow("walk", [frame("c0"), frame("c1")], undefined, {
+        frameWidth: 8,
+        frameHeight: 6,
+      }),
+    ];
+
+    const result = await buildSpritesheetAssets(rows, {
+      atlasOptions: { layout: "packed", padding: 2, extrude: 1, scale: 2 },
+      exporterId: "phaser",
+    });
+    const manifest = JSON.parse(result.manifestFile.content);
+
+    expect(result.manifestFile.name).toBe("spritesheet.manifest.json");
+    expect(manifest.exporterId).toBe("phaser");
+    expect(manifest.atlas).toMatchObject({
+      layout: "packed",
+      padding: 2,
+      extrude: 1,
+      scale: 2,
+      pageCount: 1,
+    });
+    expect(manifest.animations[0]).toMatchObject({
+      name: "walk",
+      frameWidth: 16,
+      frameHeight: 12,
+    });
+    expect(manifest.animations[0].frames[0]).toMatchObject({
+      index: 0,
+      page: 0,
+      image: "spritesheet.png",
+      rect: { w: 16, h: 12 },
+      slot: { w: 22, h: 18 },
+      source: { width: 8, height: 6 },
+    });
   });
 
   it("emits a matching normal atlas when all frames have normals", async () => {
@@ -55,6 +94,9 @@ describe("buildSpritesheetAssets", () => {
     expect(result.json.meta.normalImage).toBe("spritesheet_normal.png");
     expect(result.normalBase64PNG).toBe(
       `${encodeRows([{ ...rows[0], images: [frame("n0"), frame("n1")] }])}-0`,
+    );
+    expect(result.manifest.atlas.pages[0].normalImage).toBe(
+      "spritesheet_normal.png",
     );
     expect(renderAtlasPagesMock).toHaveBeenCalledTimes(2);
   });
@@ -119,5 +161,27 @@ describe("buildSpritesheetAssets", () => {
       "spritesheet.png",
       "spritesheet_2.png",
     ]);
+    expect(result.manifest.atlas.pages.map((page) => page.image)).toEqual([
+      "spritesheet.png",
+      "spritesheet_2.png",
+    ]);
+  });
+
+  it("places manifests beside asset-path atlas files", async () => {
+    const result = await buildSpritesheetAssets(
+      [exportRow("walk", [frame("c0")])],
+      {
+        imageName: "assets/spritesheet.png",
+        normalImageName: "assets/spritesheet_normal.png",
+        includeNormalMap: true,
+        exporterId: "bevy",
+      },
+    );
+
+    expect(result.manifestFile.name).toBe("assets/spritesheet.manifest.json");
+    expect(result.manifest.atlas.pages[0]).toMatchObject({
+      image: "assets/spritesheet.png",
+      normalImage: "assets/spritesheet_normal.png",
+    });
   });
 });

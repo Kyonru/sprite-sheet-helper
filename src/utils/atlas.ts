@@ -51,27 +51,39 @@ export type AtlasPlan = {
   placements: AtlasPlacement[];
 };
 
-type PendingFrame = {
-  rowIndex: number;
-  frameIndex: number;
+export type AtlasFrameSlotSize = {
   w: number;
   h: number;
   slotW: number;
   slotH: number;
 };
 
-type MutablePage = AtlasPage & {
-  placements: AtlasPlacement[];
-  shelfY: number;
-  shelfHeight: number;
-  shelfX: number;
+type PendingFrame = AtlasFrameSlotSize & {
+  rowIndex: number;
+  frameIndex: number;
 };
 
-type Shelf = {
-  page: number;
+type MutablePage = AtlasPage & {
+  placements: AtlasPlacement[];
+};
+
+type FreeRect = {
   x: number;
   y: number;
-  height: number;
+  w: number;
+  h: number;
+};
+
+type MaxRectsPage = MutablePage & {
+  freeRects: FreeRect[];
+};
+
+type MaxRectsCandidate = {
+  page: MaxRectsPage;
+  rect: FreeRect;
+  shortSideFit: number;
+  longSideFit: number;
+  areaFit: number;
 };
 
 function positiveInteger(value: number | undefined, fallback: number): number {
@@ -102,14 +114,26 @@ function scaledSize(value: number, scale: number): number {
   return Math.max(1, Math.round(value * scale));
 }
 
-function flattenRows(rows: ExportRow[], options: AtlasOptions): PendingFrame[] {
-  const gutter = options.padding + options.extrude;
+export function getAtlasFrameSlotSize(
+  row: ExportRow,
+  options: Partial<AtlasOptions> = {},
+): AtlasFrameSlotSize {
+  const normalized = normalizeAtlasOptions(options);
+  const gutter = normalized.padding + normalized.extrude;
+  const w = scaledSize(row.frameWidth, normalized.scale);
+  const h = scaledSize(row.frameHeight, normalized.scale);
 
+  return {
+    w,
+    h,
+    slotW: w + gutter * 2,
+    slotH: h + gutter * 2,
+  };
+}
+
+function flattenRows(rows: ExportRow[], options: AtlasOptions): PendingFrame[] {
   return rows.flatMap((row, rowIndex) => {
-    const w = scaledSize(row.frameWidth, options.scale);
-    const h = scaledSize(row.frameHeight, options.scale);
-    const slotW = w + gutter * 2;
-    const slotH = h + gutter * 2;
+    const { w, h, slotW, slotH } = getAtlasFrameSlotSize(row, options);
 
     return row.images.map((_, frameIndex) => ({
       rowIndex,
@@ -128,10 +152,13 @@ function createPage(index: number): MutablePage {
     width: 0,
     height: 0,
     placements: [],
-    shelfY: 0,
-    shelfHeight: 0,
-    shelfX: 0,
   };
+}
+
+function createMaxRectsPage(index: number, size: number): MaxRectsPage {
+  const page = createPage(index) as MaxRectsPage;
+  page.freeRects = [{ x: 0, y: 0, w: size, h: size }];
+  return page;
 }
 
 function addPlacement(
@@ -167,16 +194,17 @@ function buildRowsPlan(rows: ExportRow[], options: AtlasOptions): AtlasPlan {
 
   if (!options.allowMultiPage) {
     let y = 0;
-    for (const row of rows) {
-      const rowFrames = flattenRows([row], options);
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+      const rowFrames = flattenRows([rows[rowIndex]], options).map(
+        (frame) => ({
+          ...frame,
+          rowIndex,
+        }),
+      );
       let x = 0;
       let rowHeight = 0;
       for (const frame of rowFrames) {
-        const withGlobalIndex = {
-          ...frame,
-          rowIndex: rows.indexOf(row),
-        };
-        addPlacement(page, withGlobalIndex, x, y, options);
+        addPlacement(page, frame, x, y, options);
         x += frame.slotW;
         rowHeight = Math.max(rowHeight, frame.slotH);
       }
@@ -220,55 +248,6 @@ function buildRowsPlan(rows: ExportRow[], options: AtlasOptions): AtlasPlan {
   return finishPlan(pages, options);
 }
 
-function tryPlaceOnShelf(
-  pages: MutablePage[],
-  shelves: Shelf[],
-  frame: PendingFrame,
-  options: AtlasOptions,
-): boolean {
-  for (const shelf of shelves) {
-    if (
-      frame.slotH <= shelf.height &&
-      shelf.x + frame.slotW <= options.maxAtlasSize
-    ) {
-      const page = pages[shelf.page];
-      addPlacement(page, frame, shelf.x, shelf.y, options);
-      shelf.x += frame.slotW;
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function addShelf(
-  pages: MutablePage[],
-  shelves: Shelf[],
-  frame: PendingFrame,
-  options: AtlasOptions,
-) {
-  let page = pages[pages.length - 1];
-  const canUseCurrentPage =
-    page.placements.length === 0 ||
-    !options.allowMultiPage ||
-    page.height + frame.slotH <= options.maxAtlasSize;
-
-  if (!canUseCurrentPage) {
-    page = createPage(pages.length);
-    pages.push(page);
-  }
-
-  const shelf: Shelf = {
-    page: page.index,
-    x: 0,
-    y: page.height,
-    height: frame.slotH,
-  };
-  shelves.push(shelf);
-  addPlacement(page, frame, shelf.x, shelf.y, options);
-  shelf.x += frame.slotW;
-}
-
 function buildPackedPlan(rows: ExportRow[], options: AtlasOptions): AtlasPlan {
   const frames = flattenRows(rows, options).sort(
     (a, b) =>
@@ -277,15 +256,258 @@ function buildPackedPlan(rows: ExportRow[], options: AtlasOptions): AtlasPlan {
       a.rowIndex - b.rowIndex ||
       a.frameIndex - b.frameIndex,
   );
-  const pages = [createPage(0)];
-  const shelves: Shelf[] = [];
 
-  for (const frame of frames) {
-    if (tryPlaceOnShelf(pages, shelves, frame, options)) continue;
-    addShelf(pages, shelves, frame, options);
+  if (frames.length === 0) {
+    return finishPlan([], options);
   }
 
-  return finishPlan(pages, options);
+  if (options.allowMultiPage) {
+    const result = packFramesIntoMaxRectsPages(
+      frames,
+      options,
+      options.maxAtlasSize,
+      true,
+    );
+    return finishPlan(result.pages, options);
+  }
+
+  let pageSize = getInitialPackedPageSize(frames);
+  for (let attempt = 0; attempt < frames.length + 16; attempt += 1) {
+    const result = packFramesIntoMaxRectsPages(
+      frames,
+      options,
+      pageSize,
+      false,
+    );
+
+    if (!result.failedFrame) {
+      return finishPlan(result.pages, options);
+    }
+
+    pageSize = Math.max(
+      pageSize + 1,
+      Math.ceil(pageSize * 1.25),
+      result.failedFrame.slotW,
+      result.failedFrame.slotH,
+    );
+  }
+
+  const fallbackSize = Math.max(
+    1,
+    frames.reduce((totalWidth, frame) => totalWidth + frame.slotW, 0),
+    ...frames.map((frame) => frame.slotH),
+  );
+  const fallback = packFramesIntoMaxRectsPages(
+    frames,
+    options,
+    fallbackSize,
+    false,
+  );
+  if (fallback.failedFrame) {
+    throw new Error("Unable to create a packed atlas plan.");
+  }
+  return finishPlan(fallback.pages, options);
+}
+
+function getInitialPackedPageSize(frames: PendingFrame[]): number {
+  const totalArea = frames.reduce(
+    (area, frame) => area + frame.slotW * frame.slotH,
+    0,
+  );
+  const maxDimension = Math.max(
+    1,
+    ...frames.flatMap((frame) => [frame.slotW, frame.slotH]),
+  );
+
+  return Math.max(maxDimension, Math.ceil(Math.sqrt(totalArea)));
+}
+
+function packFramesIntoMaxRectsPages(
+  frames: PendingFrame[],
+  options: AtlasOptions,
+  pageSize: number,
+  allowNewPages: boolean,
+): { pages: MaxRectsPage[]; failedFrame?: PendingFrame } {
+  const pages = [createMaxRectsPage(0, pageSize)];
+
+  for (const frame of frames) {
+    let candidate = findBestMaxRectsCandidate(pages, frame);
+
+    if (!candidate && allowNewPages) {
+      const nextPageSize = Math.max(
+        options.maxAtlasSize,
+        frame.slotW,
+        frame.slotH,
+      );
+      const currentPage = pages[pages.length - 1];
+      const nextPage =
+        currentPage.placements.length === 0
+          ? createMaxRectsPage(currentPage.index, nextPageSize)
+          : createMaxRectsPage(pages.length, nextPageSize);
+      if (currentPage.placements.length === 0) {
+        pages[pages.length - 1] = nextPage;
+      } else {
+        pages.push(nextPage);
+      }
+      candidate = findBestMaxRectsCandidate([nextPage], frame);
+    }
+
+    if (!candidate) {
+      return { pages, failedFrame: frame };
+    }
+
+    placeMaxRectsFrame(candidate, frame, options);
+  }
+
+  return { pages };
+}
+
+function findBestMaxRectsCandidate(
+  pages: MaxRectsPage[],
+  frame: PendingFrame,
+): MaxRectsCandidate | null {
+  let best: MaxRectsCandidate | null = null;
+
+  for (const page of pages) {
+    for (const rect of page.freeRects) {
+      if (frame.slotW > rect.w || frame.slotH > rect.h) continue;
+
+      const leftoverW = rect.w - frame.slotW;
+      const leftoverH = rect.h - frame.slotH;
+      const candidate: MaxRectsCandidate = {
+        page,
+        rect,
+        shortSideFit: Math.min(leftoverW, leftoverH),
+        longSideFit: Math.max(leftoverW, leftoverH),
+        areaFit: rect.w * rect.h - frame.slotW * frame.slotH,
+      };
+
+      if (!best || compareMaxRectsCandidates(candidate, best) < 0) {
+        best = candidate;
+      }
+    }
+  }
+
+  return best;
+}
+
+function compareMaxRectsCandidates(
+  a: MaxRectsCandidate,
+  b: MaxRectsCandidate,
+): number {
+  return (
+    a.shortSideFit - b.shortSideFit ||
+    a.longSideFit - b.longSideFit ||
+    a.areaFit - b.areaFit ||
+    a.page.index - b.page.index ||
+    a.rect.y - b.rect.y ||
+    a.rect.x - b.rect.x ||
+    a.rect.h - b.rect.h ||
+    a.rect.w - b.rect.w
+  );
+}
+
+function placeMaxRectsFrame(
+  candidate: MaxRectsCandidate,
+  frame: PendingFrame,
+  options: AtlasOptions,
+) {
+  const usedRect: FreeRect = {
+    x: candidate.rect.x,
+    y: candidate.rect.y,
+    w: frame.slotW,
+    h: frame.slotH,
+  };
+
+  addPlacement(candidate.page, frame, usedRect.x, usedRect.y, options);
+  splitMaxRectsFreeRects(candidate.page, usedRect);
+}
+
+function splitMaxRectsFreeRects(page: MaxRectsPage, used: FreeRect) {
+  const nextRects: FreeRect[] = [];
+
+  for (const rect of page.freeRects) {
+    if (!rectsIntersect(rect, used)) {
+      nextRects.push(rect);
+      continue;
+    }
+
+    const rectRight = rect.x + rect.w;
+    const rectBottom = rect.y + rect.h;
+    const usedRight = used.x + used.w;
+    const usedBottom = used.y + used.h;
+
+    if (used.x > rect.x) {
+      nextRects.push({
+        x: rect.x,
+        y: rect.y,
+        w: used.x - rect.x,
+        h: rect.h,
+      });
+    }
+
+    if (usedRight < rectRight) {
+      nextRects.push({
+        x: usedRight,
+        y: rect.y,
+        w: rectRight - usedRight,
+        h: rect.h,
+      });
+    }
+
+    if (used.y > rect.y) {
+      nextRects.push({
+        x: rect.x,
+        y: rect.y,
+        w: rect.w,
+        h: used.y - rect.y,
+      });
+    }
+
+    if (usedBottom < rectBottom) {
+      nextRects.push({
+        x: rect.x,
+        y: usedBottom,
+        w: rect.w,
+        h: rectBottom - usedBottom,
+      });
+    }
+  }
+
+  page.freeRects = pruneFreeRects(nextRects);
+}
+
+function rectsIntersect(a: FreeRect, b: FreeRect): boolean {
+  return (
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y
+  );
+}
+
+function pruneFreeRects(rects: FreeRect[]): FreeRect[] {
+  const positiveRects = rects.filter((rect) => rect.w > 0 && rect.h > 0);
+  const pruned = positiveRects.filter(
+    (rect, index) =>
+      !positiveRects.some(
+        (other, otherIndex) =>
+          otherIndex !== index && rectContainedIn(rect, other),
+      ),
+  );
+
+  return pruned.sort(
+    (a, b) => a.y - b.y || a.x - b.x || a.h - b.h || a.w - b.w,
+  );
+}
+
+function rectContainedIn(rect: FreeRect, other: FreeRect): boolean {
+  return (
+    rect.x >= other.x &&
+    rect.y >= other.y &&
+    rect.x + rect.w <= other.x + other.w &&
+    rect.y + rect.h <= other.y + other.h
+  );
 }
 
 function finishPlan(pages: MutablePage[], options: AtlasOptions): AtlasPlan {

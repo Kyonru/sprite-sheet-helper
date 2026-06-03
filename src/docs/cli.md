@@ -63,8 +63,8 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 | --normalMap      | string | false       | Capture and export a matching normal atlas |
 | --atlasLayout    | string | rows        | `rows` or deterministic `packed` layout   |
 | --atlasPadding   | number | 0           | Empty pixels around each frame slot       |
-| --atlasBleed     | number | 0           | Edge-pixel extrusion into padding         |
-| --atlasScale     | number | 1           | Scale atlas frame dimensions              |
+| --atlasBleed     | number | 0           | Edge-pixel extrusion around each frame    |
+| --atlasScale     | number | 1           | Scale atlas frame dimensions (`1`, `2`, `4`, or custom) |
 | --maxAtlasSize   | number | 2048        | Maximum atlas page width and height       |
 | --multiPage      | string | false       | Allow generic spritesheet page splitting  |
 | --phi            | number | —           | Camera elevation angle in degrees         |
@@ -103,7 +103,7 @@ sprite-sheet-helper character.glb \
   --maxAtlasSize 1024
 ```
 
-`--atlasLayout rows` preserves the compatible row layout unless padding, bleed, scale, or max-size choices require a different page plan. `--atlasLayout packed` uses stable deterministic packing without frame rotation.
+`--atlasLayout rows` preserves the compatible row layout unless padding, extrusion, scale, or max-size choices require a different page plan. `--atlasLayout packed` uses stable deterministic packing without frame rotation. The `--atlasBleed` flag is the CLI compatibility name for edge extrusion.
 
 Multi-page output is currently supported by the generic `spritesheet` format:
 

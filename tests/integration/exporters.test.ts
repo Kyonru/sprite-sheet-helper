@@ -55,6 +55,21 @@ describe("spritesheet atlas exporters", () => {
     ).toBe(false);
   });
 
+  it.each([
+    [SpritesheetExporter.label, SpritesheetExporter, "spritesheet.manifest.json"],
+    [phaserExporter.label, phaserExporter, "spritesheet.manifest.json"],
+    [love2dVanillaExporter.label, love2dVanillaExporter, "spritesheet.manifest.json"],
+    [bevyExporter.label, bevyExporter, "assets/spritesheet.manifest.json"],
+  ])("%s includes the shared atlas manifest", async (_, exporter, manifestFile) => {
+    const result = await exporter.run({
+      exportedImages: rows,
+      frameDelay: 100,
+      includeNormalMap: true,
+    });
+
+    expect(result.files.map((file) => file.name)).toContain(manifestFile);
+  });
+
   it("writes normal metadata into spritesheet JSON only when requested", async () => {
     const withNormals = await SpritesheetExporter.run({
       exportedImages: rows,

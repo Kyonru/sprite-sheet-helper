@@ -48,12 +48,14 @@ Atlas settings are chosen in the preflight modal and remembered as last-used set
 - **Rows / compatible** — Preserves the existing animation row order and frame order. With default atlas settings this matches the old single-page layout.
 - **Packed / production** — Uses deterministic packing without frame rotation to reduce wasted space. Metadata still preserves the original animation and frame order.
 - **Padding** — Adds empty pixels around each frame slot.
-- **Bleed** — Duplicates edge pixels into the padding area to reduce texture sampling seams.
-- **Scale** — Scales atlas frame dimensions for export.
+- **Extrude** — Duplicates frame edge pixels around the content rect to reduce texture sampling artifacts.
+- **Scale** — Scales atlas frame dimensions for export. The preflight modal includes `1x`, `2x`, and `4x` presets plus a custom numeric value.
 - **Max atlas** — Sets the maximum page width and height used by validation and page splitting.
 - **Allow multi-page** — Allows the generic Sprite Sheet exporter to write `spritesheet.png`, `spritesheet_2.png`, and so on.
 
 Multi-page output is fully supported by the generic Sprite Sheet format. Engine exporters currently block multi-page atlases because their generated helper code expects one texture page. Increase the max atlas size, disable multi-page, or export generic Sprite Sheet when a validation warning reports that an engine format cannot safely export the plan.
+
+Atlas-style exports also include `spritesheet.manifest.json`, a shared metadata file with atlas options, pages, animation names, frame rects, slot rects, normal-map references, source dimensions, and exporter id. Existing exporter-specific JSON files remain unchanged for compatibility.
 
 ## Normal Map Exports
 

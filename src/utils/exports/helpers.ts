@@ -1,4 +1,4 @@
-import type { ExportFile, ExportRow } from "@/types/file";
+import type { AtlasOptions, ExportFile, ExportFormat, ExportRow } from "@/types/file";
 import JSZip from "jszip";
 import {
   atlasPageFileName,
@@ -8,13 +8,13 @@ import {
   type AtlasPlan,
 } from "../atlas";
 import { renderAtlasPages } from "../atlas-renderer";
-import type { AtlasOptions } from "@/types/file";
 
 type BuildSpritesheetAssetsOptions = {
   includeNormalMap?: boolean;
   atlasOptions?: Partial<AtlasOptions>;
   imageName?: string;
   normalImageName?: string;
+  exporterId?: ExportFormat;
 };
 
 export type AtlasImageFile = ExportFile & {
@@ -25,12 +25,69 @@ export type AtlasImageFile = ExportFile & {
 
 export type BuildSpritesheetAssetsResult = {
   json: ReturnType<typeof createSpritesheetJSONFromAtlasPlan>;
+  manifest: SpritesheetManifest;
+  manifestFile: ExportFile & {
+    name: string;
+    content: string;
+  };
   base64PNG: string;
   normalBase64PNG?: string;
   colorPages: AtlasImageFile[];
   normalPages: AtlasImageFile[];
   plan: AtlasPlan;
   pageCount: number;
+};
+
+export type SpritesheetManifest = {
+  version: "1.0";
+  generatedBy: "sprite-sheet-helper";
+  exportedAt: string;
+  exporterId: ExportFormat;
+  sourceFormat: "captured-frames";
+  atlas: {
+    layout: AtlasOptions["layout"];
+    padding: number;
+    extrude: number;
+    scale: number;
+    maxAtlasSize: number;
+    allowMultiPage: boolean;
+    pageCount: number;
+    pages: Array<{
+      index: number;
+      image: string;
+      normalImage?: string;
+      width: number;
+      height: number;
+    }>;
+  };
+  animations: Array<{
+    name: string;
+    fps: number;
+    frameWidth: number;
+    frameHeight: number;
+    frames: Array<{
+      index: number;
+      page: number;
+      image: string;
+      normalImage?: string;
+      rect: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+      };
+      slot: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+      };
+      source: {
+        width: number;
+        height: number;
+      };
+    }>;
+  }>;
 };
 
 export type NormalCoverageStatus = "ready" | "partial" | "missing";
@@ -85,6 +142,107 @@ function createTransparentFrame(width: number, height: number): string {
   return canvas.toDataURL("image/png").split("base64,")[1];
 }
 
+export function spritesheetManifestFileName(
+  imageName = "spritesheet.png",
+): string {
+  const slash = imageName.lastIndexOf("/");
+  const prefix = slash === -1 ? "" : imageName.slice(0, slash + 1);
+  return `${prefix}spritesheet.manifest.json`;
+}
+
+export function createSpritesheetManifest({
+  rows,
+  plan,
+  imageName,
+  normalImageName,
+  exporterId,
+  exportedAt,
+}: {
+  rows: ExportRow[];
+  plan: AtlasPlan;
+  imageName: string;
+  normalImageName?: string;
+  exporterId: ExportFormat;
+  exportedAt: string;
+}): SpritesheetManifest {
+  const placementKey = (rowIndex: number, frameIndex: number) =>
+    `${rowIndex}:${frameIndex}`;
+  const placements = new Map(
+    plan.placements.map((placement) => [
+      placementKey(placement.rowIndex, placement.frameIndex),
+      placement,
+    ]),
+  );
+
+  return {
+    version: "1.0",
+    generatedBy: "sprite-sheet-helper",
+    exportedAt,
+    exporterId,
+    sourceFormat: "captured-frames",
+    atlas: {
+      ...plan.options,
+      pageCount: plan.pages.length,
+      pages: plan.pages.map((page) => ({
+        index: page.index,
+        image: atlasPageFileName(imageName, page.index),
+        ...(normalImageName
+          ? { normalImage: atlasPageFileName(normalImageName, page.index) }
+          : {}),
+        width: page.width,
+        height: page.height,
+      })),
+    },
+    animations: rows.map((row, rowIndex) => ({
+      name: row.label,
+      fps: row.fps ?? 12,
+      frameWidth: Math.max(1, Math.round(row.frameWidth * plan.options.scale)),
+      frameHeight: Math.max(
+        1,
+        Math.round(row.frameHeight * plan.options.scale),
+      ),
+      frames: row.images.map((_, frameIndex) => {
+        const placement = placements.get(placementKey(rowIndex, frameIndex));
+        if (!placement) {
+          throw new Error(
+            `Missing atlas placement for ${row.label}:${frameIndex}`,
+          );
+        }
+
+        return {
+          index: frameIndex,
+          page: placement.page,
+          image: atlasPageFileName(imageName, placement.page),
+          ...(normalImageName
+            ? {
+                normalImage: atlasPageFileName(
+                  normalImageName,
+                  placement.page,
+                ),
+              }
+            : {}),
+          rect: {
+            x: placement.x,
+            y: placement.y,
+            w: placement.w,
+            h: placement.h,
+          },
+          slot: {
+            x: placement.slotX,
+            y: placement.slotY,
+            w: placement.slotW,
+            h: placement.slotH,
+          },
+          source: {
+            width: row.frameWidth,
+            height: row.frameHeight,
+          },
+        };
+      }),
+    })),
+  };
+}
+
 export async function buildSpritesheetAssets(
   exportedImages: ExportRow[],
   options: BuildSpritesheetAssetsOptions = {},
@@ -93,6 +251,7 @@ export async function buildSpritesheetAssets(
   const imageName = options.imageName ?? "spritesheet.png";
   const normalImageName =
     options.normalImageName ?? "spritesheet_normal.png";
+  const exporterId = options.exporterId ?? "spritesheet";
   const plan = createAtlasPlan(exportedImages, atlasOptions);
   const colorDataUrls = await renderAtlasPages(exportedImages, plan, atlasOptions);
   const colorPages = colorDataUrls.map((dataUrl, index) => ({
@@ -141,9 +300,28 @@ export async function buildSpritesheetAssets(
         }),
       )
     : [];
+  if (hasNormalImages && normalPages.length !== colorPages.length) {
+    throw new Error(
+      "Normal atlas page count does not match the color atlas page count.",
+    );
+  }
+  const manifest = createSpritesheetManifest({
+    rows: exportedImages,
+    plan,
+    imageName,
+    normalImageName: hasNormalImages ? normalImageName : undefined,
+    exporterId,
+    exportedAt: json.meta.exportedAt,
+  });
+  const manifestFile = {
+    name: spritesheetManifestFileName(imageName),
+    content: JSON.stringify(manifest, null, 2),
+  };
 
   return {
     json,
+    manifest,
+    manifestFile,
     base64PNG: colorPages[0]?.content ?? "",
     normalBase64PNG: normalPages[0]?.content,
     colorPages,
