@@ -12,7 +12,6 @@ import { useCamerasStore } from "@/store/next/cameras";
 import { useTargetsStore } from "@/store/next/targets";
 import {
   WORKFLOW_PRESETS,
-  computePosition,
   type WorkflowDefinition,
   type WorkflowDirection,
 } from "@/constants/workflows";
@@ -21,6 +20,11 @@ import {
   buildWorkflowSteps,
   type WorkflowStep,
 } from "@/utils/workflows";
+import {
+  resolveWorkflowCamera,
+  type ResolvedWorkflowCamera,
+  type WorkflowRunOptions,
+} from "@/utils/workflow-camera";
 
 export type WorkflowStatus =
   | "idle"
@@ -41,6 +45,7 @@ export interface WorkflowState {
   startedAt?: number;
   failureStep?: string;
   error?: string;
+  currentCamera?: ResolvedWorkflowCamera;
 }
 
 const CAPTURE_TIMEOUT_BUFFER_MS = 5000;
@@ -226,7 +231,10 @@ export const useWorkflow = () => {
     [],
   );
 
-  const runWorkflow = useCallback(async (workflow: WorkflowDefinition) => {
+  const runWorkflow = useCallback(async (
+    workflow: WorkflowDefinition,
+    options?: WorkflowRunOptions,
+  ) => {
     useEntitiesStore.getState().unselectEntity();
     abortRef.current = false;
 
@@ -275,14 +283,23 @@ export const useWorkflow = () => {
         await setStepAnimation(step);
         resetStepAnimation(step);
 
-        const position = computePosition(
-          cameraAngle ?? dir.phi,
-          dir.theta,
-          cameraDistance,
-          target,
-        );
+        const camera = resolveWorkflowCamera({
+          direction: dir,
+          defaultDistance: cameraDistance,
+          defaultCameraAngle: cameraAngle,
+          defaultTarget: target,
+          options,
+        });
 
-        PubSub.emit(EventType.SET_CAMERA_ANGLE, { position, target });
+        setWorkflowState((prev) => ({
+          ...prev,
+          currentCamera: camera,
+        }));
+
+        PubSub.emit(EventType.SET_CAMERA_ANGLE, {
+          position: camera.position,
+          target: camera.target,
+        });
         await waitForAnimationFrames(2);
 
         const captureDone = waitForCaptureDone({
