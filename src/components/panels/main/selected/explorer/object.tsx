@@ -1,4 +1,4 @@
-import { useEntitiesStore } from "@/store/next/entities";
+import { useEntitiesStore, useEntity } from "@/store/next/entities";
 import { useLight, useLightsStore } from "@/store/next/lights";
 import { useTransform, useTransformsStore } from "@/store/next/transforms";
 import {
@@ -14,6 +14,7 @@ import { useMainPanelContext } from "../../context";
 import { useCamera, useCamerasStore } from "@/store/next/cameras";
 import { LEVA_THEME } from "@/constants/theming";
 import { buildInputs } from "./utils";
+import { ModelDowngradePanel } from "./downgrade";
 
 const ObjectDetails = ({ uuid }: { uuid?: string }) => {
   const store = useStoreContext();
@@ -129,6 +130,7 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
 
 export const ObjectContext = () => {
   const selected = useEntitiesStore((state) => state.selected);
+  const entity = useEntity(selected);
   const { setStore } = useMainPanelContext();
   const objectStore = useCreateStore();
 
@@ -140,7 +142,14 @@ export const ObjectContext = () => {
 
   return (
     <LevaStoreProvider key={selected} store={objectStore}>
-      <ObjectDetails uuid={selected} />
+      <div className="grid min-h-0 gap-3 pb-8">
+        <section className="relative h-[260px] overflow-hidden rounded-md border bg-background">
+          <ObjectDetails uuid={selected} />
+        </section>
+        {entity?.type === "model" ? (
+          <ModelDowngradePanel modelUuid={selected} embedded />
+        ) : null}
+      </div>
     </LevaStoreProvider>
   );
 };

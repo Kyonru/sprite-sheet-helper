@@ -1,5 +1,6 @@
 import { EventType, PubSub } from "@/lib/events";
 import { useModel, useModelsStore } from "@/store/next/models";
+import { useModelDowngradesStore } from "@/store/next/model-downgrades";
 import { useRefsStore } from "@/store/next/refs";
 import type { ModelComponent as ModelComponentType } from "@/types/ecs";
 import {
@@ -12,6 +13,11 @@ import {
   applyMaterialAssignments,
   buildMaterialInventory,
 } from "@/utils/material-runtime";
+import {
+  clearRuntimeModel,
+  getRuntimeModel,
+  setOriginalRuntimeModel,
+} from "@/utils/model-downgrade-runtime";
 import { useFrame } from "@react-three/fiber";
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
@@ -38,6 +44,11 @@ export function Based({ uuid, ...props }: { uuid: string }) {
   const setModelInventory = useMaterialsStore(
     (state) => state.setModelInventory,
   );
+  const downgradeEntry = useModelDowngradesStore(
+    (state) => state.entries[uuid],
+  );
+  const activeVariant = downgradeEntry?.activeVariant ?? "original";
+  const downgradeRevision = downgradeEntry?.revision ?? 0;
   const animation = useModelsStore((state) => uuid && state.animations[uuid]);
   const clips = useModelsStore((state) => state.clips);
   const durations = useModelsStore((state) => state.durations);
@@ -79,11 +90,21 @@ export function Based({ uuid, ...props }: { uuid: string }) {
           parsed.object.scale.setScalar(scale);
         }
 
+        setOriginalRuntimeModel(uuid, {
+          object: parsed.object,
+          mixer: parsed.mixer,
+          clips: parsed.clips,
+        });
         setClips(uuid, parsed.clips);
         setMixerRef(uuid, parsed.mixer);
 
         // Emit event to signal model is ready for use
         PubSub.emit(EventType.MODEL_READY, { uuid });
+
+        const downgrade = useModelDowngradesStore.getState().entries[uuid];
+        if (downgrade?.activeVariant === "downgraded") {
+          void useModelDowngradesStore.getState().preview(uuid);
+        }
       } catch (err) {
         console.error("[sprite-sheet-helper] parseModel failed:", err);
         setMixerRef(uuid, null);
@@ -91,8 +112,20 @@ export function Based({ uuid, ...props }: { uuid: string }) {
     };
 
     openFile();
+    return () => {
+      clearRuntimeModel(uuid);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, setClips, setMixerRef, uuid]);
+
+  useEffect(() => {
+    const runtime = getRuntimeModel(uuid, activeVariant);
+    if (!runtime) return;
+    setObject(runtime.object);
+    mixerRef.current = runtime.mixer;
+    setClips(uuid, runtime.clips);
+    setMixerRef(uuid, runtime.mixer);
+  }, [activeVariant, downgradeRevision, setClips, setMixerRef, uuid]);
 
   useEffect(() => {
     if (!object) return;

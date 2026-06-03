@@ -17,6 +17,7 @@ import { useImagesStore } from "../images";
 import { useSettingsStore } from "../settings";
 import { useEffectsStore } from "../effects";
 import { useMaterialsStore } from "../materials";
+import { useModelDowngradesStore } from "../model-downgrades";
 import { setAppTitle } from "@/utils/app.web";
 import { EventType, PubSub } from "@/lib/events";
 import { downloadFile } from "@/utils/assets";
@@ -51,6 +52,7 @@ const stores = {
   history: useHistoryStore,
   effects: useEffectsStore,
   materials: useMaterialsStore,
+  modelDowngrades: useModelDowngradesStore,
 };
 
 type StoreKey = keyof typeof stores;

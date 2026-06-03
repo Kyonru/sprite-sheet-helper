@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { migrateSnapshot } from "@/store/next/project/migration";
 
 describe("project migrations", () => {
-  it("adds an empty materials snapshot when migrating v1 projects", () => {
+  it("adds empty materials and downgrade snapshots when migrating v1 projects", () => {
     const migrated = migrateSnapshot({
       version: 1,
       savedAt: 1,
@@ -19,7 +19,7 @@ describe("project migrations", () => {
       effects: {},
     });
 
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
     expect("materials" in migrated).toBe(true);
     expect(migrated.materials).toEqual({
       materials: {},
@@ -27,6 +27,10 @@ describe("project migrations", () => {
       textures: {},
       selectedMaterialId: undefined,
       selectedAssignmentId: undefined,
+    });
+    expect(migrated.modelDowngrades).toEqual({
+      entries: {},
+      selectedPresetId: "ps1-character",
     });
   });
 });

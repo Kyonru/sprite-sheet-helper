@@ -4,6 +4,7 @@ import type { EntitiesState } from "@/store/next/entities";
 import type { HistoryState } from "@/store/next/history";
 import type { ImagesState } from "@/store/next/images";
 import type { LightsState } from "@/store/next/lights";
+import type { ModelDowngradesState } from "@/types/model-downgrade";
 import type { ModelsState } from "@/store/next/models";
 import type { SettingsState } from "@/store/next/settings";
 import type { TargetsState } from "@/store/next/targets";
@@ -31,7 +32,15 @@ export interface ProjectSnapshot_v2 extends Omit<ProjectSnapshot_v1, "version"> 
   materials: MaterialsSnapshot;
 }
 
-// Union type — extend as you add versions
-export type ProjectSnapshotVersion = ProjectSnapshot_v1 | ProjectSnapshot_v2;
+export interface ProjectSnapshot_v3 extends Omit<ProjectSnapshot_v2, "version"> {
+  version: 3;
+  modelDowngrades: ModelDowngradesState;
+}
 
-export const CURRENT_VERSION = 2;
+// Union type — extend as you add versions
+export type ProjectSnapshotVersion =
+  | ProjectSnapshot_v1
+  | ProjectSnapshot_v2
+  | ProjectSnapshot_v3;
+
+export const CURRENT_VERSION = 3;

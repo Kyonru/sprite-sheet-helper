@@ -1,4 +1,4 @@
-import { type ProjectSnapshot_v2, CURRENT_VERSION } from "@/types/project";
+import { type ProjectSnapshot_v3, CURRENT_VERSION } from "@/types/project";
 
 type RawSnapshot = Record<string, unknown> & { version: number };
 
@@ -15,9 +15,17 @@ const migrations: Record<number, (old: RawSnapshot) => RawSnapshot> = {
       selectedAssignmentId: undefined,
     },
   }),
+  3: (old) => ({
+    ...old,
+    version: 3,
+    modelDowngrades: old.modelDowngrades ?? {
+      entries: {},
+      selectedPresetId: "ps1-character",
+    },
+  }),
 };
 
-export function migrateSnapshot(raw: RawSnapshot): ProjectSnapshot_v2 {
+export function migrateSnapshot(raw: RawSnapshot): ProjectSnapshot_v3 {
   let current = raw;
   const target = CURRENT_VERSION;
 
@@ -27,5 +35,5 @@ export function migrateSnapshot(raw: RawSnapshot): ProjectSnapshot_v2 {
     current = migrate(current);
   }
 
-  return current as unknown as ProjectSnapshot_v2;
+  return current as unknown as ProjectSnapshot_v3;
 }
