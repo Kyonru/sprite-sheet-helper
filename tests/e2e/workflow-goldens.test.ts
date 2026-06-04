@@ -80,6 +80,23 @@ async function readPngDimensions(path: string) {
   return { width: png.width, height: png.height };
 }
 
+async function expectPlatformGoldenPng(
+  workflow: string,
+  image: string,
+  expectedPath: string,
+  actualPath: string,
+) {
+  if (process.platform === "darwin") {
+    await expectExactPngPixels(expectedPath, actualPath, {
+      workflow,
+      image,
+    });
+    return;
+  }
+
+  await expectPngDimensionsGolden(workflow, image, expectedPath, actualPath);
+}
+
 describe("workflow golden exports", () => {
   let context: Awaited<ReturnType<typeof createWorkflowE2EContext>> | undefined;
   let browser: Browser | undefined;
@@ -126,30 +143,17 @@ describe("workflow golden exports", () => {
           join(expected, "spritesheet.json"),
           actual.json,
         );
-        if (process.platform === "darwin") {
-          await expectExactPngPixels(
-            join(expected, "spritesheet.png"),
-            actual.spritesheet,
-            {
-              workflow: workflow.id,
-              image: "spritesheet.png",
-            },
-          );
-        } else {
-          await expectPngDimensionsGolden(
-            workflow.id,
-            "spritesheet.png",
-            join(expected, "spritesheet.png"),
-            actual.spritesheet,
-          );
-        }
-        await expectExactPngPixels(
+        await expectPlatformGoldenPng(
+          workflow.id,
+          "spritesheet.png",
+          join(expected, "spritesheet.png"),
+          actual.spritesheet,
+        );
+        await expectPlatformGoldenPng(
+          workflow.id,
+          "spritesheet_normal.png",
           join(expected, "spritesheet_normal.png"),
           actual.normal,
-          {
-            workflow: workflow.id,
-            image: "spritesheet_normal.png",
-          },
         );
       },
       300000,

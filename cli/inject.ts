@@ -16,7 +16,7 @@ export async function injectModel(
   const fileName = basename(modelPath);
 
   const uuid = await page.evaluate(
-    async (b64: string, name: string) => {
+    (b64: string, name: string) => {
       console.log(`[sprite-sheet-helper] Injecting model: ${name}`);
       const bridge = window.__SSH_BRIDGE__;
 
@@ -28,32 +28,21 @@ export async function injectModel(
         .getState()
         .initTransform(uuid, { position: [0, 0.8, 0] });
 
-      // const label = name ?? file.name ?? "Model";
-      // const uuid = addEntity("model", label);
-
-      // const transform: Partial<Transform> = {
-      //   position: [0, 0.8, 0],
-      // };
-
-      // initTransform(uuid, transform);
-      // await loadModel(uuid, file);
-
-      // if (select) {
-      //   selectEntity(uuid);
-      // }
-
-      // const entity = structuredClone(
-      //   useEntitiesStore.getState().entities[uuid],
-      // );
-
-      try {
-        await bridge.stores.models.getState().loadFromFile(uuid, file);
-        bridge.stores.entities.getState().selectEntity(uuid);
-      } catch (err) {
-        throw new Error(
-          `loadFromFile failed: ${(err as Error)?.message ?? err}`,
-        );
-      }
+      void bridge.stores.models
+        .getState()
+        .loadFromFile(uuid, file)
+        .then(() => {
+          bridge.stores.entities.getState().selectEntity(uuid);
+        })
+        .catch((err: unknown) => {
+          bridge.stores.models
+            .getState()
+            .setLoadState(
+              uuid,
+              "error",
+              `loadFromFile failed: ${(err as Error)?.message ?? err}`,
+            );
+        });
 
       return uuid as string;
     },
@@ -64,6 +53,7 @@ export async function injectModel(
   await page.waitForFunction(
     (id: string) => {
       const models = window.__SSH_BRIDGE__.stores.models.getState();
+      if (models.models[id]?.loadState === "error") return true;
       return (
         models.models[id]?.loadState === "loaded" &&
         Object.prototype.hasOwnProperty.call(models.mixerRef, id) &&
@@ -73,6 +63,14 @@ export async function injectModel(
     { timeout: 120000 },
     uuid,
   );
+
+  const loadError = await page.evaluate((id: string) => {
+    const model = window.__SSH_BRIDGE__.stores.models.getState().models[id];
+    return model?.loadState === "error"
+      ? (model.errorMessage ?? "Model failed to load")
+      : null;
+  }, uuid);
+  if (loadError) throw new Error(loadError);
 
   if (!options.silent) {
     console.log("[sprite-sheet-helper] Model injected");

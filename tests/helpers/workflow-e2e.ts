@@ -120,6 +120,37 @@ export async function startPreviewServer(port: number): Promise<ChildProcess> {
   return proc;
 }
 
+export async function stopPreviewServer(
+  proc: ChildProcess,
+  timeout = 5000,
+): Promise<void> {
+  if (proc.exitCode !== null || proc.signalCode !== null) return;
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const forceKillTimer = setTimeout(() => {
+      if (!settled) proc.kill("SIGKILL");
+    }, timeout);
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(forceKillTimer);
+      proc.off("exit", finish);
+      proc.off("error", finish);
+      resolve();
+    };
+
+    proc.once("exit", finish);
+    proc.once("error", finish);
+
+    if (!proc.kill("SIGTERM")) {
+      finish();
+      return;
+    }
+  });
+}
+
 async function waitForPreviewServer(
   port: number,
   proc: ChildProcess,
@@ -212,7 +243,7 @@ export async function createWorkflowE2EContext(port: number) {
         }
         await browser.close();
       } finally {
-        server.kill("SIGTERM");
+        await stopPreviewServer(server);
       }
     },
   };
