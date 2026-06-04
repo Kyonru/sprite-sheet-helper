@@ -1,5 +1,6 @@
 import type { Page } from "puppeteer";
 import { CaptureOptions } from "./types.js";
+import { waitForNextAnimationFrame } from "./page-utils.js";
 
 const TWO_PI = Math.PI * 2;
 
@@ -51,9 +52,7 @@ export async function captureFrames(
       angle,
     );
 
-    await page.evaluate(
-      () => new Promise<void>((r) => requestAnimationFrame(() => r())),
-    );
+    await waitForNextAnimationFrame(page);
 
     await page.evaluate(() => {
       window.__SSH_BRIDGE__.PubSub.emit(

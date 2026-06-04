@@ -95,9 +95,7 @@ async function main() {
     printErrorSummary(summary);
   }
 
-  if (summary.status !== "ok") {
-    process.exitCode = 1;
-  }
+  process.exit(summary.status === "ok" ? 0 : 1);
 }
 
 async function runCommand(
@@ -275,8 +273,7 @@ async function runJobInner(
       // Browser may already be closed.
     }
     if (serverProc && !command.keepServer) {
-      stopServer(serverProc);
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await stopServer(serverProc);
       logger.log("[sprite-sheet-helper] Server stopped");
     }
   }

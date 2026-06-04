@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import { basename } from "path";
 import type { Page } from "puppeteer";
+import { waitForNextAnimationFrame } from "./page-utils.js";
 
 // Self-contained formats work reliably: GLB, binary FBX, embedded GLTF.
 // Multi-file formats (GLTF + external .bin, OBJ + .mtl) will load without their
@@ -60,33 +61,25 @@ export async function injectModel(
     fileName,
   );
 
-  // Wait for the React component to emit MODEL_READY event
-  await page.evaluate((id: string) => {
-    return new Promise<void>((resolve) => {
-      const handler = (payload: { uuid: string }) => {
-        if (payload.uuid === id) {
-          window.__SSH_BRIDGE__.PubSub.off(
-            window.__SSH_BRIDGE__.PubSub.EVENT_TYPE.MODEL_READY,
-            handler,
-          );
-          resolve();
-        }
-      };
-      window.__SSH_BRIDGE__.PubSub.once(
-        window.__SSH_BRIDGE__.PubSub.EVENT_TYPE.MODEL_READY,
-        handler,
+  await page.waitForFunction(
+    (id: string) => {
+      const models = window.__SSH_BRIDGE__.stores.models.getState();
+      return (
+        models.models[id]?.loadState === "loaded" &&
+        Object.prototype.hasOwnProperty.call(models.mixerRef, id) &&
+        Object.prototype.hasOwnProperty.call(models.clips, id)
       );
-    });
-  }, uuid);
+    },
+    { timeout: 120000 },
+    uuid,
+  );
 
   if (!options.silent) {
     console.log("[sprite-sheet-helper] Model injected");
   }
 
-  // Extra frame to let the scene render with the model visible
-  await page.evaluate(
-    () => new Promise<void>((r) => requestAnimationFrame(() => r())),
-  );
+  // Extra frame to let the scene render with the model visible.
+  await waitForNextAnimationFrame(page);
 
   return uuid;
 }

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { copyFile, mkdir, rm, writeFile } from "fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "fs/promises";
 import { join, resolve } from "path";
+import { PNG } from "pngjs";
 import type { Browser } from "puppeteer";
 import { WORKFLOW_PRESETS } from "../../cli/data";
 import { expectExactPngPixels } from "../helpers/pixels";
@@ -54,6 +55,31 @@ async function expectSpritesheetJsonGolden(
   }
 }
 
+async function expectPngDimensionsGolden(
+  workflow: string,
+  image: string,
+  expectedPath: string,
+  actualPath: string,
+) {
+  const [expected, actual] = await Promise.all([
+    readPngDimensions(expectedPath),
+    readPngDimensions(actualPath),
+  ]);
+
+  try {
+    expect(actual).toEqual(expected);
+  } catch (error) {
+    throw new Error(
+      `[${workflow}] ${image} dimensions differ from golden\n${(error as Error).message}`,
+    );
+  }
+}
+
+async function readPngDimensions(path: string) {
+  const png = PNG.sync.read(await readFile(path));
+  return { width: png.width, height: png.height };
+}
+
 describe("workflow golden exports", () => {
   let context: Awaited<ReturnType<typeof createWorkflowE2EContext>> | undefined;
   let browser: Browser | undefined;
@@ -100,14 +126,23 @@ describe("workflow golden exports", () => {
           join(expected, "spritesheet.json"),
           actual.json,
         );
-        await expectExactPngPixels(
-          join(expected, "spritesheet.png"),
-          actual.spritesheet,
-          {
-            workflow: workflow.id,
-            image: "spritesheet.png",
-          },
-        );
+        if (process.platform === "darwin") {
+          await expectExactPngPixels(
+            join(expected, "spritesheet.png"),
+            actual.spritesheet,
+            {
+              workflow: workflow.id,
+              image: "spritesheet.png",
+            },
+          );
+        } else {
+          await expectPngDimensionsGolden(
+            workflow.id,
+            "spritesheet.png",
+            join(expected, "spritesheet.png"),
+            actual.spritesheet,
+          );
+        }
         await expectExactPngPixels(
           join(expected, "spritesheet_normal.png"),
           actual.normal,

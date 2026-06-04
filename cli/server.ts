@@ -23,11 +23,38 @@ export async function startServer(
   return proc;
 }
 
-export function stopServer(proc: ChildProcess): void {
-  proc.kill("SIGTERM");
+export async function stopServer(
+  proc: ChildProcess,
+  timeout = 5000,
+): Promise<void> {
+  if (proc.exitCode !== null || proc.signalCode !== null) return;
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const resolveOnce = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      if (proc.exitCode === null && proc.signalCode === null) {
+        proc.kill("SIGKILL");
+      }
+      resolveOnce();
+    }, timeout);
+
+    proc.once("exit", resolveOnce);
+    proc.once("error", resolveOnce);
+    proc.kill("SIGTERM");
+  });
 }
 
-async function waitForReady(port: number, proc: ChildProcess, timeout = 60000): Promise<void> {
+async function waitForReady(
+  port: number,
+  proc: ChildProcess,
+  timeout = 180000,
+): Promise<void> {
   const deadline = Date.now() + timeout;
   let output = "";
 

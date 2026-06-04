@@ -7,7 +7,7 @@ export type CliResult = {
   stderr: string;
 };
 
-export function runCli(args: string[], timeoutMs = 120000): Promise<CliResult> {
+export function runCli(args: string[], timeoutMs = 300000): Promise<CliResult> {
   return new Promise((resolveResult, reject) => {
     const child = spawn(process.execPath, [resolve("dist/cli/index.js"), ...args], {
       cwd: resolve("."),

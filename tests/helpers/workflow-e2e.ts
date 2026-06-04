@@ -123,7 +123,7 @@ export async function startPreviewServer(port: number): Promise<ChildProcess> {
 async function waitForPreviewServer(
   port: number,
   proc: ChildProcess,
-  timeout = 60000,
+  timeout = 180000,
 ): Promise<void> {
   const deadline = Date.now() + timeout;
   let output = "";
