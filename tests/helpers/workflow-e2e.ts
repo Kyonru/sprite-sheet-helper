@@ -108,8 +108,15 @@ export async function closePage(page: Page): Promise<void> {
 
 export async function startPreviewServer(port: number): Promise<ChildProcess> {
   const proc = spawn(
-    "npx",
-    ["vite", "preview", "--port", String(port), "--host", "127.0.0.1"],
+    process.execPath,
+    [
+      resolve("node_modules/vite/bin/vite.js"),
+      "preview",
+      "--port",
+      String(port),
+      "--host",
+      "127.0.0.1",
+    ],
     {
       cwd: resolve("."),
       stdio: ["ignore", "pipe", "pipe"],
@@ -154,7 +161,7 @@ export async function stopPreviewServer(
 async function waitForPreviewServer(
   port: number,
   proc: ChildProcess,
-  timeout = 180000,
+  timeout = 300000,
 ): Promise<void> {
   const deadline = Date.now() + timeout;
   let output = "";
