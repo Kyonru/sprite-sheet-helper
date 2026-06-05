@@ -19,14 +19,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Model downgrade tools with analysis, preview/apply/reset, low-poly/PS1-style recipes, animation reduction, and GLB export
 - Asset Toybox for authored low-poly models, skeleton/primitive creation, face extrusion, mirror editing, component editing, and GLB export
 - Workflow camera preview with direction selection, distance/elevation/rotation controls, target framing, and non-destructive draft settings
+- Docker image and Docker-based GitHub Action distribution through GHCR
+- Standalone CI example project that batch-generates sprites for every model in a `models/` folder
+- Zensical documentation site, GitHub Pages publishing workflow, and local `act` smoke-test docs
+- Railway/Railpack production deployment config for hosting the web app
 
 ### Improved
 
 - Auto-capture workflows now have deterministic sequencing, timeout handling, cancellation, progress details, and safer CLI waiting
+- CLI automation with strict option validation, JSON summaries, config-driven batch jobs, workflow camera flags, and CI-friendly failure controls
 - Sequence preview/carousel restored in the export workbench with frame editing, row editing, normal status, playback, zoom, and tighter layout behavior
 - Effects panel redesigned around stack ordering, grouped effect browser, presets, guidance warnings, and cleaner details editing
 - Settings, export preflight, docs, and troubleshooting pages refreshed for the new export, workflow, normal-map, and effects flows
 - Project snapshots now migrate newer material, downgrade, and authored-model state
+- Release workflows now publish Docker image tags and floating Action refs only from release tags, including `latest`
+- CI example project now uses `Kyonru/sprite-sheet-helper/action@latest` and is validated before Action refs are promoted
 
 ### Fixed
 
@@ -34,6 +41,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fixed Pose Studio selection, IK movement, retargeting, history grouping, debug capture, and overlay alignment issues
 - Fixed effects reorder/delete preview refresh issues
 - Fixed carousel playback flicker, play state, zoom retention, and cramped strip behavior
+- Fixed Docker entrypoint path, Vite preview readiness detection, and PWA precache limits for CI/release builds
+- Fixed Railway build detection by moving the CLI Dockerfile out of the repo root and forcing Railpack's Node provider
 
 ## [0.3.1]
 
