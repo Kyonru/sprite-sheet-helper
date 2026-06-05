@@ -1,0 +1,1 @@
+../src/docs/pose-studio.md

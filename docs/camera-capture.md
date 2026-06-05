@@ -1,0 +1,1 @@
+../src/docs/camera-capture.md

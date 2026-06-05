@@ -11,7 +11,7 @@ permissions:
   packages: write
 
 jobs:
-  build-test-publish:
+  docker-smoke:
     name: Build, smoke test, and publish
     runs-on: ubuntu-latest
     timeout-minutes: 60

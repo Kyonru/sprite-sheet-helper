@@ -11,6 +11,7 @@ const host = process.env.TAURI_DEV_HOST;
 const __TAURI__ = !!process.env.TAURI_BUILD;
 const __CLI__ = !!process.env.CLI_BUILD;
 const __WEB__ = !__TAURI__ && !__CLI__;
+const WORKBOX_MAX_PRECACHE_BYTES = 5 * 1024 * 1024;
 
 const tauriConfig: Partial<UserConfig> = {
   clearScreen: false,
@@ -59,7 +60,7 @@ export default defineConfig({
         injectRegister: "auto",
         workbox: {
           sourcemap: true,
-          maximumFileSizeToCacheInBytes: 3.5 * 1024 * 1024,
+          maximumFileSizeToCacheInBytes: WORKBOX_MAX_PRECACHE_BYTES,
         },
       }),
     devtools({
