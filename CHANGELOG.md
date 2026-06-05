@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.4.1]
+
+### Added
+
+- Railway/Railpack production deployment config for hosting the web app
+- Dedicated release artifact for generated output from the CI example project
+
+### Improved
+
+- Docker release workflow now builds from `docker/Dockerfile` so Railway does not auto-detect the CLI image
+- Docker release workflow publishes GHCR image tags only from release tags, including `latest`
+- Docker release workflow uses Node 24-ready Docker actions
+- Docker Action now points at the newest published GHCR image
+- CI example project uses `Kyonru/sprite-sheet-helper/action@main` and is validated during release smoke tests
+
+### Fixed
+
+- Fixed Railway build detection by forcing Railpack's Node provider instead of Python detection from docs dependencies
+- Fixed release failures caused by trying to create floating GitHub Action tags blocked by repository rules
+
 ## [0.4.0]
 
 ### Added
@@ -22,7 +42,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Docker image and Docker-based GitHub Action distribution through GHCR
 - Standalone CI example project that batch-generates sprites for every model in a `models/` folder
 - Zensical documentation site, GitHub Pages publishing workflow, and local `act` smoke-test docs
-- Railway/Railpack production deployment config for hosting the web app
 
 ### Improved
 
@@ -32,8 +51,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Effects panel redesigned around stack ordering, grouped effect browser, presets, guidance warnings, and cleaner details editing
 - Settings, export preflight, docs, and troubleshooting pages refreshed for the new export, workflow, normal-map, and effects flows
 - Project snapshots now migrate newer material, downgrade, and authored-model state
-- Release workflows now publish Docker image tags only from release tags, including `latest`
-- CI example project now uses `Kyonru/sprite-sheet-helper/action@main` to follow the newest published Action image
 
 ### Fixed
 
@@ -42,7 +59,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fixed effects reorder/delete preview refresh issues
 - Fixed carousel playback flicker, play state, zoom retention, and cramped strip behavior
 - Fixed Docker entrypoint path, Vite preview readiness detection, and PWA precache limits for CI/release builds
-- Fixed Railway build detection by moving the CLI Dockerfile out of the repo root and forcing Railpack's Node provider
 
 ## [0.3.1]
 
