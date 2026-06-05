@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile } from "fs/promises";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { dirname, resolve as pathResolve } from "path";
 import { fileURLToPath } from "url";
 import type { ChildProcess } from "child_process";
@@ -82,11 +82,18 @@ async function main() {
   }
 
   if (command.dryRun) {
-    printDryRun(command, Date.now() - startedAt);
-    return;
+    const summary = createDryRunSummary(command, Date.now() - startedAt);
+    await writeSummaryFile(command, summary);
+    if (command.json) {
+      process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+    } else {
+      printDryRun(command);
+    }
+    process.exit(summary.status === "ok" ? 0 : 1);
   }
 
   const summary = await runCommand(command, startedAt);
+  await writeSummaryFile(command, summary);
   if (command.json) {
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
   } else if (!command.quiet) {
@@ -111,11 +118,13 @@ async function runCommand(
     if (result.status === "error") break;
   }
 
-  const status = jobSummaries.every((job) => job.status === "ok")
-    ? "ok"
-    : "error";
   const files = jobSummaries.flatMap((job) => job.files);
   const warnings = jobSummaries.flatMap((job) => job.warnings);
+  const status = jobSummaries.every((job) => job.status === "ok")
+    ? command.failOnWarnings && warnings.length > 0
+      ? "error"
+      : "ok"
+    : "error";
 
   return {
     status,
@@ -307,8 +316,11 @@ function printInfoCommand(command: Exclude<CliCommand, CliRunCommand>) {
   );
 }
 
-function printDryRun(command: CliRunCommand, elapsedMs: number) {
-  const summary: CliSummary = {
+function createDryRunSummary(
+  command: CliRunCommand,
+  elapsedMs: number,
+): CliSummary {
+  return {
     status: "ok",
     jobs: command.jobs.map((job) => ({
       id: job.id,
@@ -331,12 +343,9 @@ function printDryRun(command: CliRunCommand, elapsedMs: number) {
     warnings: [],
     elapsedMs,
   };
+}
 
-  if (command.json) {
-    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-    return;
-  }
-
+function printDryRun(command: CliRunCommand) {
   for (const job of command.jobs) {
     process.stdout.write(
       [
@@ -350,6 +359,15 @@ function printDryRun(command: CliRunCommand, elapsedMs: number) {
       ].join("\n") + "\n",
     );
   }
+}
+
+async function writeSummaryFile(
+  command: CliRunCommand,
+  summary: CliSummary,
+): Promise<void> {
+  if (!command.writeSummary) return;
+  await mkdir(dirname(command.writeSummary), { recursive: true });
+  await writeFile(command.writeSummary, `${JSON.stringify(summary, null, 2)}\n`);
 }
 
 function printHumanSummary(summary: CliSummary) {

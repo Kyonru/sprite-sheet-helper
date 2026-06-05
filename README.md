@@ -130,6 +130,8 @@ sprite-sheet-helper <input> [options]
 | `--job` | — | Run a single job from a config file |
 | `--dryRun` | `false` | Print resolved jobs without launching the browser |
 | `--json` | `false` | Emit a machine-readable summary |
+| `--writeSummary` | — | Write the JSON summary to a file |
+| `--failOnWarnings` | `false` | Exit with an error when warnings exist |
 | `--quiet` | `false` | Suppress progress logs |
 | `--debug` | `false` | Show browser console output |
 | `--headful` | `false` | Launch Chromium with a visible window |
@@ -188,6 +190,52 @@ Run all jobs, one job, or inspect the resolved settings:
 sprite-sheet-helper --config sprites.json
 sprite-sheet-helper --config sprites.json --job hero-topdown
 sprite-sheet-helper --config sprites.json --dryRun
+```
+
+### Docker
+
+Use the GHCR image when you want local or CI automation without installing Node or Chromium:
+
+```bash
+docker run --rm \
+  -v "$PWD:/work" \
+  ghcr.io/kyonru/sprite-sheet-helper:v0 \
+  /work/assets/hero.glb \
+  --workflow topdown-4dir \
+  --format godot \
+  --output /work/dist/sprites
+```
+
+For batch pipelines:
+
+```bash
+docker run --rm \
+  -v "$PWD:/work" \
+  ghcr.io/kyonru/sprite-sheet-helper:v0 \
+  --config /work/sprites.json \
+  --writeSummary /work/dist/sprites-summary.json
+```
+
+### GitHub Action
+
+```yaml
+- name: Generate sprites
+  uses: Kyonru/sprite-sheet-helper@v0
+  with:
+    input: assets/hero.glb
+    output: dist/sprites
+    workflow: topdown-4dir
+    format: godot
+```
+
+The action also supports config-driven batches:
+
+```yaml
+- name: Generate sprite batch
+  uses: Kyonru/sprite-sheet-helper@v0
+  with:
+    config: sprites.json
+    fail-on-warnings: "true"
 ```
 
 ### Example output — `--format love2d`

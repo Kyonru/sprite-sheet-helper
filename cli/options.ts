@@ -112,6 +112,8 @@ export type CliRunCommand = {
   debug: boolean;
   headful: boolean;
   keepServer: boolean;
+  writeSummary?: string;
+  failOnWarnings: boolean;
 };
 
 export type CliInfoCommand =
@@ -158,6 +160,8 @@ export async function parseCliCommand(
       debug: { type: "boolean" },
       headful: { type: "boolean" },
       keepServer: { type: "boolean" },
+      writeSummary: { type: "string" },
+      failOnWarnings: { type: "boolean" },
       config: { type: "string" },
       job: { type: "string" },
       format: { type: "string" },
@@ -224,6 +228,11 @@ export async function parseCliCommand(
     debug: Boolean(values.debug),
     headful: Boolean(values.headful),
     keepServer: Boolean(values.keepServer),
+    writeSummary:
+      values.writeSummary === undefined
+        ? undefined
+        : resolveMaybeRelative(cwd, getString(values.writeSummary, "writeSummary")),
+    failOnWarnings: Boolean(values.failOnWarnings),
   };
   const input = parsed.positionals[0];
   const configPath = getOptionalString(values.config, "config");
@@ -334,6 +343,8 @@ export function createHelpText(): string {
     "  --debug                Show browser console output.",
     "  --headful              Launch Chromium with a visible window.",
     "  --keepServer           Leave the Vite preview server running.",
+    "  --writeSummary <path>  Write the machine-readable run summary to a file.",
+    "  --failOnWarnings       Exit with an error if the run reports warnings.",
     "  --timeout <ms>         Per-job timeout.",
     "  --exportTimeout <ms>   Export download timeout. Default: 60000",
     "  --workflowTimeout <ms> Workflow completion timeout.",

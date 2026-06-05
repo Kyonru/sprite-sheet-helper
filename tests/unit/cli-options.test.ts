@@ -60,6 +60,23 @@ describe("CLI option parsing", () => {
     });
   });
 
+  it("normalizes summary and strict warning automation flags", async () => {
+    const command = await parseCliCommand(
+      [
+        "character.glb",
+        "--writeSummary",
+        "reports/sprites.json",
+        "--failOnWarnings",
+      ],
+      { cwd: "/workspace/game", validateInput: false },
+    );
+
+    expect(command.kind).toBe("run");
+    if (command.kind !== "run") return;
+    expect(command.writeSummary).toBe("/workspace/game/reports/sprites.json");
+    expect(command.failOnWarnings).toBe(true);
+  });
+
   it("parses target and repeatable direction overrides", async () => {
     const command = await parseCliCommand(
       [

@@ -1,0 +1,9 @@
+.git
+.github
+.e2e-artifacts
+dist
+node_modules
+coverage
+tests
+*.log
+.DS_Store

@@ -16,8 +16,11 @@ export type PageOptions = {
 };
 
 export async function launchBrowser(options: BrowserOptions = {}): Promise<Browser> {
+  const executablePath =
+    process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_BIN || undefined;
   const browser = await puppeteer.launch({
     headless: options.headful ? false : true,
+    executablePath,
     slowMo: options.slowMo,
     devtools: options.devtools,
     protocolTimeout: options.protocolTimeout,

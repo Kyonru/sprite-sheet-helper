@@ -76,6 +76,8 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 | --job            | string | —           | Run a single job from a config file       |
 | --dryRun         | flag   | false       | Print resolved jobs without running       |
 | --json           | flag   | false       | Emit a machine-readable summary           |
+| --writeSummary   | string | —           | Write the JSON summary to a file          |
+| --failOnWarnings | flag   | false       | Exit with an error when warnings exist    |
 | --quiet          | flag   | false       | Suppress progress logs                    |
 | --debug          | flag   | false       | Show browser console output               |
 | --headful        | flag   | false       | Launch Chromium with a visible window     |
@@ -266,6 +268,68 @@ The JSON `animations` array contains one entry per direction per clip:
 ## Pipeline Integration
 
 Because the CLI is a standard Node.js binary it fits into any build tool or script that can run shell commands.
+
+### Docker
+
+Use the prebuilt GHCR image when you want CI or local automation without installing Node or Chromium:
+
+```bash
+docker run --rm \
+  -v "$PWD:/work" \
+  ghcr.io/kyonru/sprite-sheet-helper:v0 \
+  /work/assets/character.glb \
+  --workflow topdown-4dir \
+  --format godot \
+  --output /work/dist/sprites
+```
+
+The image runs from `/work`, so mount your project there and use `/work/...` paths for inputs, configs, and outputs. For local runs where you want host-owned output files, pass Docker's `--user "$(id -u):$(id -g)"`.
+
+Batch configs work the same way:
+
+```bash
+docker run --rm \
+  -v "$PWD:/work" \
+  ghcr.io/kyonru/sprite-sheet-helper:v0 \
+  --config /work/sprites.config.json \
+  --writeSummary /work/dist/sprites-summary.json
+```
+
+### GitHub Action
+
+The Docker image is also exposed as a Docker-based GitHub Action:
+
+```yaml
+- name: Generate sprites
+  uses: Kyonru/sprite-sheet-helper@v0
+  with:
+    input: assets/character.glb
+    output: dist/sprites
+    workflow: topdown-4dir
+    format: godot
+    frames: "8"
+    width: "64"
+    height: "64"
+```
+
+For asset pipelines, prefer a checked-in config file:
+
+```yaml
+- name: Generate sprite batch
+  id: sprites
+  uses: Kyonru/sprite-sheet-helper@v0
+  with:
+    config: sprites.config.json
+    fail-on-warnings: "true"
+
+- name: Upload sprites
+  uses: actions/upload-artifact@v6
+  with:
+    name: sprites
+    path: dist/sprites/
+```
+
+The action outputs `status`, `summary-json`, `files`, `warnings`, and `elapsed-ms`. Use `args` for less common CLI flags that do not have first-class action inputs yet.
 
 ### npm / package.json script
 

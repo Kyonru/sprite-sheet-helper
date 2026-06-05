@@ -5,14 +5,15 @@ import { dirname, resolve as pathResolve } from "path";
 
 // dist/cli/ is two levels below the project root
 const ROOT = pathResolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const VITE_BIN = pathResolve(ROOT, "node_modules/vite/bin/vite.js");
 
 export async function startServer(
   port: number,
   timeoutMs?: number,
 ): Promise<ChildProcess> {
   const proc = spawn(
-    "npx",
-    ["vite", "preview", "--port", String(port), "--host", "127.0.0.1"],
+    process.execPath,
+    [VITE_BIN, "preview", "--port", String(port), "--host", "127.0.0.1"],
     {
       cwd: ROOT,
       stdio: ["ignore", "pipe", "pipe"],
@@ -53,7 +54,7 @@ export async function stopServer(
 async function waitForReady(
   port: number,
   proc: ChildProcess,
-  timeout = 180000,
+  timeout = 300000,
 ): Promise<void> {
   const deadline = Date.now() + timeout;
   let output = "";

@@ -1,0 +1,135 @@
+name: Docker
+
+on:
+  push:
+    branches: [ main, next ]
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-test-publish:
+    name: Build, smoke test, and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build local smoke image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: sprite-sheet-helper:smoke
+
+      - name: Smoke test container help
+        run: docker run --rm sprite-sheet-helper:smoke --help
+
+      - name: Smoke test container spritesheet export
+        run: |
+          rm -rf .docker-smoke
+          mkdir -p .docker-smoke
+          docker run --rm \
+            -v "$PWD:/work" \
+            sprite-sheet-helper:smoke \
+            /work/example.fbx \
+            --format spritesheet \
+            --frames 1 \
+            --width 32 \
+            --height 32 \
+            --output /work/.docker-smoke/spritesheet
+          test -f .docker-smoke/spritesheet/spritesheet.png
+          test -f .docker-smoke/spritesheet/spritesheet.json
+
+      - name: Smoke test container batch config
+        run: |
+          cat > .docker-smoke/sprites.config.json <<'JSON'
+          {
+            "defaults": {
+              "format": "spritesheet",
+              "frames": 1,
+              "width": 32,
+              "height": 32
+            },
+            "jobs": [
+              {
+                "id": "example",
+                "input": "../example.fbx",
+                "output": "batch",
+                "normalMap": true
+              }
+            ]
+          }
+          JSON
+          docker run --rm \
+            -v "$PWD:/work" \
+            sprite-sheet-helper:smoke \
+            --config /work/.docker-smoke/sprites.config.json \
+            --writeSummary /work/.docker-smoke/summary.json
+          test -f .docker-smoke/batch/spritesheet.png
+          test -f .docker-smoke/batch/spritesheet_normal.png
+          test -f .docker-smoke/summary.json
+
+      - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/kyonru/sprite-sheet-helper
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Publish image
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Smoke test published Docker action
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: ./
+        with:
+          input: example.fbx
+          output: .docker-action-smoke
+          format: spritesheet
+          frames: "1"
+          width: "32"
+          height: "32"
+
+      - name: Verify Docker action output
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          test -f .docker-action-smoke/spritesheet.png
+          test -f .docker-action-smoke/spritesheet.json
+
+      - name: Upload container smoke outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: docker-smoke-output
+          path: |
+            .docker-smoke/
+            .docker-action-smoke/
+          retention-days: 3

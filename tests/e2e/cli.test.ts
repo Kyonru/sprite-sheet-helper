@@ -125,6 +125,7 @@ describe("CLI exports", () => {
     tempDirs.push(tempDir);
     const output = join(tempDir, "out");
     const configPath = join(tempDir, "sprites.json");
+    const summaryPath = join(tempDir, "summary.json");
     await writeFile(
       configPath,
       JSON.stringify({
@@ -149,6 +150,8 @@ describe("CLI exports", () => {
       "--job",
       "hero",
       "--json",
+      "--writeSummary",
+      summaryPath,
       "--cameraAngle",
       "0",
       "--directionRotationOffset",
@@ -168,6 +171,12 @@ describe("CLI exports", () => {
     expect(summary.status).toBe("ok");
     expect(summary.jobs[0].id).toBe("hero");
     expect(summary.jobs[0].files).toContain(join(output, "spritesheet.png"));
+    const writtenSummary = JSON.parse(await readFile(summaryPath, "utf8")) as {
+      status: string;
+      jobs: { id: string }[];
+    };
+    expect(writtenSummary.status).toBe("ok");
+    expect(writtenSummary.jobs[0].id).toBe("hero");
     await expectFile(join(output, "spritesheet.png"));
     await expectFile(join(output, "spritesheet.json"));
   });

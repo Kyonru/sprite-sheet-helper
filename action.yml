@@ -1,0 +1,86 @@
+name: Sprite Sheet Helper
+description: Generate sprite sheets and engine assets from 3D models with Sprite Sheet Helper.
+author: Kyonru
+
+inputs:
+  input:
+    description: Model file to export. Omit when using a config with jobs.
+    required: false
+  output:
+    description: Output directory for generated files.
+    required: false
+  config:
+    description: JSON batch config path.
+    required: false
+  job:
+    description: Job id to run from a config file.
+    required: false
+  format:
+    description: Export format.
+    required: false
+  workflow:
+    description: Workflow preset id.
+    required: false
+  frames:
+    description: Frames per captured sequence.
+    required: false
+  fps:
+    description: Capture frames per second.
+    required: false
+  width:
+    description: Frame width in pixels.
+    required: false
+  height:
+    description: Frame height in pixels.
+    required: false
+  normal-map:
+    description: Capture and export normal maps.
+    required: false
+  atlas-layout:
+    description: Atlas layout, rows or packed.
+    required: false
+  atlas-padding:
+    description: Empty pixels around each frame slot.
+    required: false
+  atlas-bleed:
+    description: Edge-pixel extrusion around each frame.
+    required: false
+  atlas-scale:
+    description: Atlas scale factor.
+    required: false
+  max-atlas-size:
+    description: Maximum atlas page width and height.
+    required: false
+  multi-page:
+    description: Allow generic spritesheet page splitting.
+    required: false
+  json:
+    description: Print the CLI JSON summary to stdout.
+    required: false
+  fail-on-warnings:
+    description: Fail the action when the CLI reports warnings.
+    required: false
+  args:
+    description: Extra CLI arguments appended after the mapped inputs.
+    required: false
+
+outputs:
+  status:
+    description: CLI summary status.
+  summary-json:
+    description: Full machine-readable CLI summary.
+  files:
+    description: Newline-delimited generated files.
+  warnings:
+    description: Newline-delimited warnings.
+  elapsed-ms:
+    description: Total elapsed time in milliseconds.
+
+runs:
+  using: docker
+  image: docker://ghcr.io/kyonru/sprite-sheet-helper:v0
+  entrypoint: /opt/sprite-sheet-helper/docker/action-entrypoint.sh
+
+branding:
+  icon: image
+  color: purple
