@@ -2,12 +2,19 @@ name: Docker
 
 on:
   push:
-    branches: [ main, next ]
-    tags: [ "v*" ]
-  workflow_dispatch:
+    tags: [ "v*.*.*" ]
+  release:
+    types: [ published ]
+
+concurrency:
+  group: docker-release-${{ github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -19,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -79,7 +88,7 @@ jobs:
           test -f .docker-smoke/summary.json
 
       - name: Log in to GHCR
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(env.RELEASE_TAG, 'v')
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -87,19 +96,22 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker metadata
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(env.RELEASE_TAG, 'v')
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/kyonru/sprite-sheet-helper
           tags: |
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest
 
       - name: Publish image
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(env.RELEASE_TAG, 'v')
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -108,7 +120,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Smoke test published Docker action
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(env.RELEASE_TAG, 'v')
         uses: ./action
         with:
           input: example.fbx
@@ -119,10 +131,29 @@ jobs:
           height: "32"
 
       - name: Verify Docker action output
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(env.RELEASE_TAG, 'v')
         run: |
           test -f .docker-action-smoke/spritesheet.png
           test -f .docker-action-smoke/spritesheet.json
+
+      - name: Update floating action tags
+        if: startsWith(env.RELEASE_TAG, 'v')
+        env:
+          TAG_NAME: ${{ env.RELEASE_TAG }}
+        run: |
+          set -euo pipefail
+          version="${TAG_NAME#v}"
+          major="${version%%.*}"
+          minor_patch="${version#*.}"
+          minor="${minor_patch%%.*}"
+          major_tag="v${major}"
+          minor_tag="v${major}.${minor}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa "$major_tag" "$GITHUB_SHA" -m "Update $major_tag to $TAG_NAME"
+          git tag -fa "$minor_tag" "$GITHUB_SHA" -m "Update $minor_tag to $TAG_NAME"
+          git push origin "$major_tag" "$minor_tag" --force
 
       - name: Upload container smoke outputs
         if: always()

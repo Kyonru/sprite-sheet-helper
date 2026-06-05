@@ -241,6 +241,8 @@ The action also supports config-driven batches:
     fail-on-warnings: "true"
 ```
 
+On release tags like `v0.4.0`, CI publishes Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`, then updates the floating action refs `v0.4` and `v0` after the Docker action smoke test passes. Branch builds do not update published image tags or action refs.
+
 ### Example output — `--format love2d`
 
 ```text

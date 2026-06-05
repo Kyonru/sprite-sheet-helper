@@ -2,7 +2,7 @@ name: Sprite Sheet Helper Release
 on:
   push:
     tags:
-      - "*"
+      - "v*.*.*"
 
 jobs:
   tauri-release:

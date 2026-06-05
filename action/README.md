@@ -94,6 +94,8 @@ The action runs:
 ghcr.io/kyonru/sprite-sheet-helper:v0
 ```
 
+Release tags like `v0.4.0` publish Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`. After the Docker action smoke test passes, CI also updates the floating GitHub Action refs `v0.4` and `v0`. Branch builds do not update published image tags or action refs.
+
 You can use the same image directly:
 
 ```bash
