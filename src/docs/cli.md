@@ -301,7 +301,7 @@ The Docker image is also exposed as a Docker-based GitHub Action:
 
 ```yaml
 - name: Generate sprites
-  uses: Kyonru/sprite-sheet-helper@v0
+  uses: Kyonru/sprite-sheet-helper/action@v0
   with:
     input: assets/character.glb
     output: dist/sprites
@@ -317,7 +317,7 @@ For asset pipelines, prefer a checked-in config file:
 ```yaml
 - name: Generate sprite batch
   id: sprites
-  uses: Kyonru/sprite-sheet-helper@v0
+  uses: Kyonru/sprite-sheet-helper/action@v0
   with:
     config: sprites.config.json
     fail-on-warnings: "true"

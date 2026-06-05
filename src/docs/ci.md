@@ -36,7 +36,7 @@ Use the Docker-based action when you want a small workflow step:
 
 ```yaml
 - name: Generate sprites
-  uses: Kyonru/sprite-sheet-helper@v0
+  uses: Kyonru/sprite-sheet-helper/action@v0
   with:
     input: assets/hero.glb
     output: dist/sprites
@@ -49,7 +49,7 @@ For asset pipelines, prefer a checked-in config file and upload the generated ou
 ```yaml
 - name: Generate sprite batch
   id: sprites
-  uses: Kyonru/sprite-sheet-helper@v0
+  uses: Kyonru/sprite-sheet-helper/action@v0
   with:
     config: sprites.config.json
     fail-on-warnings: "true"

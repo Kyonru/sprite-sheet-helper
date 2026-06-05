@@ -109,7 +109,7 @@ jobs:
 
       - name: Smoke test published Docker action
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: ./
+        uses: ./action
         with:
           input: example.fbx
           output: .docker-action-smoke

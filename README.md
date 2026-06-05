@@ -8,7 +8,6 @@ Built with **Vite + React + Tauri** for a lightweight, native desktop experience
 
 https://github.com/user-attachments/assets/cc9d06c4-2281-4131-a87c-5a95b9defe4e
 
-
 ## 📦 Download
 
 Prebuilt desktop binaries are available on the [Releases page](https://github.com/Kyonru/sprite-sheet-helper/releases).
@@ -23,16 +22,20 @@ Download the appropriate file for your OS and run it directly — no setup requi
 
 ---
 
+## Documentation
+
+- [Github Pages] - <https://kyonru.github.io/sprite-sheet-helper>
+
 ## ✨ Features
 
 ### Supported model formats
 
-| Format | Notes |
-| ------ | ----- |
-| GLB | Recommended — fully self-contained |
-| GLTF | External `.bin` and textures must be co-located |
-| FBX | Binary FBX recommended |
-| OBJ | Geometry only; `.mtl` materials not loaded |
+| Format | Notes                                           |
+| ------ | ----------------------------------------------- |
+| GLB    | Recommended — fully self-contained              |
+| GLTF   | External `.bin` and textures must be co-located |
+| FBX    | Binary FBX recommended                          |
+| OBJ    | Geometry only; `.mtl` materials not loaded      |
 
 ### Scene setup
 
@@ -61,20 +64,20 @@ Record animation clips directly from a webcam or a photo — no 3D animation sof
 
 ### Export formats
 
-| Format | Output |
-| ------ | ------ |
-| `spritesheet` | PNG + JSON metadata |
-| `zip` | Raw frame PNGs in a ZIP |
-| `gif` | Animated GIF |
-| `bevy` | Rust structs + `Cargo.toml` snippet |
-| `godot` | GDScript + resource file |
-| `unity` | C# `SpriteSheetAnimator` class |
-| `phaser` | Atlas JSON for Phaser 3 |
-| `pygame` | Python module |
-| `raylib` | C header |
-| `love2d-lua` | Lua module for LÖVE 2D |
-| `love2d-anim8` | anim8 library format |
-| `turbo` | Turbo engine format |
+| Format         | Output                              |
+| -------------- | ----------------------------------- |
+| `spritesheet`  | PNG + JSON metadata                 |
+| `zip`          | Raw frame PNGs in a ZIP             |
+| `gif`          | Animated GIF                        |
+| `bevy`         | Rust structs + `Cargo.toml` snippet |
+| `godot`        | GDScript + resource file            |
+| `unity`        | C# `SpriteSheetAnimator` class      |
+| `phaser`       | Atlas JSON for Phaser 3             |
+| `pygame`       | Python module                       |
+| `raylib`       | C header                            |
+| `love2d-lua`   | Lua module for LÖVE 2D              |
+| `love2d-anim8` | anim8 library format                |
+| `turbo`        | Turbo engine format                 |
 
 ### Project files
 
@@ -104,40 +107,40 @@ sprite-sheet-helper <input> [options]
 
 ### Options
 
-| Option | Default | Description |
-| ------ | ------- | ----------- |
-| `--format` | `spritesheet` | Export format (see table above) |
-| `--frames` | `8` | Number of frames to capture per animation sequence |
-| `--fps` | `10` | Playback frame rate |
-| `--width` | `64` | Frame width in pixels |
-| `--height` | `64` | Frame height in pixels |
-| `--output` | `./out` | Output directory |
-| `--port` | `4174` | Port for the local preview server |
-| `--workflow` | — | Workflow preset ID (see table below) |
-| `--cameraDistance` | `5` | Camera distance from the model (used with `--workflow`) |
-| `--cameraAngle` / `--phi` | — | Workflow camera elevation override in degrees |
-| `--directionRotationOffset` | — | Rotate every workflow direction by this many degrees |
-| `--target` | — | Camera target as `x,y,z` |
-| `--directionOverride` | — | Per-direction camera override, e.g. `N:phi=45,theta=0,distance=3` |
-| `--normalMap` | `false` | Capture and export a matching normal atlas |
-| `--atlasLayout` | `rows` | Atlas layout: `rows` or `packed` |
-| `--atlasPadding` | `0` | Empty pixels around each frame slot |
-| `--atlasBleed` | `0` | Edge-pixel extrusion into padding |
-| `--atlasScale` | `1` | Scale atlas frame dimensions |
-| `--maxAtlasSize` | `2048` | Maximum atlas page width and height |
-| `--multiPage` | `false` | Allow generic spritesheet page splitting |
-| `--config` | — | Run one or more JSON-configured jobs |
-| `--job` | — | Run a single job from a config file |
-| `--dryRun` | `false` | Print resolved jobs without launching the browser |
-| `--json` | `false` | Emit a machine-readable summary |
-| `--writeSummary` | — | Write the JSON summary to a file |
-| `--failOnWarnings` | `false` | Exit with an error when warnings exist |
-| `--quiet` | `false` | Suppress progress logs |
-| `--debug` | `false` | Show browser console output |
-| `--headful` | `false` | Launch Chromium with a visible window |
-| `--timeout` | — | Per-job timeout in milliseconds |
-| `--exportTimeout` | `60000` | Export download timeout in milliseconds |
-| `--workflowTimeout` | — | Workflow completion timeout in milliseconds |
+| Option                      | Default       | Description                                                       |
+| --------------------------- | ------------- | ----------------------------------------------------------------- |
+| `--format`                  | `spritesheet` | Export format (see table above)                                   |
+| `--frames`                  | `8`           | Number of frames to capture per animation sequence                |
+| `--fps`                     | `10`          | Playback frame rate                                               |
+| `--width`                   | `64`          | Frame width in pixels                                             |
+| `--height`                  | `64`          | Frame height in pixels                                            |
+| `--output`                  | `./out`       | Output directory                                                  |
+| `--port`                    | `4174`        | Port for the local preview server                                 |
+| `--workflow`                | —             | Workflow preset ID (see table below)                              |
+| `--cameraDistance`          | `5`           | Camera distance from the model (used with `--workflow`)           |
+| `--cameraAngle` / `--phi`   | —             | Workflow camera elevation override in degrees                     |
+| `--directionRotationOffset` | —             | Rotate every workflow direction by this many degrees              |
+| `--target`                  | —             | Camera target as `x,y,z`                                          |
+| `--directionOverride`       | —             | Per-direction camera override, e.g. `N:phi=45,theta=0,distance=3` |
+| `--normalMap`               | `false`       | Capture and export a matching normal atlas                        |
+| `--atlasLayout`             | `rows`        | Atlas layout: `rows` or `packed`                                  |
+| `--atlasPadding`            | `0`           | Empty pixels around each frame slot                               |
+| `--atlasBleed`              | `0`           | Edge-pixel extrusion into padding                                 |
+| `--atlasScale`              | `1`           | Scale atlas frame dimensions                                      |
+| `--maxAtlasSize`            | `2048`        | Maximum atlas page width and height                               |
+| `--multiPage`               | `false`       | Allow generic spritesheet page splitting                          |
+| `--config`                  | —             | Run one or more JSON-configured jobs                              |
+| `--job`                     | —             | Run a single job from a config file                               |
+| `--dryRun`                  | `false`       | Print resolved jobs without launching the browser                 |
+| `--json`                    | `false`       | Emit a machine-readable summary                                   |
+| `--writeSummary`            | —             | Write the JSON summary to a file                                  |
+| `--failOnWarnings`          | `false`       | Exit with an error when warnings exist                            |
+| `--quiet`                   | `false`       | Suppress progress logs                                            |
+| `--debug`                   | `false`       | Show browser console output                                       |
+| `--headful`                 | `false`       | Launch Chromium with a visible window                             |
+| `--timeout`                 | —             | Per-job timeout in milliseconds                                   |
+| `--exportTimeout`           | `60000`       | Export download timeout in milliseconds                           |
+| `--workflowTimeout`         | —             | Workflow completion timeout in milliseconds                       |
 
 Format aliases: `bevy-rust` → `bevy`, `love2d` → `love2d-lua`
 
@@ -220,7 +223,7 @@ docker run --rm \
 
 ```yaml
 - name: Generate sprites
-  uses: Kyonru/sprite-sheet-helper@v0
+  uses: Kyonru/sprite-sheet-helper/action@v0
   with:
     input: assets/hero.glb
     output: dist/sprites
@@ -232,7 +235,7 @@ The action also supports config-driven batches:
 
 ```yaml
 - name: Generate sprite batch
-  uses: Kyonru/sprite-sheet-helper@v0
+  uses: Kyonru/sprite-sheet-helper/action@v0
   with:
     config: sprites.json
     fail-on-warnings: "true"
@@ -258,12 +261,12 @@ Each row in the output is named `{animationName}_{direction}`, for example `walk
 
 ### Workflow presets
 
-| ID | Label | Directions | Camera elevation |
-| -- | ----- | ---------- | ---------------- |
+| ID             | Label                  | Directions                 | Camera elevation   |
+| -------------- | ---------------------- | -------------------------- | ------------------ |
 | `topdown-8dir` | Top Down 8-directional | N, NE, E, SE, S, SW, W, NW | ~overhead (phi=1°) |
-| `topdown-4dir` | Top Down 4-directional | N, E, S, W | ~overhead (phi=1°) |
-| `isometric` | Isometric | SE, NE, NW, SW | 45° elevation |
-| `platformer` | Platformer / Side View | Right, Left | Horizon (phi=90°) |
+| `topdown-4dir` | Top Down 4-directional | N, E, S, W                 | ~overhead (phi=1°) |
+| `isometric`    | Isometric              | SE, NE, NW, SW             | 45° elevation      |
+| `platformer`   | Platformer / Side View | Right, Left                | Horizon (phi=90°)  |
 
 ### Workflow usage
 
@@ -273,19 +276,19 @@ sprite-sheet-helper character.glb --workflow <id> [options]
 
 ### Workflow-specific options
 
-| Option | Default | Description |
-| ------ | ------- | ----------- |
-| `--workflow` | — | Workflow preset ID (required for workflow mode) |
-| `--frames` | `8` | Frames captured per animation × direction combination |
-| `--fps` | `10` | Playback frame rate for each capture |
-| `--width` | `64` | Frame width in pixels |
-| `--height` | `64` | Frame height in pixels |
-| `--cameraDistance` | `5` | Distance of the camera from the model origin |
-| `--cameraAngle` / `--phi` | preset | Camera elevation override in degrees |
-| `--directionRotationOffset` | `0` | Rotate preset directions |
-| `--target` | `0,0,0` | Camera target as `x,y,z` |
-| `--format` | `spritesheet` | Export format applied to the full multi-sequence output |
-| `--output` | `./out` | Output directory |
+| Option                      | Default       | Description                                             |
+| --------------------------- | ------------- | ------------------------------------------------------- |
+| `--workflow`                | —             | Workflow preset ID (required for workflow mode)         |
+| `--frames`                  | `8`           | Frames captured per animation × direction combination   |
+| `--fps`                     | `10`          | Playback frame rate for each capture                    |
+| `--width`                   | `64`          | Frame width in pixels                                   |
+| `--height`                  | `64`          | Frame height in pixels                                  |
+| `--cameraDistance`          | `5`           | Distance of the camera from the model origin            |
+| `--cameraAngle` / `--phi`   | preset        | Camera elevation override in degrees                    |
+| `--directionRotationOffset` | `0`           | Rotate preset directions                                |
+| `--target`                  | `0,0,0`       | Camera target as `x,y,z`                                |
+| `--format`                  | `spritesheet` | Export format applied to the full multi-sequence output |
+| `--output`                  | `./out`       | Output directory                                        |
 
 ### Workflow examples
 
