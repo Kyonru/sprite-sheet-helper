@@ -3,6 +3,5 @@ builder = "RAILPACK"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "cd /opt/sprite-sheet-helper && npm run preview -- --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/"
 restartPolicyType = "ON_FAILURE"

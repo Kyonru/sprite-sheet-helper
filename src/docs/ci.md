@@ -63,7 +63,7 @@ For asset pipelines, prefer a checked-in config file and upload the generated ou
 
 The action outputs `status`, `summary-json`, `files`, `warnings`, and `elapsed-ms`.
 
-Release tags like `v0.4.0` publish Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`. After the Docker action smoke test passes, CI updates the floating action refs `v0.4` and `v0`, so workflows can pin either a patch release or the current major/minor line. Branch builds do not update published image tags or action refs.
+Release tags like `v0.4.0` publish Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`. After the Docker action smoke test passes, CI updates the floating action refs `v0.4`, `v0`, and `latest`, so workflows can pin either a patch release, the current major/minor line, or the newest release. Branch builds do not update published image tags or action refs.
 
 The repository includes a standalone `example/` project template that discovers every model in a `models/` folder, runs the Docker Action on push to `main`, and uploads generated sprite artifacts.
 

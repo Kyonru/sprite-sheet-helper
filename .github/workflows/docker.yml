@@ -36,6 +36,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: docker/Dockerfile
           load: true
           tags: sprite-sheet-helper:smoke
 
@@ -115,6 +116,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: docker/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -179,12 +181,14 @@ jobs:
           minor="${minor_patch%%.*}"
           major_tag="v${major}"
           minor_tag="v${major}.${minor}"
+          latest_tag="latest"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -fa "$major_tag" "$GITHUB_SHA" -m "Update $major_tag to $TAG_NAME"
           git tag -fa "$minor_tag" "$GITHUB_SHA" -m "Update $minor_tag to $TAG_NAME"
-          git push origin "$major_tag" "$minor_tag" --force
+          git tag -fa "$latest_tag" "$GITHUB_SHA" -m "Update $latest_tag to $TAG_NAME"
+          git push origin "$major_tag" "$minor_tag" "$latest_tag" --force
 
       - name: Upload container smoke outputs
         if: always()

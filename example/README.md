@@ -9,7 +9,7 @@ Copy this `example/` folder into a new GitHub repository, add your `.fbx`, `.glb
 - Runs on every push to `main`.
 - Finds all supported model files under `models/`.
 - Generates `sprite-sheet-helper.generated.json`.
-- Runs `Kyonru/sprite-sheet-helper/action@v0`.
+- Runs `Kyonru/sprite-sheet-helper/action@latest` so copied projects use the newest published Action.
 - Writes output under `dist/sprites/<model-name>/`.
 - Uploads the generated sprites and run summary as the `sprite-assets` artifact.
 
