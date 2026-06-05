@@ -32,8 +32,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Effects panel redesigned around stack ordering, grouped effect browser, presets, guidance warnings, and cleaner details editing
 - Settings, export preflight, docs, and troubleshooting pages refreshed for the new export, workflow, normal-map, and effects flows
 - Project snapshots now migrate newer material, downgrade, and authored-model state
-- Release workflows now publish Docker image tags and floating Action refs only from release tags, including `latest`
-- CI example project now uses `Kyonru/sprite-sheet-helper/action@latest` and is validated before Action refs are promoted
+- Release workflows now publish Docker image tags only from release tags, including `latest`
+- CI example project now uses `Kyonru/sprite-sheet-helper/action@main` to follow the newest published Action image
 
 ### Fixed
 

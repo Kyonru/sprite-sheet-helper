@@ -8,7 +8,7 @@ This action wraps the Sprite Sheet Helper Docker image, so workflows do not need
 
 ```yaml
 - name: Generate sprites
-  uses: Kyonru/sprite-sheet-helper/action@v0
+  uses: Kyonru/sprite-sheet-helper/action@main
   with:
     input: assets/hero.glb
     output: dist/sprites
@@ -23,7 +23,7 @@ For repeatable asset pipelines, keep a config file in your repo and run it from 
 ```yaml
 - name: Generate sprite batch
   id: sprites
-  uses: Kyonru/sprite-sheet-helper/action@v0
+  uses: Kyonru/sprite-sheet-helper/action@main
   with:
     config: sprites.config.json
     fail-on-warnings: "true"
@@ -91,10 +91,10 @@ act --container-architecture linux/amd64 -j docker-smoke
 The action runs:
 
 ```text
-ghcr.io/kyonru/sprite-sheet-helper:v0
+ghcr.io/kyonru/sprite-sheet-helper:latest
 ```
 
-Release tags like `v0.4.0` publish Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`. After the Docker action smoke test passes, CI also updates the floating GitHub Action refs `v0.4`, `v0`, and `latest`. Branch builds do not update published image tags or action refs.
+Release tags like `v0.4.0` publish Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`. Branch builds do not update published image tags.
 
 You can use the same image directly:
 

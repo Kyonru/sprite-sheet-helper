@@ -14,7 +14,7 @@ env:
   RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 jobs:
@@ -169,26 +169,15 @@ jobs:
           test -f example/dist/sprite-sheet-helper-summary.json
           find example/dist -maxdepth 5 -type f | sort
 
-      - name: Update floating action tags
-        if: startsWith(env.RELEASE_TAG, 'v')
-        env:
-          TAG_NAME: ${{ env.RELEASE_TAG }}
-        run: |
-          set -euo pipefail
-          version="${TAG_NAME#v}"
-          major="${version%%.*}"
-          minor_patch="${version#*.}"
-          minor="${minor_patch%%.*}"
-          major_tag="v${major}"
-          minor_tag="v${major}.${minor}"
-          latest_tag="latest"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -fa "$major_tag" "$GITHUB_SHA" -m "Update $major_tag to $TAG_NAME"
-          git tag -fa "$minor_tag" "$GITHUB_SHA" -m "Update $minor_tag to $TAG_NAME"
-          git tag -fa "$latest_tag" "$GITHUB_SHA" -m "Update $latest_tag to $TAG_NAME"
-          git push origin "$major_tag" "$minor_tag" "$latest_tag" --force
+      - name: Upload example project output
+        if: startsWith(env.RELEASE_TAG, 'v') && always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: example-project-output
+          path: |
+            example/dist/
+            example/sprite-sheet-helper.generated.json
+          retention-days: 14
 
       - name: Upload container smoke outputs
         if: always()

@@ -78,7 +78,7 @@ outputs:
 
 runs:
   using: docker
-  image: docker://ghcr.io/kyonru/sprite-sheet-helper:v0
+  image: docker://ghcr.io/kyonru/sprite-sheet-helper:latest
   entrypoint: /opt/sprite-sheet-helper/docker/action-entrypoint.sh
 
 branding:

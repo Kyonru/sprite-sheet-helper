@@ -9,13 +9,13 @@ Copy this `example/` folder into a new GitHub repository, add your `.fbx`, `.glb
 - Runs on every push to `main`.
 - Finds all supported model files under `models/`.
 - Generates `sprite-sheet-helper.generated.json`.
-- Runs `Kyonru/sprite-sheet-helper/action@latest` so copied projects use the newest published Action.
+- Runs `Kyonru/sprite-sheet-helper/action@main`, whose Docker action image points at the newest published GHCR image.
 - Writes output under `dist/sprites/<model-name>/`.
 - Uploads the generated sprites and run summary as the `sprite-assets` artifact.
 
 The included `models/example.fbx` is just a smoke-test model so the template works immediately.
 
-This template is also used by Sprite Sheet Helper's release pipeline before the floating Action refs are updated, so regressions in the published Docker Action path should fail the release smoke test.
+This template is also used by Sprite Sheet Helper's release pipeline after the Docker image is published, so regressions in the published Docker Action path should fail the release smoke test.
 
 ## Customize Defaults
 

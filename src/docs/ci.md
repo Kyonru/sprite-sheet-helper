@@ -36,7 +36,7 @@ Use the Docker-based action when you want a small workflow step:
 
 ```yaml
 - name: Generate sprites
-  uses: Kyonru/sprite-sheet-helper/action@v0
+  uses: Kyonru/sprite-sheet-helper/action@main
   with:
     input: assets/hero.glb
     output: dist/sprites
@@ -49,7 +49,7 @@ For asset pipelines, prefer a checked-in config file and upload the generated ou
 ```yaml
 - name: Generate sprite batch
   id: sprites
-  uses: Kyonru/sprite-sheet-helper/action@v0
+  uses: Kyonru/sprite-sheet-helper/action@main
   with:
     config: sprites.config.json
     fail-on-warnings: "true"
@@ -63,7 +63,7 @@ For asset pipelines, prefer a checked-in config file and upload the generated ou
 
 The action outputs `status`, `summary-json`, `files`, `warnings`, and `elapsed-ms`.
 
-Release tags like `v0.4.0` publish Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`. After the Docker action smoke test passes, CI updates the floating action refs `v0.4`, `v0`, and `latest`, so workflows can pin either a patch release, the current major/minor line, or the newest release. Branch builds do not update published image tags or action refs.
+Release tags like `v0.4.0` publish Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`. Branch builds do not update published image tags. Use `action@main` to follow the newest Action metadata, or pin an exact release tag when reproducibility matters.
 
 The repository includes a standalone `example/` project template that discovers every model in a `models/` folder, runs the Docker Action on push to `main`, and uploads generated sprite artifacts.
 

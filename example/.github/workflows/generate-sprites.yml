@@ -49,7 +49,7 @@ jobs:
       - name: Generate sprites
         if: steps.config.outputs['has-jobs'] == 'true'
         id: sprites
-        uses: Kyonru/sprite-sheet-helper/action@latest
+        uses: Kyonru/sprite-sheet-helper/action@main
         with:
           config: sprite-sheet-helper.generated.json
           fail-on-warnings: "false"

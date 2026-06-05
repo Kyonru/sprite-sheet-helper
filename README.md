@@ -223,7 +223,7 @@ docker run --rm \
 
 ```yaml
 - name: Generate sprites
-  uses: Kyonru/sprite-sheet-helper/action@v0
+  uses: Kyonru/sprite-sheet-helper/action@main
   with:
     input: assets/hero.glb
     output: dist/sprites
@@ -235,13 +235,13 @@ The action also supports config-driven batches:
 
 ```yaml
 - name: Generate sprite batch
-  uses: Kyonru/sprite-sheet-helper/action@v0
+  uses: Kyonru/sprite-sheet-helper/action@main
   with:
     config: sprites.json
     fail-on-warnings: "true"
 ```
 
-On release tags like `v0.4.0`, CI publishes Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`, then updates the floating action refs `v0.4`, `v0`, and `latest` after the Docker action smoke test passes. Branch builds do not update published image tags or action refs.
+On release tags like `v0.4.0`, CI publishes Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`. Branch builds do not update published image tags.
 
 ### CI example project
 
