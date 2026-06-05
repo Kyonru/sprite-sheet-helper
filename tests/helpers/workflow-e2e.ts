@@ -168,6 +168,9 @@ async function waitForPreviewServer(
 
   await new Promise<void>((resolveReady, rejectReady) => {
     let settled = false;
+    const hasReadyOutput = () =>
+      stripAnsi(output).includes("Local:") ||
+      stripAnsi(output).includes(`http://127.0.0.1:${port}/`);
     const resolveOnce = () => {
       if (settled) return;
       settled = true;
@@ -180,7 +183,7 @@ async function waitForPreviewServer(
     };
     const appendOutput = (chunk: Buffer) => {
       output += chunk.toString("utf8");
-      if (output.includes("Local:")) resolveOnce();
+      if (hasReadyOutput()) resolveOnce();
     };
 
     proc.stdout?.on("data", appendOutput);
@@ -197,6 +200,10 @@ async function waitForPreviewServer(
     const poll = async () => {
       if (settled) return;
       if (Date.now() > deadline) {
+        if (hasReadyOutput()) {
+          resolveOnce();
+          return;
+        }
         rejectOnce(
           new Error(
             `Server on port ${port} did not start within ${timeout}ms\n${output}`,
@@ -220,6 +227,24 @@ async function waitForPreviewServer(
 
     setTimeout(poll, 500);
   });
+}
+
+function stripAnsi(value: string): string {
+  let result = "";
+  for (let index = 0; index < value.length; index++) {
+    const code = value.charCodeAt(index);
+    if (code === 27 && value[index + 1] === "[") {
+      index += 2;
+      while (index < value.length) {
+        const sequenceCode = value.charCodeAt(index);
+        if (sequenceCode >= 64 && sequenceCode <= 126) break;
+        index++;
+      }
+      continue;
+    }
+    result += value[index];
+  }
+  return result;
 }
 
 export async function createWorkflowE2EContext(port: number) {
