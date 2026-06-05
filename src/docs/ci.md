@@ -65,6 +65,8 @@ The action outputs `status`, `summary-json`, `files`, `warnings`, and `elapsed-m
 
 Release tags like `v0.4.0` publish Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`. After the Docker action smoke test passes, CI updates the floating action refs `v0.4` and `v0`, so workflows can pin either a patch release or the current major/minor line. Branch builds do not update published image tags or action refs.
 
+The repository includes a standalone `example/` project template that discovers every model in a `models/` folder, runs the Docker Action on push to `main`, and uploads generated sprite artifacts.
+
 ## GitHub Pages Docs
 
 The documentation site is built with Zensical from the root `docs` directory. Pages in `docs` mirror the app documentation from `src/docs` with symlinks.

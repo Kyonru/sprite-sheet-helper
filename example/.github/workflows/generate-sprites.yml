@@ -1,0 +1,82 @@
+name: Generate Sprite Assets
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "models/**"
+      - "scripts/build-sprite-config.mjs"
+      - ".github/workflows/generate-sprites.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sprites:
+    name: Generate sprites from models
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      SPRITE_FORMAT: spritesheet
+      SPRITE_WORKFLOW: topdown-4dir
+      SPRITE_FRAMES: "4"
+      SPRITE_FPS: "10"
+      SPRITE_WIDTH: "64"
+      SPRITE_HEIGHT: "64"
+      SPRITE_NORMAL_MAP: "true"
+      SPRITE_ATLAS_LAYOUT: rows
+      SPRITE_ATLAS_PADDING: "0"
+      SPRITE_ATLAS_BLEED: "0"
+      SPRITE_ATLAS_SCALE: "1"
+      SPRITE_MAX_ATLAS_SIZE: "2048"
+      SPRITE_MULTI_PAGE: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Build Sprite Sheet Helper config
+        id: config
+        run: node scripts/build-sprite-config.mjs
+
+      - name: Generate sprites
+        if: steps.config.outputs['has-jobs'] == 'true'
+        id: sprites
+        uses: Kyonru/sprite-sheet-helper/action@v0
+        with:
+          config: sprite-sheet-helper.generated.json
+          fail-on-warnings: "false"
+
+      - name: Save run summary
+        if: always() && steps.config.outputs['has-jobs'] == 'true'
+        env:
+          SUMMARY_JSON: ${{ steps.sprites.outputs['summary-json'] }}
+        run: |
+          mkdir -p dist
+          node -e 'const fs = require("fs"); fs.writeFileSync("dist/sprite-sheet-helper-summary.json", `${process.env.SUMMARY_JSON || "{}"}\n`);'
+
+      - name: List generated files
+        if: always() && steps.config.outputs['has-jobs'] == 'true'
+        run: find dist -maxdepth 5 -type f | sort
+
+      - name: Upload sprite assets
+        if: always() && steps.config.outputs['has-jobs'] == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: sprite-assets
+          path: |
+            dist/sprites/
+            dist/sprite-sheet-helper-summary.json
+            sprite-sheet-helper.generated.json
+          retention-days: 14
+
+      - name: No models found
+        if: steps.config.outputs['has-jobs'] != 'true'
+        run: echo "No supported model files were found under models/."

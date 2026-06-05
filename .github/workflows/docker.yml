@@ -136,6 +136,37 @@ jobs:
           test -f .docker-action-smoke/spritesheet.png
           test -f .docker-action-smoke/spritesheet.json
 
+      - name: Build example project config
+        if: startsWith(env.RELEASE_TAG, 'v')
+        working-directory: example
+        run: node scripts/build-sprite-config.mjs
+
+      - name: Smoke test example project with published Docker action
+        if: startsWith(env.RELEASE_TAG, 'v')
+        id: example_sprites
+        uses: ./action
+        with:
+          config: example/sprite-sheet-helper.generated.json
+          fail-on-warnings: "false"
+
+      - name: Save example action summary
+        if: startsWith(env.RELEASE_TAG, 'v') && always()
+        env:
+          SUMMARY_JSON: ${{ steps.example_sprites.outputs['summary-json'] }}
+        run: |
+          mkdir -p example/dist
+          node -e 'const fs = require("fs"); fs.writeFileSync("example/dist/sprite-sheet-helper-summary.json", `${process.env.SUMMARY_JSON || "{}"}\n`);'
+
+      - name: Verify example project output
+        if: startsWith(env.RELEASE_TAG, 'v')
+        run: |
+          test -f example/sprite-sheet-helper.generated.json
+          test -f example/dist/sprites/example/spritesheet.png
+          test -f example/dist/sprites/example/spritesheet_normal.png
+          test -f example/dist/sprites/example/spritesheet.json
+          test -f example/dist/sprite-sheet-helper-summary.json
+          find example/dist -maxdepth 5 -type f | sort
+
       - name: Update floating action tags
         if: startsWith(env.RELEASE_TAG, 'v')
         env:
@@ -163,4 +194,6 @@ jobs:
           path: |
             .docker-smoke/
             .docker-action-smoke/
+            example/dist/
+            example/sprite-sheet-helper.generated.json
           retention-days: 3

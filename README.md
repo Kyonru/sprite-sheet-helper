@@ -243,6 +243,10 @@ The action also supports config-driven batches:
 
 On release tags like `v0.4.0`, CI publishes Docker image tags `v0.4.0`, `v0.4`, `v0`, and `latest`, then updates the floating action refs `v0.4` and `v0` after the Docker action smoke test passes. Branch builds do not update published image tags or action refs.
 
+### CI example project
+
+See [`example/`](example/) for a standalone GitHub repository template that discovers every model in a `models/` folder, runs the Docker Action on push to `main`, and uploads generated sprite artifacts.
+
 ### Example output — `--format love2d`
 
 ```text
