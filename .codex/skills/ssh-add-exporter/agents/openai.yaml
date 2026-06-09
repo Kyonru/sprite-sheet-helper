@@ -1,0 +1,4 @@
+interface:
+  display_name: "SSH Add Exporter"
+  short_description: "Guide export and CLI changes"
+  default_prompt: "Use $ssh-add-exporter to add or update a Sprite Sheet Helper exporter."

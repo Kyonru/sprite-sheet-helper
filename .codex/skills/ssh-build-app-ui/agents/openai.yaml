@@ -1,0 +1,4 @@
+interface:
+  display_name: "SSH App UI"
+  short_description: "Guide editor UI and scenes"
+  default_prompt: "Use $ssh-build-app-ui to build Sprite Sheet Helper editor UI or scene controls."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SSH Project State"
+  short_description: "Guide stores and migrations"
+  default_prompt: "Use $ssh-change-project-state to update Sprite Sheet Helper stores or project migrations."

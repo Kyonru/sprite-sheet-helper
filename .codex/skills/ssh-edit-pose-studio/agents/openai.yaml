@@ -1,0 +1,4 @@
+interface:
+  display_name: "SSH Pose Studio"
+  short_description: "Guide pose capture and editing"
+  default_prompt: "Use $ssh-edit-pose-studio to modify Pose Studio or camera capture behavior."

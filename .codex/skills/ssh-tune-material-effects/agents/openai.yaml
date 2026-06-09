@@ -1,0 +1,4 @@
+interface:
+  display_name: "SSH Materials Effects"
+  short_description: "Guide materials and effects"
+  default_prompt: "Use $ssh-tune-material-effects to update Sprite Sheet Helper materials, textures, or effects."

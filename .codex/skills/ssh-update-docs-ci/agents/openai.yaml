@@ -1,0 +1,4 @@
+interface:
+  display_name: "SSH Docs CI"
+  short_description: "Guide docs, Docker, and CI"
+  default_prompt: "Use $ssh-update-docs-ci to update Sprite Sheet Helper docs, Docker, or CI guidance."
