@@ -9,7 +9,7 @@ import {
   getAnimationClipFps,
 } from "@/utils/animation-clips";
 import { fitObjectToCamera } from "@/utils/camera";
-import { parseModel } from "@/utils/model";
+import { disposeParsedModel, parseModel, type ParsedModel } from "@/utils/model";
 import {
   applyMaterialAssignments,
   buildMaterialInventory,
@@ -44,6 +44,7 @@ export function Based({ uuid, ...props }: { uuid: string }) {
   const setLoadState = useModelsStore((state) => state.setLoadState);
 
   const loadRequestRef = useRef(0);
+  const parsedModelRef = useRef<ParsedModel | null>(null);
 
   const [object, setObject] = useState<THREE.Object3D | null>(null);
   const materials = useMaterialsStore((state) => state.materials);
@@ -97,10 +98,19 @@ export function Based({ uuid, ...props }: { uuid: string }) {
       mixerRef.current = null;
       setLoadState(uuid, "loading");
 
+      let parsedModel: ParsedModel | null = null;
       try {
         const parsed = await parseModel(model.file, format);
+        parsedModel = parsed;
+        parsedModelRef.current = parsed;
 
-        if (loadRequestRef.current !== requestId) return;
+        if (loadRequestRef.current !== requestId) {
+          disposeParsedModel(parsed);
+          if (parsedModelRef.current === parsed) {
+            parsedModelRef.current = null;
+          }
+          return;
+        }
 
         const inventory = buildMaterialInventory(parsed.object, uuid);
         setObject(parsed.object);
@@ -139,6 +149,10 @@ export function Based({ uuid, ...props }: { uuid: string }) {
         setMixerRef(uuid, null);
         setLoadState(uuid, "error", message);
         clearRuntimeModel(uuid);
+        if (parsedModel) {
+          disposeParsedModel(parsedModel);
+        }
+        parsedModelRef.current = null;
         toast.error("Failed to load model", {
           description: message,
         });
@@ -148,6 +162,10 @@ export function Based({ uuid, ...props }: { uuid: string }) {
     openFile();
     return () => {
       loadRequestRef.current += 1;
+      if (parsedModelRef.current) {
+        disposeParsedModel(parsedModelRef.current);
+        parsedModelRef.current = null;
+      }
       clearRuntimeModel(uuid);
       setObject(null);
     };

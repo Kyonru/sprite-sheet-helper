@@ -25,6 +25,25 @@ export const useAddModel = (select = true) => {
 
   return async (file: File, name?: string) => {
     let uuid: string | undefined;
+    const waitForModelLoad = async (modelUuid: string) => {
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline) {
+        const model = useModelsStore.getState().models[modelUuid];
+        if (!model) {
+          throw new Error("Model removed before load completed");
+        }
+
+        if (model.loadState === "loaded") return;
+
+        if (model.loadState === "error") {
+          throw new Error(model.errorMessage ?? "Model load failed");
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+
+      throw new Error("Timed out while loading model");
+    };
 
     const rollback = () => {
       if (!uuid) return;
@@ -48,6 +67,7 @@ export const useAddModel = (select = true) => {
       });
 
       await loadModel(uuid, file);
+      await waitForModelLoad(uuid);
 
       if (select) {
         selectEntity(uuid);

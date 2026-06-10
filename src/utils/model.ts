@@ -21,6 +21,31 @@ export type ParsedModel = {
   clips: { action: THREE.AnimationAction; clip: THREE.AnimationClip }[];
 };
 
+export const disposeParsedModel = (parsed: ParsedModel) => {
+  if (parsed.mixer) {
+    parsed.mixer.stopAllAction();
+    parsed.mixer.uncacheRoot(parsed.object);
+  }
+
+  parsed.object.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh) return;
+
+    if (mesh.geometry) {
+      mesh.geometry.dispose();
+    }
+
+    const materials = Array.isArray(mesh.material)
+      ? mesh.material
+      : [mesh.material];
+
+    materials.forEach((material) => {
+      if (!material) return;
+      material.dispose?.();
+    });
+  });
+};
+
 export const parseModel = async (
   file: File,
   format: ModelComponent["format"],

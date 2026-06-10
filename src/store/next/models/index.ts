@@ -7,6 +7,8 @@ import type {
 } from "@/types/ecs";
 import * as THREE from "three";
 import { saveFileToFS } from "@/utils/file-system/fs.web";
+import { disposeParsedModel, parseModel } from "@/utils/model";
+import { getRuntimeModel } from "@/utils/model-downgrade-runtime";
 import {
   withHistory,
   type FieldWatcher,
@@ -83,6 +85,14 @@ interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
   setFrameStep: (uuid: string, step: number) => void;
   setFreeze: (uuid: string, freeze: boolean) => void;
   addClip: (uuid: string, clip: THREE.AnimationClip) => void;
+  importAnimationsFromSource: (
+    targetUuid: string,
+    source:
+      | { sourceModelUuid: string }
+      | {
+          sourceFile: File;
+        },
+  ) => Promise<{ importedNames: string[] }>;
 }
 
 const initialState: ModelsState = {
@@ -291,23 +301,192 @@ export const useModelsStore = create<ModelsStore>()(
           get().setClips(uuid, updated);
         },
 
+        importAnimationsFromSource: async (targetUuid, source) => {
+          const targetModel = get().models[targetUuid];
+          if (!targetModel) {
+            throw new Error("Target model not found");
+          }
+
+          if (targetModel.loadState !== "loaded") {
+            throw new Error("Target model is not fully loaded");
+          }
+
+          const sourceFromModel =
+            "sourceModelUuid" in source
+              ? get().models[source.sourceModelUuid]
+              : undefined;
+
+          if ("sourceModelUuid" in source) {
+            if (!sourceFromModel) {
+              throw new Error("Source model not found");
+            }
+
+            if (source.sourceModelUuid === targetUuid) {
+              throw new Error("Source and target models must be different");
+            }
+
+            if (sourceFromModel.loadState !== "loaded") {
+              throw new Error("Source model is not fully loaded");
+            }
+          }
+
+          let parsedSourceClips: THREE.AnimationClip[] = [];
+          let sourceDurations: Record<string, [number, number]> = {};
+          let sourceSpeeds: Record<string, number> = {};
+          let sourceLoops: Record<string, LoopType> = {};
+
+          if ("sourceFile" in source) {
+            const file = source.sourceFile;
+            const format = file.name
+              .split(".")
+              .pop()
+              ?.toLowerCase() as ModelComponent["format"];
+
+            if (!format) {
+              throw new Error("Source file has no extension");
+            }
+
+            const parsed = await parseModel(file, format);
+            try {
+              parsedSourceClips = parsed.clips.map((clipRef) =>
+                clipRef.clip.clone(),
+              );
+            } finally {
+              disposeParsedModel(parsed);
+            }
+          } else {
+            const sourceClips = get().clips[source.sourceModelUuid] ?? [];
+
+            if (sourceClips.length === 0) {
+              throw new Error("Source model has no importable animations");
+            }
+
+            parsedSourceClips = sourceClips.map((clipRef) =>
+              clipRef.clip.clone(),
+            );
+            sourceDurations = get().durations[source.sourceModelUuid] ?? {};
+            sourceSpeeds = get().speeds[source.sourceModelUuid] ?? {};
+            sourceLoops = get().loops[source.sourceModelUuid] ?? {};
+          }
+
+          if (parsedSourceClips.length === 0) {
+            return { importedNames: [] };
+          }
+
+          let targetMixer = get().mixerRef[targetUuid];
+          if (!targetMixer) {
+            const runtime = getRuntimeModel(targetUuid);
+            if (runtime?.object) {
+              targetMixer = new THREE.AnimationMixer(runtime.object);
+            }
+          }
+
+          if (!targetMixer) {
+            throw new Error("Target model has no runtime mixer");
+          }
+
+          const current = get();
+          const existing = current.clips[targetUuid] ?? [];
+          const existingNames = new Set(
+            existing.map((entry) => entry.clip.name.trim()),
+          );
+
+          const durationMap = {
+            ...(current.durations[targetUuid] ?? {}),
+          } as Record<string, [number, number]>;
+
+          const speedMap = {
+            ...(current.speeds[targetUuid] ?? {}),
+          } as Record<string, number>;
+
+          const loopMap = {
+            ...(current.loops[targetUuid] ?? {}),
+          } as Record<string, LoopType>;
+
+          const importedEntries = parsedSourceClips.map((clip) => {
+            const originalName = clip.name || "Imported Clip";
+            const resolvedName = resolveCollisionName(
+              originalName,
+              existingNames,
+            );
+            clip.name = resolvedName;
+            existingNames.add(resolvedName);
+
+            const sourceDuration = sourceDurations[originalName];
+            if (sourceDuration) {
+              durationMap[resolvedName] = sourceDuration;
+            }
+
+            const sourceSpeed = sourceSpeeds[originalName];
+            if (sourceSpeed !== undefined) {
+              speedMap[resolvedName] = sourceSpeed;
+            }
+
+            const sourceLoop = sourceLoops[originalName];
+            if (sourceLoop !== undefined) {
+              loopMap[resolvedName] = sourceLoop;
+            }
+
+            return {
+              action: targetMixer.clipAction(clip),
+              clip,
+            };
+          });
+
+          const importedNames = importedEntries.map((entry) => entry.clip.name);
+
+          set((state) => {
+            const nextClips = [
+              ...(state.clips[targetUuid] ?? []),
+              ...importedEntries,
+            ];
+
+            clipsCache.set(targetUuid, nextClips);
+
+            return {
+              mixerRef: {
+                ...state.mixerRef,
+                [targetUuid]: targetMixer,
+              },
+              clips: {
+                ...state.clips,
+                [targetUuid]: nextClips,
+              },
+              durations: {
+                ...state.durations,
+                [targetUuid]: durationMap,
+              },
+              speeds: {
+                ...state.speeds,
+                [targetUuid]: speedMap,
+              },
+              loops: {
+                ...state.loops,
+                [targetUuid]: loopMap,
+              },
+            };
+          });
+
+          return { importedNames };
+        },
+
         reset: () => set(initialState),
 
         getSnapshot: () => {
           return {
             models: Object.fromEntries(
               Object.entries(get().models).map(([uuid, m]) => [
-              uuid,
-              {
-                fileName: m.fileName,
-                filePath: m.filePath,
-                type: m.type,
-                fileSize: m.fileSize,
-                format: m.format,
-                source: m.source ?? "file",
-                authoredModelId: m.authoredModelId,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              } as any,
+                uuid,
+                {
+                  fileName: m.fileName,
+                  filePath: m.filePath,
+                  type: m.type,
+                  fileSize: m.fileSize,
+                  format: m.format,
+                  source: m.source ?? "file",
+                  authoredModelId: m.authoredModelId,
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                } as any,
               ]),
             ),
 
@@ -479,6 +658,15 @@ function createFlatWatcher<
       }
     },
   };
+}
+
+export function resolveCollisionName(base: string, taken: Set<string>): string {
+  const trimmed = base.trim();
+  if (!taken.has(trimmed)) return trimmed;
+
+  let attempt = 1;
+  while (taken.has(`${trimmed}_${attempt}`)) attempt += 1;
+  return `${trimmed}_${attempt}`;
 }
 
 export const useModel = (uuid: string) =>

@@ -16,6 +16,7 @@ import {
   ClipboardPaste,
   Crosshair,
   Eye,
+  EyeOff,
   FlipHorizontal,
   Gauge,
   Image as ImageIcon,
@@ -41,9 +42,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
 import { useMediaPipe } from "@/hooks/next/use-mediapipe";
 import { useModelsStore } from "@/store/next/models";
+import { useEntitiesStore } from "@/store/next/entities";
 import { importFile } from "@/utils/assets";
 import { isWeb } from "@/utils/platform";
 import { parseModel } from "@/utils/model";
@@ -1786,10 +1796,50 @@ interface PoseStudioShellProps {
 
 export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
   const model = useModelsStore((state) => state.models[modelUuid]);
+  const entity = useEntitiesStore((state) => state.entities[modelUuid]);
+  const entities = useEntitiesStore((state) => state.entities);
+  const models = useModelsStore((state) => state.models);
+  const allClips = useModelsStore((state) => state.clips);
   const clips = useModelsStore((state) => state.clips[modelUuid] ?? []);
   const addClip = useModelsStore((state) => state.addClip);
   const setAnimation = useModelsStore((state) => state.setAnimation);
+  const importAnimationsFromSource = useModelsStore(
+    (state) => state.importAnimationsFromSource,
+  );
+  const setVisibility = useEntitiesStore((state) => state.setVisibility);
+  const isModelVisible = entity?.visible !== false;
+  const modelReady = model?.loadState === "loaded";
   const defaultClipName = `Pose Clip ${clips.length + 1}`;
+  const candidateSourceModels = useMemo(() => {
+    const entries = Object.entries(models)
+      .filter(
+        ([uuid, modelState]) =>
+          uuid !== modelUuid &&
+          modelState.source === "file" &&
+          modelState.loadState === "loaded" &&
+          allClips[uuid]?.length,
+      )
+      .map((uuid) => ({
+        uuid,
+        label: entities[uuid]?.name ?? models[uuid]?.fileName ?? uuid,
+      }));
+
+    entries.sort((left, right) => left.label.localeCompare(right.label));
+    return entries;
+  }, [entities, modelUuid, models, allClips]);
+  const [importSourceUuid, setImportSourceUuid] = useState(
+    candidateSourceModels.at(0)?.uuid,
+  );
+
+  useEffect(() => {
+    setImportSourceUuid((current) => {
+      if (current && candidateSourceModels.some((entry) => entry.uuid === current)) {
+        return current;
+      }
+
+      return candidateSourceModels.at(0)?.uuid;
+    });
+  }, [candidateSourceModels]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -1933,7 +1983,6 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
     [availableBones, boneRemap, screenLandmarks, worldLandmarks],
   );
   const poseDetected = Boolean(screenLandmarks && worldLandmarks);
-  const modelReady = model?.loadState === "loaded";
   const mappedBoneCount = mappingAnalysis.mapped;
   const expectedBoneCount = Object.keys(BODY_PART_LABELS).length;
 
@@ -1977,6 +2026,69 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
+
+  const toggleModelVisibility = useCallback(() => {
+    setVisibility(modelUuid, !isModelVisible);
+  }, [isModelVisible, modelUuid, setVisibility]);
+
+  const handleImportFromLoadedModel = useCallback(async () => {
+    if (!modelReady) {
+      toast.error("Model must be loaded before importing animations.");
+      return;
+    }
+
+    if (!importSourceUuid) {
+      toast.error("Select a source model first.");
+      return;
+    }
+
+    try {
+      const { importedNames } = await importAnimationsFromSource(modelUuid, {
+        sourceModelUuid: importSourceUuid,
+      });
+
+      if (importedNames.length === 0) {
+        toast.info("No animations found in source model.");
+        return;
+      }
+
+      toast.success(
+        `Imported ${importedNames.length} animation(s): ${importedNames.join(", ")}`,
+      );
+    } catch (error) {
+      toast.error("Failed to import animations from model", {
+        description: (error as Error).message,
+      });
+    }
+  }, [importSourceUuid, importAnimationsFromSource, modelReady, modelUuid]);
+
+  const handleImportFromFile = useCallback(() => {
+    if (!modelReady) {
+      toast.error("Model must be loaded before importing animations.");
+      return;
+    }
+
+    importFile(ACCEPTED_MODEL_FILE_TYPES, async (file) => {
+      try {
+        const { importedNames } = await importAnimationsFromSource(modelUuid, {
+          sourceFile: file,
+        });
+
+        if (importedNames.length === 0) {
+          toast.info("No animations found in source file.");
+          return;
+        }
+
+        toast.success(
+          `Imported ${importedNames.length} animation(s) from file: ${importedNames.join(", ")}`,
+        );
+      } catch (error) {
+        toast.error("Failed to import animations from file", {
+          description: (error as Error).message,
+        });
+      }
+    });
+  }, [importAnimationsFromSource, modelReady, modelUuid]);
 
   useEffect(() => {
     autoDetectedRef.current = false;
@@ -2859,6 +2971,11 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
   const handleSave = useCallback(async () => {
     const frames = buildFinalPoseFrames(draft);
     if (frames.length === 0) return;
+    if (!modelReady) {
+      toast.error("Model must be loaded before saving animations.");
+      return;
+    }
+
     const trimmed = ui.clipName.trim() || defaultClipName;
     setSaving(true);
     try {
@@ -2882,6 +2999,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
     draft,
     modelUuid,
     onClose,
+    modelReady,
     setAnimation,
     ui.clipName,
   ]);
@@ -2946,6 +3064,47 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           </span>
         </div>
         <div className="ml-auto flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={toggleModelVisibility}
+            title={isModelVisible ? "Hide model" : "Show model"}
+            aria-label={isModelVisible ? "Hide model" : "Show model"}
+          >
+            {isModelVisible ? <EyeOff size={15} /> : <Eye size={15} />}
+          </Button>
+          <Select
+            value={importSourceUuid}
+            onValueChange={(value) => setImportSourceUuid(value)}
+            disabled={candidateSourceModels.length === 0 || !modelReady}
+          >
+            <SelectTrigger className="w-44" disabled={candidateSourceModels.length === 0 || !modelReady}>
+              <SelectValue placeholder="Import from model" />
+            </SelectTrigger>
+            <SelectContent>
+              {candidateSourceModels.map((entry) => (
+                <SelectItem key={entry.uuid} value={entry.uuid}>
+                  {entry.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleImportFromLoadedModel}
+            disabled={candidateSourceModels.length === 0 || !modelReady || !importSourceUuid}
+          >
+            Import Anim
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleImportFromFile}
+            disabled={!modelReady}
+          >
+            Import File
+          </Button>
           <Button
             size="icon"
             variant="ghost"

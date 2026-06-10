@@ -10,11 +10,12 @@ const PORT = 4193;
 const IMPORT_MODEL_PATH = resolve(
   process.env.E2E_IMPORT_MODEL_PATH ?? "example.fbx",
 );
+const IMPORT_ANIMATION_SOURCE_PATH = resolve(
+  process.env.E2E_IMPORT_ANIMATION_SOURCE_PATH ?? "example.fbx",
+);
 
 async function getSequenceRowCount(page: Page): Promise<number> {
-  return page.evaluate(
-    () => window.__SSH_BRIDGE__.stores.images.getState().images.length,
-  );
+  return page.evaluate(() => window.__SSH_BRIDGE__.stores.images.getState().images.length);
 }
 
 async function getModelUuids(page: Page): Promise<string[]> {
@@ -23,28 +24,38 @@ async function getModelUuids(page: Page): Promise<string[]> {
   );
 }
 
+async function getModelClipNames(page: Page, modelUuid: string): Promise<string[]> {
+  return page.evaluate((uuid) => {
+    const clips = window.__SSH_BRIDGE__.stores.models.getState().clips[uuid];
+    return (clips ?? []).map((clip: { clip: { name: string } }) => clip.clip.name);
+  }, modelUuid);
+}
+
 async function clickElementByText(
   page: Page,
   selector: string,
   expectedText: string,
   matchMode: "exact" | "includes" = "exact",
 ) {
-  const clicked = await page.evaluate((selectorArg, expectedTextArg, matchModeArg) => {
-    const candidates = Array.from(
-      document.querySelectorAll<HTMLElement>(selectorArg),
-    );
-    const match = candidates.find(
-      (entry) => {
+  const clicked = await page.evaluate(
+    (selectorArg, expectedTextArg, matchModeArg) => {
+      const candidates = Array.from(
+        document.querySelectorAll<HTMLElement>(selectorArg),
+      );
+      const match = candidates.find((entry) => {
         const text = entry.textContent?.trim() ?? "";
         return matchModeArg === "includes"
           ? text.includes(expectedTextArg)
           : text === expectedTextArg;
-      },
-    );
-    if (!match) return false;
-    match.click();
-    return true;
-  }, selector, expectedText, matchMode);
+      });
+      if (!match) return false;
+      match.click();
+      return true;
+    },
+    selector,
+    expectedText,
+    matchMode,
+  );
   if (!clicked) {
     throw new Error(`Could not find ${selector} with text: ${expectedText}`);
   }
@@ -59,8 +70,9 @@ async function openImportModelFromFileMenu(page: Page) {
       new Promise((resolve) => setTimeout(resolve, ms));
 
     const clickImportItem = () =>
-      Array.from(document.querySelectorAll<HTMLElement>('[data-slot="menubar-item"]'))
-        .find((item) => item.textContent?.includes("Import Model"));
+      Array.from(document.querySelectorAll<HTMLElement>('[data-slot="menubar-item"]')).find(
+        (item) => item.textContent?.includes("Import Model"),
+      );
 
     for (const trigger of triggers) {
       trigger.dispatchEvent(
@@ -73,7 +85,9 @@ async function openImportModelFromFileMenu(page: Page) {
         item.click();
         return true;
       }
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
       await delay(50);
     }
 
@@ -84,14 +98,79 @@ async function openImportModelFromFileMenu(page: Page) {
   }
 }
 
-describe("FBX import after recording sequence", () => {
+async function importModelFromFile(page: Page, path: string): Promise<string> {
+  const before = await getModelUuids(page);
+
+  const fileChooser = page.waitForFileChooser();
+  await Promise.all([fileChooser, openImportModelFromFileMenu(page)]);
+  const chooser = await fileChooser;
+  await chooser.accept([path]);
+
+  await page.waitForFunction(
+    (existingModelIds: string[]) => {
+      const models = Object.keys(
+        window.__SSH_BRIDGE__.stores.models.getState().models,
+      );
+      return models.some((id) => !existingModelIds.includes(id));
+    },
+    { timeout: 30_000 },
+    before,
+  );
+
+  return page.evaluate((existingModelIds: string[]) => {
+    const models = window.__SSH_BRIDGE__.stores.models.getState().models;
+    return Object.keys(models).find((uuid) => !existingModelIds.includes(uuid)) ?? "";
+  }, before);
+}
+
+async function waitForModelToLoad(page: Page, modelUuid: string) {
+  await page.waitForFunction(
+    (uuid) => {
+      const model = window.__SSH_BRIDGE__.stores.models.getState().models[uuid];
+      return model?.loadState === "loaded";
+    },
+    { timeout: 30_000 },
+    modelUuid,
+  );
+}
+
+async function waitForModelClips(page: Page, modelUuid: string) {
+  await page.waitForFunction(
+    (uuid) => {
+      return (window.__SSH_BRIDGE__.stores.models.getState().clips[uuid]?.length ?? 0) > 0;
+    },
+    { timeout: 30_000 },
+    modelUuid,
+  );
+}
+
+async function importFromSourceModel(
+  page: Page,
+  targetUuid: string,
+  sourceUuid: string,
+) {
+  return page.evaluate(
+    async (target, source) => {
+      return window.__SSH_BRIDGE__.stores.models
+        .getState()
+        .importAnimationsFromSource(target, { sourceModelUuid: source });
+    },
+    targetUuid,
+    sourceUuid,
+  );
+}
+
+describe("Pose Studio model import after recorded sequence", () => {
   let context: Awaited<ReturnType<typeof createWorkflowE2EContext>> | undefined;
   let browser: Browser | undefined;
   let page: Page | undefined;
   const pageErrors: string[] = [];
 
   beforeAll(async () => {
-    await access(IMPORT_MODEL_PATH, constants.F_OK);
+    await Promise.all([
+      access(IMPORT_MODEL_PATH, constants.F_OK),
+      access(IMPORT_ANIMATION_SOURCE_PATH, constants.F_OK),
+    ]);
 
     context = await createWorkflowE2EContext(PORT);
     browser = context.browser;
@@ -104,15 +183,15 @@ describe("FBX import after recording sequence", () => {
     });
   });
 
-  afterAll(async () => {
-    await page?.close();
-    await context?.close();
-  });
-
   it(
-    "records a sequence, then imports FBX without losing the captured rows",
+    "records a sequence, then imports animations from a different loaded model with suffixes",
     async () => {
       if (!page) throw new Error("Browser did not start");
+
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-slot="menubar-trigger"]').length > 0,
+        { timeout: 10_000 },
+      );
 
       await page.evaluate(() => {
         const { setIterations, setIntervals } =
@@ -121,11 +200,14 @@ describe("FBX import after recording sequence", () => {
         setIterations(4);
       });
 
+      const initialModelCount = await getModelUuids(page);
+      const targetModelUuid = await importModelFromFile(page, IMPORT_MODEL_PATH);
+      await waitForModelToLoad(page, targetModelUuid);
+      expect(targetModelUuid).toBeTruthy();
+      expect(initialModelCount).not.toContain(targetModelUuid);
+
       const initialRows = await getSequenceRowCount(page);
-      const modelUuidsBefore = await getModelUuids(page);
-
-      await clickElementByText(page, "button", "Record");
-
+      await clickElementByText(page, "button", "Record", "includes");
       await page.waitForFunction(
         (rows) =>
           window.__SSH_BRIDGE__.stores.images.getState().images.length > rows,
@@ -136,42 +218,30 @@ describe("FBX import after recording sequence", () => {
       const rowsAfterRecord = await getSequenceRowCount(page);
       expect(rowsAfterRecord).toBeGreaterThan(initialRows);
 
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-slot="menubar-trigger"]').length > 0,
-        { timeout: 10_000 },
+      const sourceModelUuid = await importModelFromFile(
+        page,
+        IMPORT_ANIMATION_SOURCE_PATH,
       );
-      const fileChooser = page.waitForFileChooser();
-      await Promise.all([fileChooser, openImportModelFromFileMenu(page)]);
-      const chooser = await fileChooser;
-      await chooser.accept([IMPORT_MODEL_PATH]);
+      expect(sourceModelUuid).toBeTruthy();
+      expect(sourceModelUuid).not.toBe(targetModelUuid);
 
-      await page.waitForFunction(
-        (existingModelIds: string[]) => {
-          const models = window.__SSH_BRIDGE__.stores.models.getState().models;
-          return Object.entries(models).some(
-            ([uuid, model]) =>
-              !existingModelIds.includes(uuid) &&
-              (model.loadState === "loaded" || model.loadState === "error"),
-          );
-        },
-        { timeout: 30_000 },
-        modelUuidsBefore,
-      );
+      await waitForModelToLoad(page, sourceModelUuid);
+      await waitForModelClips(page, sourceModelUuid);
 
-      const importedModelStates = await page.evaluate(
-        (existingModelIds: string[]) =>
-          Object.entries(window.__SSH_BRIDGE__.stores.models.getState().models)
-            .filter(([uuid]) => !existingModelIds.includes(uuid))
-            .map(([, model]) => model.loadState),
-        modelUuidsBefore,
-      );
-      expect(importedModelStates.length).toBeGreaterThan(0);
-      expect(
-        importedModelStates.every((state) => state === "loaded" || state === "error"),
-      ).toBe(true);
+      await importFromSourceModel(page, targetModelUuid, sourceModelUuid);
+      const firstNames = await getModelClipNames(page, targetModelUuid);
+      expect(firstNames.length).toBeGreaterThan(0);
 
-      const rowsAfterImport = await getSequenceRowCount(page);
-      expect(rowsAfterImport).toBe(rowsAfterRecord);
+      await importFromSourceModel(page, targetModelUuid, sourceModelUuid);
+      const secondNames = await getModelClipNames(page, targetModelUuid);
+      expect(secondNames.some((name) => name.includes(" + 1"))).toBe(true);
+
+      await importFromSourceModel(page, targetModelUuid, sourceModelUuid);
+      const thirdNames = await getModelClipNames(page, targetModelUuid);
+      expect(thirdNames.some((name) => name.includes(" + 2"))).toBe(true);
+
+      const rowsAfterAnimationImport = await getSequenceRowCount(page);
+      expect(rowsAfterAnimationImport).toBe(rowsAfterRecord);
 
       const appRootMounted = await page.evaluate(() => {
         const appRoot = document.querySelector("#root");
@@ -182,4 +252,9 @@ describe("FBX import after recording sequence", () => {
     },
     180_000,
   );
+
+  afterAll(async () => {
+    await page?.close();
+    await context?.close();
+  });
 });
