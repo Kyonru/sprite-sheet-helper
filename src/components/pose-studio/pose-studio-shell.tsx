@@ -1040,6 +1040,8 @@ interface PoseSavePanelProps {
   saving: boolean;
   onClipNameChange: (value: string) => void;
   onSave: () => void;
+  forceInPlace: boolean;
+  onForceInPlaceChange: (value: boolean) => void;
 }
 
 function PoseSavePanel({
@@ -1051,6 +1053,8 @@ function PoseSavePanel({
   saving,
   onClipNameChange,
   onSave,
+  forceInPlace,
+  onForceInPlaceChange,
 }: PoseSavePanelProps) {
   const summary = getPoseDraftSummary(draft);
   const bestMarker = qualityMarkers.reduce<PoseFrameQualityMarker | null>(
@@ -1104,6 +1108,14 @@ function PoseSavePanel({
           {mappingAnalysis.issues[0]}
         </div>
       )}
+      <label className="flex items-center justify-between rounded-md border px-3 py-2 text-xs">
+        <span>Force imported animations in place</span>
+        <Switch
+          checked={forceInPlace}
+          onCheckedChange={onForceInPlaceChange}
+          disabled={saving}
+        />
+      </label>
       <Button onClick={onSave} disabled={saving || frames.length === 0}>
         <Save size={14} />
         {saving ? "Saving" : "Save to Model"}
@@ -1782,6 +1794,8 @@ function PoseInspector({
             saving={saving}
             onClipNameChange={onClipNameChange}
             onSave={onSave}
+            forceInPlace={importForceInPlace}
+            onForceInPlaceChange={setImportForceInPlace}
           />
         )}
       </div>
@@ -1830,6 +1844,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
   const [importSourceUuid, setImportSourceUuid] = useState(
     candidateSourceModels.at(0)?.uuid,
   );
+  const [importForceInPlace, setImportForceInPlace] = useState(false);
 
   useEffect(() => {
     setImportSourceUuid((current) => {
@@ -2045,6 +2060,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
     try {
       const { importedNames } = await importAnimationsFromSource(modelUuid, {
         sourceModelUuid: importSourceUuid,
+        forceInPlace: importForceInPlace,
       });
 
       if (importedNames.length === 0) {
@@ -2060,7 +2076,13 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
         description: (error as Error).message,
       });
     }
-  }, [importSourceUuid, importAnimationsFromSource, modelReady, modelUuid]);
+  }, [
+    importSourceUuid,
+    importAnimationsFromSource,
+    modelReady,
+    modelUuid,
+    importForceInPlace,
+  ]);
 
   const handleImportFromFile = useCallback(() => {
     if (!modelReady) {
@@ -2072,6 +2094,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
       try {
         const { importedNames } = await importAnimationsFromSource(modelUuid, {
           sourceFile: file,
+          forceInPlace: importForceInPlace,
         });
 
         if (importedNames.length === 0) {
@@ -2088,7 +2111,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
         });
       }
     });
-  }, [importAnimationsFromSource, modelReady, modelUuid]);
+  }, [importAnimationsFromSource, modelReady, modelUuid, importForceInPlace]);
 
   useEffect(() => {
     autoDetectedRef.current = false;
@@ -3073,6 +3096,18 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           >
             {isModelVisible ? <EyeOff size={15} /> : <Eye size={15} />}
           </Button>
+          <Label
+            htmlFor="import-force-in-place"
+            className="flex cursor-pointer items-center gap-2 px-1 text-xs text-muted-foreground"
+          >
+            <span>Force in place</span>
+            <Switch
+              id="import-force-in-place"
+              checked={importForceInPlace}
+              onCheckedChange={setImportForceInPlace}
+              disabled={!modelReady}
+            />
+          </Label>
           <Select
             value={importSourceUuid}
             onValueChange={(value) => setImportSourceUuid(value)}

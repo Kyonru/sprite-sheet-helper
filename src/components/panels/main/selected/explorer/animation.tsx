@@ -8,11 +8,14 @@ import {
   button,
 } from "leva";
 import type { Schema } from "leva/plugin";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LEVA_THEME } from "@/constants/theming";
+import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
 import { useModel, useModelsStore, type LoopType } from "@/store/next/models";
 import * as THREE from "three";
 import { openPoseStudio } from "@/components/camera-animation-capture";
+import { toast } from "sonner";
+import { importFile } from "@/utils/assets";
 
 const ANIMATION_LOOP_OPTIONS: Record<string, LoopType> = {
   "Loop Once": THREE.LoopOnce,
@@ -38,9 +41,215 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
 
   const currentTime = useModelsStore((state) => state.currentTime[uuid]);
   const setCurrentTime = useModelsStore((state) => state.setCurrentTime);
+  const models = useModelsStore((state) => state.models);
+  const allClips = useModelsStore((state) => state.clips);
+  const importAnimationsFromSource = useModelsStore(
+    (state) => state.importAnimationsFromSource,
+  );
+  const forceCurrentAnimationInPlace = useModelsStore(
+    (state) => state.forceCurrentAnimationInPlace,
+  );
+  const entities = useEntitiesStore((state) => state.entities);
 
   const animations = useModelsStore((state) => state.clips[uuid]);
   const isModelReady = model?.loadState === "loaded";
+  const candidateSourceModels = useMemo(() => {
+    const entries = Object.entries(models)
+      .filter(
+        ([sourceUuid, sourceModel]) =>
+          sourceUuid !== uuid &&
+          sourceModel.source === "file" &&
+          sourceModel.loadState === "loaded" &&
+          allClips[sourceUuid]?.length,
+      )
+      .map(([sourceUuid, sourceModel]) => ({
+        uuid: sourceUuid,
+        label: entities[sourceUuid]?.name ?? sourceModel.fileName ?? sourceUuid,
+      }))
+      .sort((left, right) => left.label.localeCompare(right.label));
+
+    return entries;
+  }, [allClips, entities, models, uuid]);
+
+  const importSourceOptions = useMemo(() => {
+    const labelCounts = new Map<string, number>();
+    for (const entry of candidateSourceModels) {
+      labelCounts.set(entry.label, (labelCounts.get(entry.label) ?? 0) + 1);
+    }
+    return Object.fromEntries(
+      candidateSourceModels.map((entry) => {
+        const hasDuplicateLabel = (labelCounts.get(entry.label) ?? 0) > 1;
+        const label = hasDuplicateLabel
+          ? `${entry.label} (${entry.uuid})`
+          : entry.label;
+        return [label, entry.uuid];
+      }),
+    );
+  }, [candidateSourceModels]);
+
+  const [importSourceUuid, setImportSourceUuid] = useState<string | undefined>(
+    candidateSourceModels.at(0)?.uuid,
+  );
+  const [importForceInPlace, setImportForceInPlace] = useState(false);
+
+  useEffect(() => {
+    setImportSourceUuid((current) => {
+      if (
+        current &&
+        candidateSourceModels.some((entry) => entry.uuid === current)
+      ) {
+        return current;
+      }
+
+      return candidateSourceModels.at(0)?.uuid;
+    });
+  }, [candidateSourceModels]);
+
+  const handleImportFromLoadedModel = useCallback(async () => {
+    if (!isModelReady) {
+      toast.error("Model must be loaded before importing animations.");
+      return;
+    }
+
+    if (!importSourceUuid) {
+      toast.error("Select a source model first.");
+      return;
+    }
+
+    try {
+      const { importedNames } = await importAnimationsFromSource(uuid, {
+        sourceModelUuid: importSourceUuid,
+        forceInPlace: importForceInPlace,
+      });
+
+      if (importedNames.length === 0) {
+        toast.info("No animations found in source model.");
+        return;
+      }
+
+      toast.success(
+        `Imported ${importedNames.length} animation(s): ${importedNames.join(", ")}`,
+      );
+    } catch (error) {
+      toast.error("Failed to import animations from model", {
+        description: (error as Error).message,
+      });
+    }
+  }, [
+    importForceInPlace,
+    importAnimationsFromSource,
+    importSourceUuid,
+    isModelReady,
+    uuid,
+  ]);
+
+  const importInputs = useMemo(() => {
+    const i: Schema = {};
+    if (!isModelReady) return i;
+
+    if (candidateSourceModels.length > 0) {
+      const sourceOptionValues = Object.values(importSourceOptions);
+      const isSelectionAvailable =
+        !!importSourceUuid && sourceOptionValues.includes(importSourceUuid);
+
+      i["source model"] = {
+        options: importSourceOptions,
+        value: isSelectionAvailable
+          ? importSourceUuid
+          : sourceOptionValues.at(0),
+        onChange: (value: string) => {
+          setImportSourceUuid(value);
+        },
+      };
+      i["import from model"] = button(handleImportFromLoadedModel);
+    } else {
+      i["import from model"] = button(handleImportFromLoadedModel);
+    }
+
+    i["import from file"] = button(async () => {
+      if (!isModelReady) {
+        toast.error("Model must be loaded before importing animations.");
+        return;
+      }
+
+      importFile(ACCEPTED_MODEL_FILE_TYPES, async (file) => {
+        try {
+          const { importedNames } = await importAnimationsFromSource(uuid, {
+            sourceFile: file,
+            forceInPlace: importForceInPlace,
+          });
+
+          if (importedNames.length === 0) {
+            toast.info("No animations found in source file.");
+            return;
+          }
+
+          toast.success(
+            `Imported ${importedNames.length} animation(s) from file: ${importedNames.join(", ")}`,
+          );
+        } catch (error) {
+          toast.error("Failed to import animations from file", {
+            description: (error as Error).message,
+          });
+        }
+      });
+    });
+
+    i["force imported in place"] = {
+      value: importForceInPlace,
+      onChange: (value: boolean) => {
+        setImportForceInPlace(value);
+      },
+    };
+
+    return i;
+  }, [
+    candidateSourceModels.length,
+    handleImportFromLoadedModel,
+    importSourceOptions,
+    importForceInPlace,
+    importSourceUuid,
+    isModelReady,
+    importAnimationsFromSource,
+    uuid,
+  ]);
+
+  const handleForceCurrentInPlace = useCallback(async () => {
+    if (!isModelReady) {
+      toast.error("Model must be loaded before forcing animation in place.");
+      return;
+    }
+
+    if (!animations || animations.length === 0) {
+      toast.error("No animations available to force.");
+      return;
+    }
+
+    const activeAnimationName =
+      animation && animation !== "none" && animations.some((clip) => clip.clip.name === animation)
+        ? animation
+        : animations[0]?.clip.name;
+
+    if (!activeAnimationName) {
+      toast.error("Select an animation first.");
+      return;
+    }
+
+    try {
+      const { name } = forceCurrentAnimationInPlace(
+        uuid,
+        activeAnimationName,
+      );
+      if (activeAnimationName !== animation) {
+        setAnimation(uuid, activeAnimationName);
+      }
+      toast.success(`Animation "${name}" forced in place.`);
+    } catch (error) {
+      toast.error("Failed to force animation in place", {
+        description: (error as Error).message,
+      });
+    }
+  }, [animation, animations, forceCurrentAnimationInPlace, isModelReady, setAnimation, uuid]);
 
   const inputs = useMemo(() => {
     const i: Schema = {};
@@ -56,6 +265,10 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     }
 
     if (animations) {
+      i["force current animation in place"] = button(
+        handleForceCurrentInPlace,
+      );
+
       const animationOptions = [
         "none",
         ...animations.map((clip) => clip.clip.name),
@@ -143,6 +356,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     setFreeze,
     currentTime,
     setCurrentTime,
+    handleForceCurrentInPlace,
   ]);
 
   useControls(
@@ -155,6 +369,11 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     { store },
     [uuid, isModelReady],
   );
+
+  useControls(() => importInputs satisfies Schema, { store }, [
+    uuid,
+    importInputs,
+  ]);
 
   // Function form + key forces Leva to remount when entity/type changes
   const [, set] = useControls(() => inputs satisfies Schema, { store }, [

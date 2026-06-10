@@ -51,6 +51,10 @@ export interface ModelsState {
   freeze: Record<string, boolean>;
 }
 
+interface SourceModelImportOptions {
+  forceInPlace?: boolean;
+}
+
 interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
   loadFromFile: (uuid: string, file: File) => Promise<void>;
   createAuthoredModel: (
@@ -88,11 +92,13 @@ interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
   importAnimationsFromSource: (
     targetUuid: string,
     source:
-      | { sourceModelUuid: string }
-      | {
-          sourceFile: File;
-        },
+      | ({ sourceModelUuid: string } & SourceModelImportOptions)
+      | ({ sourceFile: File } & SourceModelImportOptions),
   ) => Promise<{ importedNames: string[] }>;
+  forceCurrentAnimationInPlace: (
+    targetUuid: string,
+    animationName?: string,
+  ) => { name: string };
 }
 
 const initialState: ModelsState = {
@@ -302,6 +308,7 @@ export const useModelsStore = create<ModelsStore>()(
         },
 
         importAnimationsFromSource: async (targetUuid, source) => {
+          const forceInPlace = source.forceInPlace ?? false;
           const targetModel = get().models[targetUuid];
           if (!targetModel) {
             throw new Error("Target model not found");
@@ -349,7 +356,7 @@ export const useModelsStore = create<ModelsStore>()(
             const parsed = await parseModel(file, format);
             try {
               parsedSourceClips = parsed.clips.map((clipRef) =>
-                clipRef.clip.clone(),
+                makeInPlaceClip(clipRef.clip, forceInPlace),
               );
             } finally {
               disposeParsedModel(parsed);
@@ -362,7 +369,7 @@ export const useModelsStore = create<ModelsStore>()(
             }
 
             parsedSourceClips = sourceClips.map((clipRef) =>
-              clipRef.clip.clone(),
+              makeInPlaceClip(clipRef.clip, forceInPlace),
             );
             sourceDurations = get().durations[source.sourceModelUuid] ?? {};
             sourceSpeeds = get().speeds[source.sourceModelUuid] ?? {};
@@ -403,14 +410,15 @@ export const useModelsStore = create<ModelsStore>()(
             ...(current.loops[targetUuid] ?? {}),
           } as Record<string, LoopType>;
 
-          const importedEntries = parsedSourceClips.map((clip) => {
+          const preparedClips = parsedSourceClips.map((clip) => {
             const originalName = clip.name || "Imported Clip";
-            const resolvedName = resolveCollisionName(
-              originalName,
-              existingNames,
-            );
+            const resolvedName = forceInPlace
+              ? originalName.trim()
+              : resolveCollisionName(originalName, existingNames);
             clip.name = resolvedName;
-            existingNames.add(resolvedName);
+            if (!forceInPlace) {
+              existingNames.add(resolvedName);
+            }
 
             const sourceDuration = sourceDurations[originalName];
             if (sourceDuration) {
@@ -430,16 +438,41 @@ export const useModelsStore = create<ModelsStore>()(
             return {
               action: targetMixer.clipAction(clip),
               clip,
+              name: resolvedName,
+              originalName,
             };
           });
 
-          const importedNames = importedEntries.map((entry) => entry.clip.name);
+          const importedNames = preparedClips.map((entry) => entry.clip.name);
 
           set((state) => {
-            const nextClips = [
-              ...(state.clips[targetUuid] ?? []),
-              ...importedEntries,
-            ];
+            const nextClips = [...(state.clips[targetUuid] ?? [])];
+            if (forceInPlace) {
+              for (const { action, clip, name } of preparedClips) {
+                const index = nextClips.findIndex(
+                  (entry) => entry.clip.name.trim() === name,
+                );
+
+                if (index >= 0) {
+                  const existing = nextClips[index];
+                  if (existing) {
+                    existing.action?.stop();
+                    targetMixer?.uncacheAction(existing.action);
+                    targetMixer?.uncacheClip(existing.clip);
+                  }
+
+                  nextClips[index] = {
+                    action,
+                    clip,
+                  };
+                  continue;
+                }
+
+                nextClips.push({ action, clip });
+              }
+            } else {
+              nextClips.push(...preparedClips);
+            }
 
             clipsCache.set(targetUuid, nextClips);
 
@@ -468,6 +501,80 @@ export const useModelsStore = create<ModelsStore>()(
           });
 
           return { importedNames };
+        },
+
+        forceCurrentAnimationInPlace: (targetUuid, animationName) => {
+          const targetModel = get().models[targetUuid];
+          if (!targetModel) {
+            throw new Error("Target model not found");
+          }
+
+          if (targetModel.loadState !== "loaded") {
+            throw new Error("Target model is not fully loaded");
+          }
+
+          const selectedAnimation = get().animations[targetUuid];
+          const clipName = animationName ?? selectedAnimation;
+
+          if (!clipName || clipName === "none") {
+            throw new Error("No animation selected");
+          }
+
+          const currentClips = get().clips[targetUuid] ?? [];
+          const targetIndex = currentClips.findIndex(
+            (entry) => entry.clip.name === clipName,
+          );
+
+          if (targetIndex < 0) {
+            throw new Error("Selected animation not found");
+          }
+
+          let targetMixer = get().mixerRef[targetUuid];
+          if (!targetMixer) {
+            const runtime = getRuntimeModel(targetUuid);
+            if (runtime?.object) {
+              targetMixer = new THREE.AnimationMixer(runtime.object);
+            }
+          }
+
+          if (!targetMixer) {
+            throw new Error("Target model has no runtime mixer");
+          }
+
+          const sourceClipRef = currentClips[targetIndex];
+          if (!sourceClipRef) {
+            throw new Error("Selected animation not found");
+          }
+
+          const normalizedClip = makeInPlaceClip(sourceClipRef.clip, true);
+          const action = targetMixer.clipAction(normalizedClip);
+
+          const nextClips = [...currentClips];
+          const existing = nextClips[targetIndex];
+          if (existing) {
+            existing.action?.stop();
+            targetMixer.uncacheAction(existing.action);
+            targetMixer.uncacheClip(existing.clip);
+          }
+
+          nextClips[targetIndex] = {
+            action,
+            clip: normalizedClip,
+          };
+          clipsCache.set(targetUuid, nextClips);
+
+          set((state) => ({
+            mixerRef: {
+              ...state.mixerRef,
+              [targetUuid]: targetMixer,
+            },
+            clips: {
+              ...state.clips,
+              [targetUuid]: nextClips,
+            },
+          }));
+
+          return { name: normalizedClip.name };
         },
 
         reset: () => set(initialState),
@@ -659,6 +766,48 @@ function createFlatWatcher<
     },
   };
 }
+
+const makeInPlaceClip = (
+  clip: THREE.AnimationClip,
+  forceInPlace: boolean,
+): THREE.AnimationClip => {
+  if (!forceInPlace) {
+    return clip.clone();
+  }
+
+  const tracks = clip.tracks.map((track) => {
+    if (!track.name.endsWith(".position")) {
+      return track.clone();
+    }
+
+    const stride = track.getValueSize();
+    if (stride !== 3) return track.clone();
+
+    const values = track.values.slice();
+    if (values.length < 3) return track.clone();
+
+    const baseX = values[0] ?? 0;
+    const baseY = values[1] ?? 0;
+    const baseZ = values[2] ?? 0;
+
+    for (let i = 0; i < values.length; i += 3) {
+      values[i] = baseX;
+      values[i + 1] = baseY;
+      values[i + 2] = baseZ;
+    }
+
+    return new THREE.VectorKeyframeTrack(
+      track.name,
+      track.times.slice(),
+      values,
+      track.getInterpolation(),
+    );
+  });
+
+  const normalized = new THREE.AnimationClip(clip.name, clip.duration, tracks);
+  normalized.blendMode = clip.blendMode;
+  return normalized;
+};
 
 export function resolveCollisionName(base: string, taken: Set<string>): string {
   const trimmed = base.trim();

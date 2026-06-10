@@ -103,6 +103,193 @@ describe("useModelsStore importAnimationsFromSource", () => {
     expect(loops[targetUuid]?.["Walk_1"]).toBe(THREE.LoopRepeat);
   });
 
+  it("replaces matching clip names when forceInPlace is enabled", async () => {
+    const sourceUuid = "source-model-force";
+    const targetUuid = "target-model-force";
+    const sourceMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
+
+    const sourceClip = new THREE.AnimationClip("Walk", 2, []);
+    const targetClip = new THREE.AnimationClip("Walk", 1, []);
+
+    useModelsStore.getState().reset();
+    useModelsStore.setState({
+      models: {
+        // @ts-expect-error invalid key
+        [sourceUuid]: createModel(`${sourceUuid}.fbx`),
+        // @ts-expect-error invalid key
+        [targetUuid]: createModel(`${targetUuid}.fbx`),
+      },
+      clips: {
+        [sourceUuid]: [
+          { action: sourceMixer.clipAction(sourceClip), clip: sourceClip },
+        ],
+        [targetUuid]: [
+          { action: targetMixer.clipAction(targetClip), clip: targetClip },
+        ],
+      },
+      mixerRef: {
+        [sourceUuid]: sourceMixer,
+        [targetUuid]: targetMixer,
+      },
+      durations: {
+        [sourceUuid]: {
+          Walk: [0, 2],
+        },
+        [targetUuid]: {
+          Walk: [0, 3],
+        },
+      },
+      speeds: {
+        [sourceUuid]: {
+          Walk: 1.25,
+        },
+        [targetUuid]: {
+          Walk: 2,
+        },
+      },
+      loops: {
+        [sourceUuid]: {
+          Walk: THREE.LoopOnce,
+        },
+        [targetUuid]: {
+          Walk: THREE.LoopRepeat,
+        },
+      },
+      animations: {},
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
+    });
+
+    const { importedNames } = await useModelsStore
+      .getState()
+      .importAnimationsFromSource(targetUuid, {
+        sourceModelUuid: sourceUuid,
+        forceInPlace: true,
+      });
+
+    expect(importedNames).toEqual(["Walk"]);
+
+    const { clips, durations, speeds, loops } = useModelsStore.getState();
+    expect(clips[targetUuid].map((clipRef) => clipRef.clip.name)).toEqual(["Walk"]);
+    expect(clips[targetUuid][0]?.clip.duration).toBe(2);
+    expect(durations[targetUuid]?.["Walk"]).toEqual([0, 2]);
+    expect(speeds[targetUuid]?.["Walk"]).toBe(1.25);
+    expect(loops[targetUuid]?.["Walk"]).toBe(THREE.LoopOnce);
+  });
+
+  it("forces imported clip positions to remain in place", async () => {
+    const sourceUuid = "source-model-position";
+    const targetUuid = "target-model-position";
+    const sourceMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
+
+    const rootTrack = new THREE.VectorKeyframeTrack(
+      "Root.position",
+      [0, 1],
+      [5, 0, 0, 8, 0, 0],
+    );
+    const sourceClip = new THREE.AnimationClip("Walk", 1, [rootTrack]);
+
+    useModelsStore.getState().reset();
+    useModelsStore.setState({
+      models: {
+        // @ts-expect-error invalid key
+        [sourceUuid]: createModel(`${sourceUuid}.fbx`),
+        // @ts-expect-error invalid key
+        [targetUuid]: createModel(`${targetUuid}.fbx`),
+      },
+      clips: {
+        [sourceUuid]: [
+          { action: sourceMixer.clipAction(sourceClip), clip: sourceClip },
+        ],
+        [targetUuid]: [],
+      },
+      mixerRef: {
+        [sourceUuid]: sourceMixer,
+        [targetUuid]: targetMixer,
+      },
+      durations: {},
+      speeds: {},
+      loops: {},
+      animations: {},
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
+    });
+
+    await useModelsStore
+      .getState()
+      .importAnimationsFromSource(targetUuid, {
+        sourceModelUuid: sourceUuid,
+        forceInPlace: true,
+      });
+
+    const importedTrack = useModelsStore.getState().clips[targetUuid]?.[0]?.clip.tracks.at(
+      0,
+    );
+    expect(importedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
+    expect(Array.from((importedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
+      5, 0, 0, 5, 0, 0,
+    ]);
+  });
+
+  it("forces the selected animation to run in place", async () => {
+    const targetUuid = "target-model-force-current";
+    const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const targetClip = new THREE.AnimationClip(
+      "Run",
+      1,
+      [
+        new THREE.VectorKeyframeTrack(
+          "Root.position",
+          [0, 1],
+          [7, 0, 0, 11, 0, 0],
+        ),
+      ],
+    );
+
+    useModelsStore.getState().reset();
+    useModelsStore.setState({
+      models: {
+        // @ts-expect-error invalid key
+        [targetUuid]: createModel(`${targetUuid}.fbx`),
+      },
+      clips: {
+        [targetUuid]: [
+          { action: targetMixer.clipAction(targetClip), clip: targetClip },
+        ],
+      },
+      mixerRef: {
+        [targetUuid]: targetMixer,
+      },
+      animations: {
+        [targetUuid]: "Run",
+      },
+      durations: {},
+      speeds: {},
+      loops: {},
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
+    });
+
+    const { name } = useModelsStore
+      .getState()
+      .forceCurrentAnimationInPlace(targetUuid);
+
+    expect(name).toBe("Run");
+
+    const updatedTrack = useModelsStore
+      .getState()
+      .clips[targetUuid]?.[0]?.clip.tracks.at(0);
+    expect(updatedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
+    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
+      7, 0, 0, 7, 0, 0,
+    ]);
+  });
+
   it("does not mutate target state when file parse fails", async () => {
     const sourceUuid = "source-model-fail";
     const targetUuid = "target-model-stable";
