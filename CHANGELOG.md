@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.5.0]
+
+### Added
+
+- Add model visibility
+- Import animations into selected model
+- Add in place option
+- add more Workflow config
+
+### Fixed
+
+- Prevented model import crashes when loading or importing after sequence recording by strengthening model load-state handling and runtime cleanup.
+- Added model render/load error boundaries with toast notifications so failed FBX/GLB loads no longer break the scene.
+- Updated model import and material workflows to only expose actions/tools for fully loaded models.
+- Added rollback on import failure and expanded model removal cleanup to clear related animation/mixer state.
+- Added a regression E2E test covering FBX import after sequence capture without losing captured sequence rows.
+
 ## [0.4.1]
 
 ### Added
