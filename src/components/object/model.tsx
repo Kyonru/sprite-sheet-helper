@@ -28,6 +28,7 @@ import {
   useMaterialsStore,
 } from "@/store/next/materials";
 import { buildAuthoredModelObject } from "@/utils/authored-models";
+import { toast } from "sonner";
 
 export function Based({ uuid, ...props }: { uuid: string }) {
   const model = useModel(uuid);
@@ -40,6 +41,9 @@ export function Based({ uuid, ...props }: { uuid: string }) {
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const setClips = useModelsStore((state) => state.setClips);
   const setMixerRef = useModelsStore((state) => state.setMixerRef);
+  const setLoadState = useModelsStore((state) => state.setLoadState);
+
+  const loadRequestRef = useRef(0);
 
   const [object, setObject] = useState<THREE.Object3D | null>(null);
   const materials = useMaterialsStore((state) => state.materials);
@@ -73,9 +77,10 @@ export function Based({ uuid, ...props }: { uuid: string }) {
   });
 
   useEffect(() => {
+    const requestId = ++loadRequestRef.current;
     const openFile = async () => {
-      if (model?.source === "authored") return;
-      if (!model?.file) return;
+      if (!model || model.source === "authored") return;
+      if (!model.file) return;
 
       const format = model.file.name
         .split(".")
@@ -84,10 +89,20 @@ export function Based({ uuid, ...props }: { uuid: string }) {
 
       if (!format) return;
 
+      clearRuntimeModel(uuid);
+      setObject(null);
+      setModelInventory(uuid, EMPTY_MATERIAL_INVENTORY);
+      setClips(uuid, []);
+      setMixerRef(uuid, null);
+      mixerRef.current = null;
+      setLoadState(uuid, "loading");
+
       try {
         const parsed = await parseModel(model.file, format);
-        const inventory = buildMaterialInventory(parsed.object, uuid);
 
+        if (loadRequestRef.current !== requestId) return;
+
+        const inventory = buildMaterialInventory(parsed.object, uuid);
         setObject(parsed.object);
         setModelInventory(uuid, inventory);
         mixerRef.current = parsed.mixer;
@@ -105,8 +120,7 @@ export function Based({ uuid, ...props }: { uuid: string }) {
         });
         setClips(uuid, parsed.clips);
         setMixerRef(uuid, parsed.mixer);
-
-        // Emit event to signal model is ready for use
+        setLoadState(uuid, "loaded");
         PubSub.emit(EventType.MODEL_READY, { uuid });
 
         const downgrade = useModelDowngradesStore.getState().entries[uuid];
@@ -114,23 +128,39 @@ export function Based({ uuid, ...props }: { uuid: string }) {
           void useModelDowngradesStore.getState().preview(uuid);
         }
       } catch (err) {
+        if (loadRequestRef.current !== requestId) return;
+
         console.error("[sprite-sheet-helper] parseModel failed:", err);
+        const message =
+          err instanceof Error ? err.message : "Unknown model parse error";
+        setObject(null);
+        setModelInventory(uuid, EMPTY_MATERIAL_INVENTORY);
+        setClips(uuid, []);
         setMixerRef(uuid, null);
+        setLoadState(uuid, "error", message);
+        clearRuntimeModel(uuid);
+        toast.error("Failed to load model", {
+          description: message,
+        });
       }
     };
 
     openFile();
     return () => {
+      loadRequestRef.current += 1;
       clearRuntimeModel(uuid);
+      setObject(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, setClips, setMixerRef, uuid]);
+  }, [model?.file, model?.source, setClips, setLoadState, setModelInventory, setMixerRef, uuid]);
 
   useEffect(() => {
-    if (model?.source !== "authored" || !authoredRecipe) return;
+    if (!model || model.source !== "authored" || !authoredRecipe) return;
 
     const built = buildAuthoredModelObject(authoredRecipe);
     const inventory = buildMaterialInventory(built.object, uuid);
+    clearRuntimeModel(uuid);
+    setObject(null);
 
     setObject(built.object);
     setModelInventory(uuid, inventory);
@@ -142,11 +172,13 @@ export function Based({ uuid, ...props }: { uuid: string }) {
     });
     setClips(uuid, []);
     setMixerRef(uuid, null);
+    setLoadState(uuid, "loaded");
     PubSub.emit(EventType.MODEL_READY, { uuid });
   }, [
     authoredRecipe,
     model?.source,
     setClips,
+    setLoadState,
     setMixerRef,
     setModelInventory,
     uuid,

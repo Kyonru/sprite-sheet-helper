@@ -7,7 +7,6 @@ import type {
 } from "@/types/ecs";
 import * as THREE from "three";
 import { saveFileToFS } from "@/utils/file-system/fs.web";
-import { toast } from "sonner";
 import {
   withHistory,
   type FieldWatcher,
@@ -107,13 +106,18 @@ export const useModelsStore = create<ModelsStore>()(
       (set, get) => ({
         ...initialState,
 
-        setLoadState: (uuid, loadState, errorMessage = "") =>
-          set((state) => ({
-            models: {
-              ...state.models,
-              [uuid]: { ...state.models[uuid], loadState, errorMessage },
-            },
-          })),
+        setLoadState: (uuid, loadState, errorMessage = null) =>
+          set((state) => {
+            const model = state.models[uuid];
+            if (!model) return state;
+
+            return {
+              models: {
+                ...state.models,
+                [uuid]: { ...model, loadState, errorMessage },
+              },
+            };
+          }),
 
         loadFromFile: async (uuid, file) => {
           const { setLoadState } = get();
@@ -122,32 +126,34 @@ export const useModelsStore = create<ModelsStore>()(
             .pop()
             ?.toLowerCase() as ModelComponent["format"];
 
-          const opfsFileName = await saveFileToFS(uuid, file, "models");
-
-          set((state) => ({
-            models: {
-              ...state.models,
-              [uuid]: {
-                ...state.models[uuid],
-                file: file,
-                fileName: file.name,
-                filePath: opfsFileName,
-                type: file.type,
-                fileSize: file.size,
-                format,
-                source: "file",
-                loadState: "loading",
-                errorMessage: null,
-              },
-            },
-          }));
-
           try {
-            setLoadState(uuid, "loaded");
-          } catch (e) {
-            toast.error((e as Error).message);
-            setLoadState(uuid, "error", (e as Error).message);
+            const opfsFileName = await saveFileToFS(uuid, file, "models");
+
+            set((state) => ({
+              models: {
+                ...state.models,
+                [uuid]: {
+                  ...state.models[uuid],
+                  file,
+                  fileName: file.name,
+                  filePath: opfsFileName,
+                  type: file.type,
+                  fileSize: file.size,
+                  format,
+                  source: "file",
+                  loadState: "loading",
+                  errorMessage: null,
+                },
+              },
+            }));
+          } catch (error) {
+            const message = (error as Error).message;
+            setLoadState(uuid, "error", message);
+            throw error;
           }
+
+          // loadState is intentionally set to "loading" above. Parse and runtime
+          // setup are completed by the scene model component.
         },
 
         createAuthoredModel: (uuid, authoredModelId, name) =>
@@ -183,19 +189,48 @@ export const useModelsStore = create<ModelsStore>()(
         },
 
         removeModel: (uuid) => {
-          const { setClips } = get();
           const model = get().models[uuid];
           if (!model) return;
+
           mixerCache.get(uuid)?.stopAllAction();
           modelCache.delete(uuid);
           mixerCache.delete(uuid);
           clipsCache.delete(uuid);
-          setClips(uuid, []);
 
           set((state) => {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: _, ...rest } = state.models;
-            return { models: rest };
+            const { [uuid]: _, ...models } = state.models;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: __, ...clips } = state.clips;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: ___, ...mixerRef } = state.mixerRef;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: ____, ...animations } = state.animations;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: _____, ...durations } = state.durations;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: ______, ...speeds } = state.speeds;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: _______, ...loops } = state.loops;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: ________, ...currentTime } = state.currentTime;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: _________, ...frameStep } = state.frameStep;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: __________, ...freeze } = state.freeze;
+
+            return {
+              models,
+              clips,
+              mixerRef,
+              animations,
+              durations,
+              speeds,
+              loops,
+              currentTime,
+              frameStep,
+              freeze,
+            };
           });
         },
 

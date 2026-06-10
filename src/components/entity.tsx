@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useEntitiesStore } from "@/store/next/entities";
 import { useTransform, useTransformsStore } from "@/store/next/transforms";
 import { Text, TransformControls } from "@react-three/drei";
@@ -6,11 +6,13 @@ import { LightComponent } from "@/components/object/lights";
 import { useEntityContext } from "@/context/next/entity-context";
 import { ModelComponent } from "./object/model";
 import * as THREE from "three";
-import { useModelObject } from "@/store/next/models";
+import { useModelObject, useModelsStore } from "@/store/next/models";
 import { LAYERS } from "./panels/scene/constants";
 import { useTarget, useTargetsStore } from "@/store/next/targets";
 import { useFrame } from "@react-three/fiber";
 import { isDifferent } from "@/utils/vector";
+import { toast } from "sonner";
+import { clearRuntimeModel } from "@/utils/model-downgrade-runtime";
 
 function ObjectTarget({ uuid }: { uuid: string }) {
   const target = useTarget(uuid);
@@ -132,7 +134,11 @@ export function EntityComponent({ uuid }: { uuid: string }) {
   }
 
   if (entity.type === "model") {
-    child = <ModelComponent uuid={uuid} />;
+    child = (
+      <ModelRenderErrorBoundary uuid={uuid}>
+        <ModelComponent uuid={uuid} />
+      </ModelRenderErrorBoundary>
+    );
   }
 
   const isSelected = selected === uuid;
@@ -181,4 +187,42 @@ export function EntityComponent({ uuid }: { uuid: string }) {
       {/* </TransformControls> */}
     </>
   );
+}
+
+type ModelRenderErrorBoundaryProps = {
+  children: React.ReactNode;
+  uuid: string;
+};
+
+type ModelRenderErrorBoundaryState = {
+  hasError: boolean;
+};
+
+class ModelRenderErrorBoundary extends React.Component<
+  ModelRenderErrorBoundaryProps,
+  ModelRenderErrorBoundaryState
+> {
+  state: ModelRenderErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown model render error";
+    const { setLoadState, setMixerRef } = useModelsStore.getState();
+
+    setLoadState(this.props.uuid, "error", message);
+    setMixerRef(this.props.uuid, null);
+    clearRuntimeModel(this.props.uuid);
+    toast.error(`Failed to render model`, {
+      description: `${this.props.uuid}: ${message}`,
+    });
+  }
+
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
 }

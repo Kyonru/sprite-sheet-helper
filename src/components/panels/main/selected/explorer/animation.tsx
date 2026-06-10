@@ -40,12 +40,20 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   const setCurrentTime = useModelsStore((state) => state.setCurrentTime);
 
   const animations = useModelsStore((state) => state.clips[uuid]);
+  const isModelReady = model?.loadState === "loaded";
 
   const inputs = useMemo(() => {
     const i: Schema = {};
     if (!uuid) return i;
 
-    if (!entity?.uuid || !uuid || !model?.file || !animations) return {};
+    if (
+      !entity?.uuid ||
+      !uuid ||
+      !isModelReady ||
+      !animations
+    ) {
+      return {};
+    }
 
     if (animations) {
       const animationOptions = [
@@ -121,7 +129,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   }, [
     entity?.uuid,
     uuid,
-    model.file,
+    isModelReady,
     animations,
     animation,
     setAnimation,
@@ -137,14 +145,15 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     setCurrentTime,
   ]);
 
-  // Camera capture button — always visible for loaded models
   useControls(
     () =>
       ({
-        "Create Pose / Motion Clip": button(() => openPoseStudio(uuid)),
+        ...(isModelReady
+          ? { "Create Pose / Motion Clip": button(() => openPoseStudio(uuid)) }
+          : {}),
       }) satisfies Schema,
     { store },
-    [uuid],
+    [uuid, isModelReady],
   );
 
   // Function form + key forces Leva to remount when entity/type changes

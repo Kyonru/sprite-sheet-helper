@@ -138,6 +138,7 @@ export const ObjectContext = () => {
   const model = useModelsStore((state) =>
     selected ? state.models[selected] : undefined,
   );
+  const isModelLoaded = model?.loadState === "loaded";
   const { setStore } = useMainPanelContext();
   const objectStore = useCreateStore();
   const authoredModelId =
@@ -177,7 +178,7 @@ export const ObjectContext = () => {
             </Button>
           </section>
         ) : null}
-        {entity?.type === "model" ? (
+        {entity?.type === "model" && isModelLoaded ? (
           <ModelDowngradePanel modelUuid={selected} embedded />
         ) : null}
       </div>
