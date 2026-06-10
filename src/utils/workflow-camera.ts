@@ -15,6 +15,9 @@ export type WorkflowRunOptions = {
   directionRotationOffset?: number;
   target?: WorkflowCameraTarget;
   directionOverrides?: Record<string, WorkflowCameraDirectionOverride>;
+  forceAnimationsInPlace?: boolean;
+  skipStepLabels?: string[];
+  captureNormalMaps?: boolean;
 };
 
 export type ResolvedWorkflowCamera = {

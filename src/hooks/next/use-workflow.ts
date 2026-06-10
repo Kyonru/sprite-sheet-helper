@@ -160,14 +160,26 @@ function getDirectionForStep(
   );
 }
 
-async function setStepAnimation(step: WorkflowStep) {
+async function setStepAnimation(
+  step: WorkflowStep,
+  options?: WorkflowRunOptions,
+) {
   if (step.animationName === "none") return;
   if (!step.modelUuid) return;
 
   const modelState = useModelsStore.getState();
+  if (options?.skipStepLabels?.includes(step.rowLabel)) {
+    modelState.setAnimation(step.modelUuid, "none");
+    return;
+  }
+
   const modelClips = modelState.clips[step.modelUuid] ?? [];
   const clip = modelClips.find((c) => c.clip.name === step.animationName);
   if (!clip) return;
+
+  if (options?.forceAnimationsInPlace) {
+    modelState.forceCurrentAnimationInPlace(step.modelUuid, step.animationName);
+  }
 
   const currentAnimation = modelState.animations[step.modelUuid];
   const shouldWait = currentAnimation !== step.animationName;
@@ -185,7 +197,14 @@ async function setStepAnimation(step: WorkflowStep) {
   await waiter;
 }
 
-function resetStepAnimation(step: WorkflowStep) {
+function resetStepAnimation(
+  step: WorkflowStep,
+  options?: WorkflowRunOptions,
+) {
+  if (options?.skipStepLabels?.includes(step.rowLabel)) {
+    return;
+  }
+
   if (!step.modelUuid || step.animationName === "none") return;
 
   const modelState = useModelsStore.getState();
@@ -237,6 +256,13 @@ export const useWorkflow = () => {
   ) => {
     useEntitiesStore.getState().unselectEntity();
     abortRef.current = false;
+    const previousExportNormalMap = useSettingsStore.getState().exportNormalMap;
+    const shouldRestoreExportNormalMap =
+      options?.captureNormalMaps !== undefined &&
+      options.captureNormalMaps !== previousExportNormalMap;
+    if (shouldRestoreExportNormalMap) {
+      useSettingsStore.getState().setExportNormalMap(options.captureNormalMaps);
+    }
 
     const steps = buildStepsFromStore(workflow);
     const workflowRunId = Date.now().toString();
@@ -280,8 +306,8 @@ export const useWorkflow = () => {
           currentDirection: step.directionLabel,
         }));
 
-        await setStepAnimation(step);
-        resetStepAnimation(step);
+        await setStepAnimation(step, options);
+        resetStepAnimation(step, options);
 
         const camera = resolveWorkflowCamera({
           direction: dir,
@@ -351,6 +377,9 @@ export const useWorkflow = () => {
         error: (err as Error).message,
       });
     } finally {
+      if (shouldRestoreExportNormalMap) {
+        useSettingsStore.getState().setExportNormalMap(previousExportNormalMap);
+      }
       workflowRunIdRef.current = null;
     }
   }, []);

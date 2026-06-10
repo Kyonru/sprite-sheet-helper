@@ -16,6 +16,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   CameraIcon,
   CircleCheckIcon,
@@ -57,6 +59,9 @@ type WorkflowCameraDraft = {
   selectedDirectionLabel: string;
   previewAppliesTo: PreviewAppliesTo;
   directionOverrides: NonNullable<WorkflowRunOptions["directionOverrides"]>;
+  forceAnimationsInPlace: boolean;
+  skippedStepLabels: string[];
+  captureNormalMaps: boolean;
 };
 
 type StartWorkflowPayload =
@@ -75,11 +80,13 @@ function createCameraDraft({
   cameraDistance,
   cameraAngle,
   target,
+  captureNormalMaps,
 }: {
   workflow: WorkflowDefinition;
   cameraDistance: number;
   cameraAngle?: number;
   target: WorkflowCameraTarget;
+  captureNormalMaps: boolean;
 }): WorkflowCameraDraft {
   const firstDirection = workflow.directions[0];
   return {
@@ -90,6 +97,9 @@ function createCameraDraft({
     selectedDirectionLabel: firstDirection?.label ?? "",
     previewAppliesTo: "all",
     directionOverrides: {},
+    forceAnimationsInPlace: false,
+    skippedStepLabels: [],
+    captureNormalMaps,
   };
 }
 
@@ -100,6 +110,9 @@ function createRunOptions(draft: WorkflowCameraDraft): WorkflowRunOptions {
     directionRotationOffset: draft.directionRotationOffset,
     target: cloneTarget(draft.target),
     directionOverrides: draft.directionOverrides,
+    forceAnimationsInPlace: draft.forceAnimationsInPlace,
+    skipStepLabels: draft.skippedStepLabels,
+    captureNormalMaps: draft.captureNormalMaps,
   };
 }
 
@@ -125,6 +138,7 @@ export const WorkflowsMenu = () => {
   const cameraAngle = useSettingsStore((state) => state.cameraAngle);
   const setCameraDistance = useSettingsStore((state) => state.setCameraDistance);
   const setCameraAngle = useSettingsStore((state) => state.setCameraAngle);
+  const exportNormalMap = useSettingsStore((state) => state.exportNormalMap);
   const cameraUUID = useCamerasStore((state) => state.mainCamera);
   const storedTarget = useTarget(cameraUUID);
   const defaultTarget = useMemo<WorkflowCameraTarget>(
@@ -147,6 +161,38 @@ export const WorkflowsMenu = () => {
       ) ?? selectedWorkflow.directions[0]
     );
   }, [cameraDraft?.selectedDirectionLabel, selectedWorkflow]);
+  const availableStepLabels = useMemo(
+    () =>
+      steps
+        .map((step) => step.rowLabel)
+        .filter((label): label is string => Boolean(label)),
+    [steps],
+  );
+
+  const setAllStepsEnabled = useCallback(
+    (enabled: boolean) => {
+      setCameraDraft((prev) =>
+        prev
+          ? {
+              ...prev,
+              skippedStepLabels: enabled
+                ? []
+                : Array.from(new Set(availableStepLabels)),
+            }
+          : prev,
+      );
+    },
+    [availableStepLabels],
+  );
+
+  const disableAllSteps = useCallback(() => {
+    setAllStepsEnabled(false);
+  }, [setAllStepsEnabled]);
+
+  const enableAllSteps = useCallback(() => {
+    setAllStepsEnabled(true);
+  }, [setAllStepsEnabled]);
+
   const selectedPreviewCamera = useMemo(() => {
     if (!selectedDirection || !cameraDraft) return undefined;
     return resolveWorkflowCamera({
@@ -173,6 +219,7 @@ export const WorkflowsMenu = () => {
           cameraDistance,
           cameraAngle,
           target: defaultTarget,
+          captureNormalMaps: exportNormalMap,
         }),
       );
       resetWorkflow();
@@ -182,6 +229,7 @@ export const WorkflowsMenu = () => {
       cameraAngle,
       cameraDistance,
       defaultTarget,
+      exportNormalMap,
       setSelectedWorkflow,
       resetWorkflow,
       setDialogOpen,
@@ -211,9 +259,10 @@ export const WorkflowsMenu = () => {
         cameraDistance,
         cameraAngle,
         target: defaultTarget,
+        captureNormalMaps: exportNormalMap,
       }),
     );
-  }, [cameraAngle, cameraDistance, defaultTarget, selectedWorkflow]);
+  }, [cameraAngle, cameraDistance, defaultTarget, selectedWorkflow, exportNormalMap]);
 
   const updateSelectedCamera = useCallback(
     (
@@ -454,6 +503,26 @@ export const WorkflowsMenu = () => {
                   );
                 })}
               </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={isRunning || availableStepLabels.length === 0}
+                  onClick={enableAllSteps}
+                >
+                  Enable all
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={isRunning || availableStepLabels.length === 0}
+                  onClick={disableAllSteps}
+                >
+                  Ignore all
+                </Button>
+              </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto rounded-md border p-2">
                 <div className="flex flex-col gap-1">
@@ -465,32 +534,59 @@ export const WorkflowsMenu = () => {
                       : isDone;
                     const isSelectedDirection =
                       step.directionLabel === cameraDraft?.selectedDirectionLabel;
+                    const isStepEnabled = step.rowLabel
+                      ? !cameraDraft?.skippedStepLabels.includes(step.rowLabel)
+                      : true;
 
                     return (
-                      <button
+                      <div
                         key={step.rowLabel}
-                        type="button"
-                        disabled={isRunning}
-                        onClick={() =>
-                          setCameraDraft((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  selectedDirectionLabel: step.directionLabel,
-                                }
-                              : prev,
-                          )
-                        }
                         className={cn(
                           "flex items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors",
+                          !isStepEnabled && "text-muted-foreground opacity-60",
                           isCurrentStep && "border border-primary/30 bg-primary/10",
                           isPast && "opacity-40",
                           isSelectedDirection && !isCurrentStep && "bg-muted",
                         )}
                       >
-                        <span className="min-w-0 flex-1 truncate font-mono">
-                          {step.rowLabel}
-                        </span>
+                        <Checkbox
+                          checked={isStepEnabled}
+                          onCheckedChange={(checked) =>
+                            setCameraDraft((prev) => {
+                              if (!prev || !step.rowLabel) return prev;
+                              const isChecked = Boolean(checked);
+                              return {
+                                ...prev,
+                                skippedStepLabels: isChecked
+                                  ? prev.skippedStepLabels.filter(
+                                      (label) => label !== step.rowLabel,
+                                    )
+                                  : [...new Set([...prev.skippedStepLabels, step.rowLabel])],
+                              };
+                            })
+                          }
+                          onClick={(event) => event.stopPropagation()}
+                          disabled={isRunning}
+                        />
+                        <button
+                          type="button"
+                          disabled={isRunning}
+                          onClick={() =>
+                            setCameraDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    selectedDirectionLabel: step.directionLabel,
+                                  }
+                                : prev,
+                            )
+                          }
+                          className="min-w-0 flex-1 truncate text-left"
+                        >
+                          <span className="min-w-0 truncate font-mono">
+                            {step.rowLabel}
+                          </span>
+                        </button>
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {step.animationName} · {step.directionLabel}
                         </span>
@@ -500,7 +596,7 @@ export const WorkflowsMenu = () => {
                         {isCurrentStep && (
                           <LoaderCircleIcon className="size-3 shrink-0 animate-spin" />
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -640,6 +736,48 @@ export const WorkflowsMenu = () => {
                       </div>
                     </div>
 
+                    <div className="rounded-md border px-3 py-2">
+                      <label className="flex items-center justify-between gap-2 text-sm">
+                        <span className="text-muted-foreground">
+                          Force animations in place
+                        </span>
+                        <Switch
+                          checked={cameraDraft.forceAnimationsInPlace}
+                          onCheckedChange={(checked) =>
+                            setCameraDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    forceAnimationsInPlace: Boolean(checked),
+                                  }
+                                : prev,
+                            )
+                          }
+                          disabled={isRunning}
+                        />
+                      </label>
+                    </div>
+                    <div className="rounded-md border px-3 py-2">
+                      <label className="flex items-center justify-between gap-2 text-sm">
+                        <span className="text-muted-foreground">
+                          Capture normal maps
+                        </span>
+                        <Switch
+                          checked={cameraDraft.captureNormalMaps}
+                          onCheckedChange={(checked) =>
+                            setCameraDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    captureNormalMaps: Boolean(checked),
+                                  }
+                                : prev,
+                            )
+                          }
+                          disabled={isRunning}
+                        />
+                      </label>
+                    </div>
                     <div className="grid gap-3">
                       <div className="grid gap-2">
                         <div className="flex items-center justify-between gap-2">
