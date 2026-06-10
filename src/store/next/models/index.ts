@@ -457,7 +457,7 @@ export const useModelsStore = create<ModelsStore>()(
                   const existing = nextClips[index];
                   if (existing) {
                     existing.action?.stop();
-                    targetMixer?.uncacheAction(existing.action);
+                    targetMixer?.uncacheAction(existing.clip);
                     targetMixer?.uncacheClip(existing.clip);
                   }
 
@@ -553,7 +553,7 @@ export const useModelsStore = create<ModelsStore>()(
           const existing = nextClips[targetIndex];
           if (existing) {
             existing.action?.stop();
-            targetMixer.uncacheAction(existing.action);
+            targetMixer.uncacheAction(existing.clip);
             targetMixer.uncacheClip(existing.clip);
           }
 
@@ -783,7 +783,7 @@ const makeInPlaceClip = (
     const stride = track.getValueSize();
     if (stride !== 3) return track.clone();
 
-    const values = track.values.slice();
+    const values = Array.from(track.values);
     if (values.length < 3) return track.clone();
 
     const baseX = values[0] ?? 0;
@@ -798,7 +798,7 @@ const makeInPlaceClip = (
 
     return new THREE.VectorKeyframeTrack(
       track.name,
-      track.times.slice(),
+      Array.from(track.times),
       values,
       track.getInterpolation(),
     );

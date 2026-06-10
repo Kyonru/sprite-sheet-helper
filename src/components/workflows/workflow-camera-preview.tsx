@@ -63,7 +63,7 @@ function makeInPlaceClip(clip: THREE.AnimationClip): THREE.AnimationClip {
     const stride = track.getValueSize();
     if (stride !== 3) return track.clone();
 
-    const values = track.values.slice();
+    const values = Array.from(track.values);
     if (values.length < 3) return track.clone();
 
     const baseX = values[0] ?? 0;
@@ -78,7 +78,7 @@ function makeInPlaceClip(clip: THREE.AnimationClip): THREE.AnimationClip {
 
     return new THREE.VectorKeyframeTrack(
       track.name,
-      track.times.slice(),
+      Array.from(track.times),
       values,
       track.getInterpolation(),
     );

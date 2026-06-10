@@ -257,11 +257,11 @@ export const useWorkflow = () => {
     useEntitiesStore.getState().unselectEntity();
     abortRef.current = false;
     const previousExportNormalMap = useSettingsStore.getState().exportNormalMap;
+    const captureNormalMaps = options?.captureNormalMaps;
     const shouldRestoreExportNormalMap =
-      options?.captureNormalMaps !== undefined &&
-      options.captureNormalMaps !== previousExportNormalMap;
+      captureNormalMaps !== undefined && captureNormalMaps !== previousExportNormalMap;
     if (shouldRestoreExportNormalMap) {
-      useSettingsStore.getState().setExportNormalMap(options.captureNormalMaps);
+      useSettingsStore.getState().setExportNormalMap(captureNormalMaps);
     }
 
     const steps = buildStepsFromStore(workflow);

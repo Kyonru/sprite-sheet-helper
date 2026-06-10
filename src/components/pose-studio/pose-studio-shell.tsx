@@ -1193,6 +1193,8 @@ interface PoseInspectorProps {
   qualityMarkers: PoseFrameQualityMarker[];
   onClipNameChange: (value: string) => void;
   onSave: () => void;
+  forceInPlace: boolean;
+  onForceInPlaceChange: (value: boolean) => void;
 }
 
 function PoseInspector({
@@ -1256,6 +1258,8 @@ function PoseInspector({
   qualityMarkers,
   onClipNameChange,
   onSave,
+  forceInPlace,
+  onForceInPlaceChange,
 }: PoseInspectorProps) {
   const selectedEffector = ikTargetToEffector(selectedIkTarget);
   const missingIkLabels = Object.entries(ikStatus.missing)
@@ -1794,8 +1798,8 @@ function PoseInspector({
             saving={saving}
             onClipNameChange={onClipNameChange}
             onSave={onSave}
-            forceInPlace={importForceInPlace}
-            onForceInPlaceChange={setImportForceInPlace}
+            forceInPlace={forceInPlace}
+            onForceInPlaceChange={onForceInPlaceChange}
           />
         )}
       </div>
@@ -1833,7 +1837,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           modelState.loadState === "loaded" &&
           allClips[uuid]?.length,
       )
-      .map((uuid) => ({
+      .map(([uuid]) => ({
         uuid,
         label: entities[uuid]?.name ?? models[uuid]?.fileName ?? uuid,
       }));
@@ -3109,7 +3113,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
             />
           </Label>
           <Select
-            value={importSourceUuid}
+            value={importSourceUuid ?? ""}
             onValueChange={(value) => setImportSourceUuid(value)}
             disabled={candidateSourceModels.length === 0 || !modelReady}
           >
@@ -3304,6 +3308,8 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           clipName={ui.clipName}
           saving={saving}
           qualityMarkers={qualityMarkers}
+          forceInPlace={importForceInPlace}
+          onForceInPlaceChange={setImportForceInPlace}
           onClipNameChange={(clipName) =>
             dispatchUi({ type: "setClipName", clipName })
           }
