@@ -8,6 +8,7 @@ import {
   RotateCcwIcon,
   SlidersHorizontalIcon,
   WandSparklesIcon,
+  ListChecksIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ export function ModelDowngradePanel({
   const after = entry?.report?.after;
   const busy = entry?.status === "analyzing" || entry?.status === "previewing";
   const warnings = entry?.report?.warnings ?? [];
+  const operations = entry?.report?.operations ?? [];
 
   const updateRecipe = (props: Partial<ModelDowngradeRecipe>) => {
     if (!modelUuid) return;
@@ -86,7 +88,15 @@ export function ModelDowngradePanel({
 
   const runApply = async () => {
     if (!modelUuid) return;
-    await apply(modelUuid);
+    const applied = await apply(modelUuid);
+    const nextEntry = useModelDowngradesStore.getState().entries[modelUuid];
+    if (!applied || nextEntry?.status === "error") {
+      toast.error("Downgrade apply failed", {
+        description:
+          nextEntry?.errorMessage ?? "Preview generation was not completed.",
+      });
+      return;
+    }
     toast.success("Downgraded variant applied");
   };
 
@@ -298,6 +308,24 @@ export function ModelDowngradePanel({
                 <span className="min-w-0">{warning}</span>
               </div>
             ))}
+          </div>
+        ) : null}
+        {operations.length > 0 ? (
+          <div className="grid gap-1 border-t p-3">
+            <div className="flex min-w-0 items-center gap-2 text-xs font-medium">
+              <ListChecksIcon className="size-3.5 shrink-0" />
+              <span>Operations</span>
+            </div>
+            <div className="grid gap-1">
+              {operations.map((operation) => (
+                <div
+                  key={operation}
+                  className="rounded-md border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground"
+                >
+                  {operation}
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
         {entry?.errorMessage ? (

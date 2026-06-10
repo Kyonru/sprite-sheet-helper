@@ -26,7 +26,7 @@ type ModelDowngradesActions = {
   setRecipe: (modelUuid: string, recipe: Partial<ModelDowngradeRecipe>) => void;
   analyze: (modelUuid: string) => Promise<void>;
   preview: (modelUuid: string) => Promise<void>;
-  apply: (modelUuid: string) => Promise<void>;
+  apply: (modelUuid: string) => Promise<boolean>;
   reset: (modelUuid?: string) => void;
   setActiveVariant: (
     modelUuid: string,
@@ -158,7 +158,7 @@ export const useModelDowngradesStore = create<ModelDowngradesStore>()(
         if (!getDowngradedRuntimeModel(modelUuid)) {
           await get().preview(modelUuid);
         }
-        if (!getDowngradedRuntimeModel(modelUuid)) return;
+        if (!getDowngradedRuntimeModel(modelUuid)) return false;
         set((state) => {
           const current = getEntry(state.entries[modelUuid]);
           return {
@@ -173,6 +173,7 @@ export const useModelDowngradesStore = create<ModelDowngradesStore>()(
             },
           };
         });
+        return true;
       },
 
       reset: (modelUuid?: string) => {

@@ -306,8 +306,83 @@ function snapshotThreeMaterial(
   };
 }
 
-function colorToHex(color?: THREE.Color) {
-  return color ? `#${color.getHexString()}` : "#ffffff";
+type ThreeColorLike = {
+  getHexString?: () => string;
+  r?: number;
+  g?: number;
+  b?: number;
+  x?: number;
+  y?: number;
+  z?: number;
+};
+
+function colorToHex(color?: THREE.Color | string | number | ThreeColorLike) {
+  if (color === undefined) return "#ffffff";
+  if (typeof color === "string") {
+    const normalized = normalizeHexColor(color);
+    if (normalized) return normalized;
+  }
+
+  if (typeof color === "number") {
+    return `#${Math.round(color).toString(16).padStart(6, "0")}`;
+  }
+
+  if (typeof color === "object" && color && "getHexString" in color && color.getHexString) {
+    try {
+      return `#${color.getHexString()}`;
+    } catch {
+      // intentional fallback
+    }
+  }
+
+  if (typeof color === "object" && color !== null) {
+    const asColor = color as ThreeColorLike;
+    const red = asColor.r ?? asColor.x;
+    const green = asColor.g ?? asColor.y;
+    const blue = asColor.b ?? asColor.z;
+    if (
+      red !== undefined &&
+      green !== undefined &&
+      blue !== undefined &&
+      Number.isFinite(red) &&
+      Number.isFinite(green) &&
+      Number.isFinite(blue)
+    ) {
+      const fallback = new THREE.Color(red, green, blue);
+      return `#${fallback.getHexString()}`;
+    }
+
+    try {
+      return `#${new THREE.Color(color as unknown as string).getHexString()}`;
+    } catch {
+      // intentional fallback
+    }
+  }
+
+  return "#ffffff";
+}
+
+function normalizeHexColor(input: string): string | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return "#ffffff";
+
+  if (trimmed.startsWith("#") && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(trimmed)) {
+    if (trimmed.length === 4) {
+      const [, r, g, b] = trimmed;
+      return `#${r}${r}${g}${g}${b}${b}`;
+    }
+    return trimmed;
+  }
+
+  if (/^0x[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return `#${trimmed.slice(2)}`;
+  }
+
+  if (/^[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return `#${trimmed}`;
+  }
+
+  return undefined;
 }
 
 function toThreeSide(side: "front" | "back" | "double") {

@@ -74,6 +74,28 @@ describe("material runtime", () => {
     ]);
   });
 
+  it("builds material inventory when material color metadata is non-Color", () => {
+    const root = new THREE.Group();
+    const geometry = new THREE.BoxGeometry();
+    const meshMaterial = new THREE.MeshStandardMaterial();
+    const material = {
+      ...meshMaterial,
+      color: "112233",
+      emissive: "0xffcc00",
+      clone() {
+        return material;
+      },
+    } as unknown as THREE.Material;
+
+    const mesh = new THREE.Mesh(geometry, material);
+    root.add(mesh);
+
+    const inventory = buildMaterialInventory(root, "legacy-model");
+
+    expect(inventory[0].original.color).toBe("#112233");
+    expect(inventory[0].original.emissive).toBe("#ffcc00");
+  });
+
   it("applies assignments and restores original materials", async () => {
     const { root, body } = scene();
     const inventory = buildMaterialInventory(root, "model-a");

@@ -184,8 +184,16 @@ export function downgradeGeometry(
   let geometry = mesh.geometry.clone();
 
   if (!canChangeTopology) {
-    if (isSkinned) warnings.push(`Skipped topology reduction for skinned mesh "${mesh.name || "Mesh"}".`);
-    if (hasMorphs) warnings.push(`Skipped topology reduction for morph-target mesh "${mesh.name || "Mesh"}".`);
+    if (isSkinned) {
+      warnings.push(
+        `Skipped topology reduction for skinned mesh "${mesh.name || "Mesh"}" to keep rigging intact.`,
+      );
+    }
+    if (hasMorphs) {
+      warnings.push(
+        `Skipped topology reduction for morph-target mesh "${mesh.name || "Mesh"}" to preserve deformation data.`,
+      );
+    }
   }
 
   if (canChangeTopology) {
