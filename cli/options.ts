@@ -57,6 +57,10 @@ type RawJobOptions = {
   target?: unknown;
   directionOverride?: unknown;
   directionOverrides?: unknown;
+  skipStepLabel?: unknown;
+  skipStepLabels?: unknown;
+  forceAnimationsInPlace?: unknown;
+  captureNormalMaps?: unknown;
   normalMap?: unknown;
   atlasLayout?: unknown;
   atlasPadding?: unknown;
@@ -96,6 +100,9 @@ export type CliJob = {
   directionRotationOffset?: number;
   target?: CliWorkflowCameraTarget;
   directionOverrides?: CliWorkflowDirectionOverrides;
+  skipStepLabels?: string[];
+  forceAnimationsInPlace?: boolean;
+  captureNormalMaps?: boolean;
   normalMap: boolean;
   atlasOptions: CliAtlasOptions;
   timeout?: number;
@@ -178,6 +185,10 @@ export async function parseCliCommand(
       directionRotationOffset: { type: "string" },
       target: { type: "string" },
       directionOverride: { type: "string", multiple: true },
+      skipStepLabel: { type: "string", multiple: true },
+      skipStepLabels: { type: "string" },
+      forceAnimationsInPlace: { type: "string" },
+      captureNormalMaps: { type: "string" },
       normalMap: { type: "string" },
       atlasLayout: { type: "string" },
       atlasPadding: { type: "string" },
@@ -325,6 +336,10 @@ export function createHelpText(): string {
     "  --directionRotationOffset <deg> Rotate all workflow directions.",
     "  --target <x,y,z>               Camera target point.",
     "  --directionOverride <spec>     e.g. N:phi=45,theta=0,distance=3,target=0,0.8,0",
+    "  --skipStepLabel <label>        Skip a single workflow step label. Can repeat this flag.",
+    "  --skipStepLabels <labels>      Comma-separated workflow step labels to skip.",
+    "  --captureNormalMaps <bool>     Capture workflow outputs with normal maps.",
+    "  --forceAnimationsInPlace <bool> Force workflow clips to remain in place.",
     "",
     "Atlas options:",
     "  --atlasLayout <rows|packed>  Default: rows",
@@ -371,6 +386,10 @@ function rawValuesToJobOptions(values: Record<string, unknown>): RawJobOptions {
     "directionRotationOffset",
     "target",
     "directionOverride",
+    "skipStepLabel",
+    "skipStepLabels",
+    "forceAnimationsInPlace",
+    "captureNormalMaps",
     "normalMap",
     "atlasLayout",
     "atlasPadding",
@@ -497,6 +516,9 @@ function normalizeJob(raw: RawJobOptions, cwd: string, index: number): CliJob {
         ? undefined
         : parseTarget(raw.target, "target"),
     directionOverrides: parseDirectionOverrides(raw),
+    skipStepLabels: parseSkipStepLabels(raw),
+    forceAnimationsInPlace: parseForceAnimationsInPlace(raw),
+    captureNormalMaps: parseCaptureNormalMaps(raw),
     normalMap: parseBoolean(raw.normalMap ?? DEFAULTS.normalMap, "normalMap"),
     atlasOptions,
     timeout:
@@ -587,6 +609,47 @@ function parseDirectionOverrides(
   }
 
   return Object.keys(overrides).length > 0 ? overrides : undefined;
+}
+
+function parseSkipStepLabels(raw: RawJobOptions): string[] | undefined {
+  const all = [
+    ...(Array.isArray(raw.skipStepLabel)
+      ? raw.skipStepLabel
+      : raw.skipStepLabel === undefined
+        ? []
+        : [raw.skipStepLabel]),
+    ...(Array.isArray(raw.skipStepLabels)
+      ? raw.skipStepLabels
+      : raw.skipStepLabels === undefined
+        ? []
+        : [raw.skipStepLabels]),
+  ];
+
+  if (all.length === 0) return undefined;
+
+  const parsed = all.flatMap((value, index) => {
+    if (typeof value !== "string") {
+      throw new CliUsageError(
+        `skipStepLabel and skipStepLabels must be strings (error at index ${index}).`,
+      );
+    }
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+  });
+
+  return parsed.length > 0 ? Array.from(new Set(parsed)) : undefined;
+}
+
+function parseForceAnimationsInPlace(raw: RawJobOptions): boolean | undefined {
+  if (raw.forceAnimationsInPlace === undefined) return undefined;
+  return parseBoolean(raw.forceAnimationsInPlace, "forceAnimationsInPlace");
+}
+
+function parseCaptureNormalMaps(raw: RawJobOptions): boolean | undefined {
+  if (raw.captureNormalMaps === undefined) return undefined;
+  return parseBoolean(raw.captureNormalMaps, "captureNormalMaps");
 }
 
 function parseDirectionOverrideObject(

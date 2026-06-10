@@ -107,6 +107,34 @@ describe("CLI option parsing", () => {
     });
   });
 
+  it("parses workflow action flags", async () => {
+    const command = await parseCliCommand(
+      [
+        "character.fbx",
+        "--workflow",
+        "topdown-4dir",
+        "--skipStepLabel",
+        "walk_N",
+        "--skipStepLabels",
+        "walk_S,run_E",
+        "--forceAnimationsInPlace",
+        "true",
+        "--captureNormalMaps",
+        "true",
+      ],
+      { validateInput: false },
+    );
+
+    expect(command.kind).toBe("run");
+    if (command.kind !== "run") return;
+
+    expect(command.jobs[0]).toMatchObject({
+      forceAnimationsInPlace: true,
+      captureNormalMaps: true,
+      skipStepLabels: ["walk_N", "walk_S", "run_E"],
+    });
+  });
+
   it("applies config precedence and job filtering", async () => {
     const tempDir = await createTempDir("ssh-cli-config-");
     tempDirs.push(tempDir);

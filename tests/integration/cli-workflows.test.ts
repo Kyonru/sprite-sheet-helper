@@ -142,6 +142,9 @@ describe("captureWorkflow CLI wait", () => {
       directionOverrides: {
         Forward: { phi: 30, theta: 10, distance: 3, target: [1, 2, 3] },
       },
+      forceAnimationsInPlace: true,
+      skipStepLabels: ["walk_N", "run_S"],
+      captureNormalMaps: true,
       workflowTimeout: 12345,
     });
 
@@ -155,6 +158,9 @@ describe("captureWorkflow CLI wait", () => {
         directionOverrides: {
           Forward: { phi: 30, theta: 10, distance: 3, target: [1, 2, 3] },
         },
+        forceAnimationsInPlace: true,
+        skipStepLabels: ["walk_N", "run_S"],
+        captureNormalMaps: true,
       },
     });
   });

@@ -10,6 +10,9 @@ export interface CaptureOptions {
   target?: CliWorkflowCameraTarget;
   directionOverrides?: CliWorkflowDirectionOverrides;
   normalMap?: boolean;
+  captureNormalMaps?: boolean;
+  forceAnimationsInPlace?: boolean;
+  skipStepLabels?: string[];
   silent?: boolean;
 }
 

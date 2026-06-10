@@ -243,6 +243,9 @@ async function runJobInner(
         target: job.target,
         directionOverrides: job.directionOverrides,
         normalMap: job.normalMap,
+        captureNormalMaps: job.captureNormalMaps,
+        forceAnimationsInPlace: job.forceAnimationsInPlace,
+        skipStepLabels: job.skipStepLabels,
         workflowTimeout: job.workflowTimeout,
         silent: command.quiet || command.json,
       });

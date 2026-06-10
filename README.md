@@ -123,6 +123,10 @@ sprite-sheet-helper <input> [options]
 | `--target`                  | —             | Camera target as `x,y,z`                                          |
 | `--directionOverride`       | —             | Per-direction camera override, e.g. `N:phi=45,theta=0,distance=3` |
 | `--normalMap`               | `false`       | Capture and export a matching normal atlas                        |
+| `--skipStepLabel`           | —             | Skip one workflow row label (repeatable).                           |
+| `--skipStepLabels`          | —             | Comma-separated workflow row labels to skip.                        |
+| `--forceAnimationsInPlace`  | `false`       | Force workflow animation playback to stay at the same root location. |
+| `--captureNormalMaps`       | `false`       | Override normal-map capture for workflow runs.                        |
 | `--atlasLayout`             | `rows`        | Atlas layout: `rows` or `packed`                                  |
 | `--atlasPadding`            | `0`           | Empty pixels around each frame slot                               |
 | `--atlasBleed`              | `0`           | Edge-pixel extrusion into padding                                 |
@@ -293,6 +297,9 @@ sprite-sheet-helper character.glb --workflow <id> [options]
 | `--cameraAngle` / `--phi`   | preset        | Camera elevation override in degrees                    |
 | `--directionRotationOffset` | `0`           | Rotate preset directions                                |
 | `--target`                  | `0,0,0`       | Camera target as `x,y,z`                                |
+| `--skipStepLabels`          | —             | Comma-separated workflow step labels to skip.             |
+| `--forceAnimationsInPlace`  | `false`       | Keep animations in place while rendering workflow steps.  |
+| `--captureNormalMaps`       | `false`       | Override normal-map capture for the workflow.             |
 | `--format`                  | `spritesheet` | Export format applied to the full multi-sequence output |
 | `--output`                  | `./out`       | Output directory                                        |
 
