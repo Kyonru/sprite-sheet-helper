@@ -34,6 +34,7 @@ import {
   type WorkflowId,
 } from "@/constants/workflows";
 import { useSettingsStore } from "@/store/next/settings";
+import { useImagesStore } from "@/store/next/images";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -140,6 +141,10 @@ export const WorkflowsMenu = () => {
   const setCameraAngle = useSettingsStore((state) => state.setCameraAngle);
   const exportNormalMap = useSettingsStore((state) => state.exportNormalMap);
   const cameraUUID = useCamerasStore((state) => state.mainCamera);
+  const intervals = useImagesStore((state) => state.intervals);
+  const iterations = useImagesStore((state) => state.iterations);
+  const setIntervals = useImagesStore((state) => state.setIntervals);
+  const setIterations = useImagesStore((state) => state.setIterations);
   const storedTarget = useTarget(cameraUUID);
   const defaultTarget = useMemo<WorkflowCameraTarget>(
     () => {
@@ -777,6 +782,56 @@ export const WorkflowsMenu = () => {
                           disabled={isRunning}
                         />
                       </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-md border px-3 py-2">
+                        <Label
+                          htmlFor="workflow-capture-intervals"
+                          className="mb-2 block text-xs text-muted-foreground"
+                        >
+                          Frame interval (ms)
+                        </Label>
+                        <Input
+                          id="workflow-capture-intervals"
+                          type="number"
+                          min={1}
+                          max={5000}
+                          step={1}
+                          value={intervals}
+                          disabled={isRunning}
+                          onChange={(e) => {
+                            const value = Number(e.target.value);
+                            if (Number.isFinite(value)) {
+                              setIntervals(Math.max(1, Math.round(value)));
+                            }
+                          }}
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="rounded-md border px-3 py-2">
+                        <Label
+                          htmlFor="workflow-capture-iterations"
+                          className="mb-2 block text-xs text-muted-foreground"
+                        >
+                          Frames captured
+                        </Label>
+                        <Input
+                          id="workflow-capture-iterations"
+                          type="number"
+                          min={1}
+                          max={1000}
+                          step={1}
+                          value={iterations}
+                          disabled={isRunning}
+                          onChange={(e) => {
+                            const value = Number(e.target.value);
+                            if (Number.isFinite(value)) {
+                              setIterations(Math.max(1, Math.round(value)));
+                            }
+                          }}
+                          className="h-8"
+                        />
+                      </div>
                     </div>
                     <div className="grid gap-3">
                       <div className="grid gap-2">

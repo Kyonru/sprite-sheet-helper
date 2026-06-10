@@ -16,6 +16,10 @@ import { useModelsStore } from "@/store/next/models";
 import { useModelDowngradesStore } from "@/store/next/model-downgrades";
 import { getRuntimeModel } from "@/utils/model-downgrade-runtime";
 import { normalizeWorkflowDegrees } from "@/utils/workflow-camera";
+import {
+  buildPlaybackClip,
+  getAnimationClipFps,
+} from "@/utils/animation-clips";
 import type { ResolvedWorkflowCamera } from "@/utils/workflow-camera";
 import type {
   AmbientLightComponent,
@@ -29,6 +33,10 @@ import type {
 type WorkflowCameraPreviewProps = {
   camera: ResolvedWorkflowCamera;
   selectedDirection: string;
+  selectedAnimation?: {
+    modelUuid?: string;
+    animationName?: string;
+  };
   onCameraChange: (camera: {
     distance: number;
     phi: number;
@@ -45,15 +53,34 @@ function transformProps(transform?: Transform) {
   };
 }
 
-function PreviewModel({ uuid }: { uuid: string }) {
+function PreviewModel({
+  uuid,
+  selectedAnimation,
+}: {
+  uuid: string;
+  selectedAnimation?: {
+    modelUuid?: string;
+    animationName?: string;
+  };
+}) {
+  const clips = useModelsStore((state) => state.clips);
+  const durations = useModelsStore((state) => state.durations);
+  const speeds = useModelsStore((state) => state.speeds);
+  const loops = useModelsStore((state) => state.loops);
   const transform = useTransformsStore((state) => state.transforms[uuid]);
+  const modelClips = useModelsStore((state) => state.clips[uuid]);
+  const modelDurations = durations[uuid] ?? {};
+  const modelSpeeds = speeds[uuid] ?? {};
+  const modelLoops = loops[uuid] ?? {};
   const activeVariant = useModelDowngradesStore(
     (state) => state.entries[uuid]?.activeVariant ?? "original",
   );
   const downgradeRevision = useModelDowngradesStore(
     (state) => state.entries[uuid]?.revision ?? 0,
   );
-  const clipsRevision = useModelsStore((state) => state.clips[uuid]?.length ?? 0);
+  const clipsRevision = useModelsStore(
+    (state) => state.clips[uuid]?.length ?? 0,
+  );
   const runtimeRefreshKey = `${activeVariant}:${downgradeRevision}:${clipsRevision}`;
   const object = useMemo(() => {
     if (runtimeRefreshKey.length === 0) return null;
@@ -65,6 +92,86 @@ function PreviewModel({ uuid }: { uuid: string }) {
     });
     return cloned;
   }, [activeVariant, runtimeRefreshKey, uuid]);
+  const previewAnimation =
+    selectedAnimation?.modelUuid && selectedAnimation.modelUuid === uuid
+      ? selectedAnimation
+      : undefined;
+  const modelRef = useRef<THREE.AnimationMixer | null>(null);
+
+  useFrame((_, delta) => {
+    modelRef.current?.update(delta);
+  });
+
+  useEffect(() => {
+    if (!object) {
+      if (modelRef.current) {
+        modelRef.current.stopAllAction();
+      }
+      modelRef.current = null;
+      return;
+    }
+
+    modelRef.current = new THREE.AnimationMixer(object);
+
+    return () => {
+      modelRef.current?.stopAllAction();
+      modelRef.current = null;
+    };
+  }, [object]);
+
+  useEffect(() => {
+    const mixer = modelRef.current;
+    if (!mixer) return;
+    mixer.stopAllAction();
+    mixer.setTime(0);
+
+    if (
+      !previewAnimation?.animationName ||
+      previewAnimation.animationName === "none"
+    ) {
+      return;
+    }
+
+    const animationName = previewAnimation.animationName;
+    const clipRef = modelClips?.find(
+      (entry) => entry.clip.name === animationName,
+    );
+    if (!clipRef) return;
+
+    const [trimStart, trimEnd] = modelDurations[animationName] ?? [
+      0,
+      clipRef.clip.duration,
+    ];
+    const fps = getAnimationClipFps(clipRef.clip);
+    const { clip, generated } = buildPlaybackClip(
+      clipRef.clip,
+      trimStart,
+      trimEnd,
+      fps,
+    );
+    const action = mixer.clipAction(clip);
+    const speed = modelSpeeds[animationName] ?? 1;
+    const loop = modelLoops[animationName] ?? THREE.LoopOnce;
+
+    action.setDuration((1 / speed) * clip.duration);
+    action.setLoop(loop, Infinity);
+    action.play();
+
+    return () => {
+      action.stop();
+      if (generated) {
+        mixer.uncacheAction(clip);
+        mixer.uncacheClip(clip);
+      }
+    };
+  }, [
+    clips,
+    modelClips,
+    modelDurations,
+    modelLoops,
+    modelSpeeds,
+    previewAnimation?.animationName,
+  ]);
 
   if (!object) return null;
 
@@ -134,7 +241,11 @@ function PreviewLight({
   return null;
 }
 
-function PreviewSceneObjects() {
+function PreviewSceneObjects({
+  selectedAnimation,
+}: {
+  selectedAnimation?: WorkflowCameraPreviewProps["selectedAnimation"];
+}) {
   const entities = useEntitiesStore((state) => state.entities);
   const lights = useLightsStore((state) => state.lights);
   const isVisible = (entity: unknown) =>
@@ -149,7 +260,11 @@ function PreviewSceneObjects() {
   return (
     <>
       {modelEntities.map((entity) => (
-        <PreviewModel key={entity.uuid} uuid={entity.uuid} />
+        <PreviewModel
+          key={entity.uuid}
+          uuid={entity.uuid}
+          selectedAnimation={selectedAnimation}
+        />
       ))}
       {lightEntities.map((entity) => {
         const light = lights[entity.uuid];
@@ -176,11 +291,7 @@ function PreviewCameraControls({
 
   useEffect(() => {
     threeCamera.position.set(...camera.position);
-    controlsRef.current?.setLookAt(
-      ...camera.position,
-      ...camera.target,
-      false,
-    );
+    controlsRef.current?.setLookAt(...camera.position, ...camera.target, false);
   }, [camera.position, camera.target, threeCamera]);
 
   return (
@@ -260,6 +371,7 @@ function TargetHandle({
 export function WorkflowCameraPreview({
   camera,
   selectedDirection,
+  selectedAnimation,
   onCameraChange,
   onTargetChange,
 }: WorkflowCameraPreviewProps) {
@@ -282,7 +394,7 @@ export function WorkflowCameraPreview({
           camera={camera}
           onCameraChange={onCameraChange}
         />
-        <PreviewSceneObjects />
+        <PreviewSceneObjects selectedAnimation={selectedAnimation} />
         <TargetHandle target={camera.target} onTargetChange={onTargetChange} />
         <Grid
           args={[10, 10]}
