@@ -50,6 +50,7 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
                 name,
                 createdAt: Date.now(),
                 metadata: metadata,
+                visible: true,
               },
             },
           }));
@@ -87,12 +88,17 @@ export const useEntitiesStore = create<EntitiesState & EntitiesActions>()(
           })),
 
         setVisibility: (uuid: string, visible: boolean) =>
-          set((state) => ({
-            entities: {
-              ...state.entities,
-              [uuid]: { ...state.entities[uuid], visible },
-            },
-          })),
+          set((state) => {
+            const entity = state.entities[uuid];
+            if (!entity) return state;
+
+            return {
+              entities: {
+                ...state.entities,
+                [uuid]: { ...entity, visible },
+              },
+            };
+          }),
 
         setChildren: (uuid: string, children: string[]) =>
           set((state) => ({

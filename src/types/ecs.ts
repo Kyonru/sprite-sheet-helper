@@ -8,6 +8,7 @@ export interface Entity {
   name: string;
   createdAt: number;
   metadata: Record<string, unknown>;
+  visible?: boolean;
 }
 
 export interface Transform {

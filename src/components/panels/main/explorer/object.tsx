@@ -13,9 +13,10 @@ import { useEntitiesStore } from "@/store/next/entities";
 import { useSetEntityChildren } from "@/hooks/next/use-set-entity-children";
 import { ItemTypeIconMap } from "./constants";
 import { cn } from "@/lib/utils";
-import { Trash2Icon } from "lucide-react";
+import { Eye, EyeOff, Trash2Icon } from "lucide-react";
 import { confirm } from "@/components/confirm";
 import { useRemoveEntity } from "@/hooks/next/use-remove-entity";
+import type { Entity } from "@/types/ecs";
 
 export const ObjectExplorer = () => {
   const entities = useEntitiesStore((state) => state.entities);
@@ -25,6 +26,7 @@ export const ObjectExplorer = () => {
   const selectEntity = useEntitiesStore((state) => state.selectEntity);
   const unselectEntity = useEntitiesStore((state) => state.unselectEntity);
   const removeEntity = useRemoveEntity();
+  const setVisibility = useEntitiesStore((state) => state.setVisibility);
 
   const dataProvider = React.useMemo(() => {
     const data: Record<string, TreeItem<string> & { type: string }> = {
@@ -114,6 +116,17 @@ export const ObjectExplorer = () => {
     });
   };
 
+  const onToggleVisibility = (
+    event: React.MouseEvent,
+    entity?: Entity,
+  ) => {
+    if (!entity) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    setVisibility(entity.uuid, entity.visible === false);
+  };
+
   return (
     <UncontrolledTreeEnvironment
       key={selected}
@@ -151,13 +164,34 @@ export const ObjectExplorer = () => {
               {icon}
               {title}
             </Label>
-
-            {(item as any).type !== "camera" && (
-              <Trash2Icon
-                onClick={() => onDelete(title, item)}
-                className="h-4 w-4 opacity-0 group-hover:opacity-100 absolute right-2 top-1/2 -translate-y-1/2 text-destructive cursor-pointer"
-              />
-            )}
+            <div className="flex items-center gap-1 absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100">
+              {(item as any).type === "model" && (
+                <button
+                  type="button"
+                  title={
+                    entities[(item as any).index as string]?.visible === false
+                      ? "Show model"
+                      : "Hide model"
+                  }
+                  onClick={(event) =>
+                    onToggleVisibility(event, entities[(item as any).index as string])
+                  }
+                  className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                >
+                  {entities[(item as any).index as string]?.visible === false ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
+              {(item as any).type !== "camera" && (
+                <Trash2Icon
+                  onClick={() => onDelete(title, item)}
+                  className="h-4 w-4 text-destructive cursor-pointer"
+                />
+              )}
+            </div>
           </div>
         );
       }}

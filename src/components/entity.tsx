@@ -14,7 +14,13 @@ import { isDifferent } from "@/utils/vector";
 import { toast } from "sonner";
 import { clearRuntimeModel } from "@/utils/model-downgrade-runtime";
 
-function ObjectTarget({ uuid }: { uuid: string }) {
+function ObjectTarget({
+  uuid,
+  visible = true,
+}: {
+  uuid: string;
+  visible?: boolean;
+}) {
   const target = useTarget(uuid);
   const setTarget = useTargetsStore((state) => state.setTarget);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +29,7 @@ function ObjectTarget({ uuid }: { uuid: string }) {
 
   const isSelected = selected === uuid;
   const { isPreview } = useEntityContext();
+  const isInteractive = isSelected && visible && !isPreview;
 
   useEffect(() => {
     if (!controlsRef.current) return;
@@ -58,10 +65,10 @@ function ObjectTarget({ uuid }: { uuid: string }) {
   return (
     <>
       <TransformControls
-        enabled={isSelected && !isPreview}
-        showX={isSelected && !isPreview}
-        showY={isSelected && !isPreview}
-        showZ={isSelected && !isPreview}
+        enabled={isInteractive}
+        showX={isInteractive}
+        showY={isInteractive}
+        showZ={isInteractive}
         ref={controlsRef}
         mode={"translate"}
         position={target}
@@ -85,7 +92,7 @@ function ObjectTarget({ uuid }: { uuid: string }) {
         outlineWidth={0.008}
         outlineColor="black"
         layers={LAYERS.LAYER_EDITOR_ONLY}
-        visible={isSelected && !isPreview}
+        visible={isInteractive}
       >
         Target
       </Text>
@@ -104,6 +111,7 @@ export function EntityComponent({ uuid }: { uuid: string }) {
   const groupRef = useRef<THREE.Group>(null);
   const modelObject = useModelObject(uuid);
   const { isPreview } = useEntityContext();
+  const isVisible = entity.visible !== false;
 
   useEffect(() => {
     if (controlsRef.current && groupRef.current) {
@@ -146,10 +154,10 @@ export function EntityComponent({ uuid }: { uuid: string }) {
   return (
     <>
       <TransformControls
-        enabled={isSelected && !isPreview}
-        showX={isSelected && !isPreview}
-        showY={isSelected && !isPreview}
-        showZ={isSelected && !isPreview}
+        enabled={isSelected && !isPreview && isVisible}
+        showX={isSelected && !isPreview && isVisible}
+        showY={isSelected && !isPreview && isVisible}
+        showZ={isSelected && !isPreview && isVisible}
         ref={controlsRef}
         mode={transformMode}
         onMouseUp={() => {
@@ -162,12 +170,13 @@ export function EntityComponent({ uuid }: { uuid: string }) {
           });
         }}
       />
-      <ObjectTarget uuid={uuid} />
+      <ObjectTarget uuid={uuid} visible={isVisible} />
       <group
         ref={groupRef}
         position={transform.position}
         rotation={transform.rotation}
         scale={transform.scale}
+        visible={isVisible}
       >
         {child}
         <Text
@@ -179,7 +188,7 @@ export function EntityComponent({ uuid }: { uuid: string }) {
           outlineWidth={0.008}
           outlineColor="black"
           layers={LAYERS.LAYER_EDITOR_ONLY}
-          visible={!isPreview && selected === uuid}
+          visible={!isPreview && selected === uuid && isVisible}
         >
           {entity.name ?? entity.type}
         </Text>
