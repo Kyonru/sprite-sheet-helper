@@ -36,6 +36,7 @@ type WorkflowCameraPreviewProps = {
   selectedAnimation?: {
     modelUuid?: string;
     animationName?: string;
+    forceAnimationsInPlace?: boolean;
   };
   onCameraChange: (camera: {
     distance: number;
@@ -53,6 +54,41 @@ function transformProps(transform?: Transform) {
   };
 }
 
+function makeInPlaceClip(clip: THREE.AnimationClip): THREE.AnimationClip {
+  const tracks = clip.tracks.map((track) => {
+    if (!track.name.endsWith(".position")) {
+      return track.clone();
+    }
+
+    const stride = track.getValueSize();
+    if (stride !== 3) return track.clone();
+
+    const values = track.values.slice();
+    if (values.length < 3) return track.clone();
+
+    const baseX = values[0] ?? 0;
+    const baseY = values[1] ?? 0;
+    const baseZ = values[2] ?? 0;
+
+    for (let i = 0; i < values.length; i += 3) {
+      values[i] = baseX;
+      values[i + 1] = baseY;
+      values[i + 2] = baseZ;
+    }
+
+    return new THREE.VectorKeyframeTrack(
+      track.name,
+      track.times.slice(),
+      values,
+      track.getInterpolation(),
+    );
+  });
+
+  const normalized = new THREE.AnimationClip(clip.name, clip.duration, tracks);
+  normalized.blendMode = clip.blendMode;
+  return normalized;
+}
+
 function PreviewModel({
   uuid,
   selectedAnimation,
@@ -61,6 +97,7 @@ function PreviewModel({
   selectedAnimation?: {
     modelUuid?: string;
     animationName?: string;
+    forceAnimationsInPlace?: boolean;
   };
 }) {
   const clips = useModelsStore((state) => state.clips);
@@ -138,13 +175,17 @@ function PreviewModel({
     );
     if (!clipRef) return;
 
+    const playbackClip = previewAnimation.forceAnimationsInPlace
+      ? makeInPlaceClip(clipRef.clip)
+      : clipRef.clip;
+
     const [trimStart, trimEnd] = modelDurations[animationName] ?? [
       0,
       clipRef.clip.duration,
     ];
-    const fps = getAnimationClipFps(clipRef.clip);
+    const fps = getAnimationClipFps(playbackClip);
     const { clip, generated } = buildPlaybackClip(
-      clipRef.clip,
+      playbackClip,
       trimStart,
       trimEnd,
       fps,
@@ -171,6 +212,8 @@ function PreviewModel({
     modelLoops,
     modelSpeeds,
     previewAnimation?.animationName,
+    previewAnimation?.modelUuid,
+    previewAnimation?.forceAnimationsInPlace,
   ]);
 
   if (!object) return null;
@@ -263,7 +306,15 @@ function PreviewSceneObjects({
         <PreviewModel
           key={entity.uuid}
           uuid={entity.uuid}
-          selectedAnimation={selectedAnimation}
+          selectedAnimation={
+            selectedAnimation?.modelUuid === entity.uuid
+              ? {
+                  ...selectedAnimation,
+                  forceAnimationsInPlace:
+                    selectedAnimation?.forceAnimationsInPlace ?? false,
+                }
+              : undefined
+          }
         />
       ))}
       {lightEntities.map((entity) => {
@@ -377,7 +428,7 @@ export function WorkflowCameraPreview({
 }: WorkflowCameraPreviewProps) {
   return (
     <div
-      className="relative h-[360px] overflow-hidden rounded-md border bg-muted/20"
+      className="relative h-[360px] min-h-[360px] shrink-0 overflow-hidden rounded-md border bg-muted/20"
       data-testid="workflow-camera-preview"
     >
       <Canvas
@@ -394,7 +445,9 @@ export function WorkflowCameraPreview({
           camera={camera}
           onCameraChange={onCameraChange}
         />
-        <PreviewSceneObjects selectedAnimation={selectedAnimation} />
+      <PreviewSceneObjects
+        selectedAnimation={selectedAnimation}
+      />
         <TargetHandle target={camera.target} onTargetChange={onTargetChange} />
         <Grid
           args={[10, 10]}
@@ -410,6 +463,9 @@ export function WorkflowCameraPreview({
       </Canvas>
       <div className="pointer-events-none absolute left-3 top-3 rounded-md border bg-background/85 px-2 py-1 text-xs">
         Previewing {selectedDirection}
+        {selectedAnimation?.animationName
+          ? ` · ${selectedAnimation.animationName}`
+          : ""}
       </div>
       <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border bg-background/85 px-2 py-1 text-[11px] text-muted-foreground">
         Orbit to adjust camera · drag target to reframe
