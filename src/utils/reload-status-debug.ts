@@ -5,6 +5,7 @@ import { useLightsStore } from "@/store/next/lights";
 import { useModelsStore } from "@/store/next/models";
 import { useSettingsStore } from "@/store/next/settings";
 import { useTransformsStore } from "@/store/next/transforms";
+import type { InPlaceAxisModeInput } from "@/utils/animation-clips";
 import { getRuntimeModel } from "@/utils/model-downgrade-runtime";
 
 const RELOAD_STATUS_KEY = "sprite-sheet-helper.reload-status-before-v1";
@@ -71,12 +72,52 @@ type ReloadStatusDebugSnapshot = {
   models: ModelStatus[];
 };
 
+type AnimationTrackStatus = {
+  name: string;
+  valueSize: number;
+  times: number[];
+  values: number[];
+  positionKeys?: Array<{
+    time: number;
+    x: number;
+    y: number;
+    z: number;
+  }>;
+};
+
+type AnimationStatusSnapshot = {
+  capturedAt: string;
+  modelUuid: string;
+  modelName?: string;
+  activeAnimation?: string;
+  requestedAnimation?: string;
+  selectedEntity?: string;
+  clips: Array<{
+    name: string;
+    duration: number;
+    positionTracks: AnimationTrackStatus[];
+  }>;
+};
+
 declare global {
   interface Window {
-    sshReloadStatus: (
+    sshReloadStatus?: (
       options?: ReloadStatusDebugOptions,
     ) => Promise<ReloadStatusDebugSnapshot | unknown>;
-    sshCopyStatus: () => Promise<ReloadStatusDebugSnapshot>;
+    sshCopyStatus?: () => Promise<ReloadStatusDebugSnapshot>;
+    sshAnimationStatus?: (
+      options?: { modelUuid?: string; animationName?: string },
+    ) => Promise<AnimationStatusSnapshot>;
+    sshAnimationBefore?: (
+      options?: { modelUuid?: string; animationName?: string },
+    ) => AnimationStatusSnapshot;
+    sshAnimationAfter?: (
+      options?: { modelUuid?: string; animationName?: string },
+    ) => Promise<unknown>;
+    sshForceAnimationInPlaceDebug?: (
+      mode?: InPlaceAxisModeInput,
+      options?: { modelUuid?: string; animationName?: string },
+    ) => Promise<unknown>;
   }
 }
 
@@ -158,6 +199,112 @@ function collectReloadStatus(): ReloadStatusDebugSnapshot {
       runtime: readRuntimeModel(uuid),
     })),
   };
+}
+
+function readAnimationTrackStatus(
+  track: THREE.KeyframeTrack,
+): AnimationTrackStatus {
+  const valueSize = track.getValueSize();
+  const times = Array.from(track.times);
+  const values = Array.from(track.values);
+  const positionKeys =
+    valueSize === 3
+      ? times.map((time, index) => {
+          const offset = index * 3;
+          return {
+            time,
+            x: values[offset] ?? 0,
+            y: values[offset + 1] ?? 0,
+            z: values[offset + 2] ?? 0,
+          };
+        })
+      : undefined;
+
+  return {
+    name: track.name,
+    valueSize,
+    times,
+    values,
+    positionKeys,
+  };
+}
+
+function collectAnimationStatus(options: {
+  modelUuid?: string;
+  animationName?: string;
+} = {}): AnimationStatusSnapshot {
+  const entities = useEntitiesStore.getState().entities;
+  const selectedEntity = useEntitiesStore.getState().selected;
+  const models = useModelsStore.getState();
+  const modelUuid =
+    options.modelUuid ??
+    selectedEntity ??
+    Object.keys(models.clips).find((uuid) => models.clips[uuid]?.length);
+
+  if (!modelUuid) {
+    throw new Error("No model selected and no model clips found.");
+  }
+
+  const activeAnimation = models.animations[modelUuid];
+  const requestedAnimation = options.animationName ?? activeAnimation;
+  const clips = (models.clips[modelUuid] ?? [])
+    .filter((clipRef) =>
+      requestedAnimation && requestedAnimation !== "none"
+        ? clipRef.clip.name === requestedAnimation
+        : true,
+    )
+    .map((clipRef) => ({
+      name: clipRef.clip.name,
+      duration: clipRef.clip.duration,
+      positionTracks: clipRef.clip.tracks
+        .filter((track) => track.name.endsWith(".position"))
+        .map(readAnimationTrackStatus),
+    }));
+
+  return {
+    capturedAt: new Date().toISOString(),
+    modelUuid,
+    modelName: entities[modelUuid]?.name,
+    activeAnimation,
+    requestedAnimation,
+    selectedEntity,
+    clips,
+  };
+}
+
+function buildAnimationDiff(
+  before: AnimationStatusSnapshot,
+  after: AnimationStatusSnapshot,
+) {
+  const afterClips = new Map(after.clips.map((clip) => [clip.name, clip]));
+
+  return before.clips.map((clip) => {
+    const nextClip = afterClips.get(clip.name);
+    const nextTracks = new Map(
+      nextClip?.positionTracks.map((track) => [track.name, track]) ?? [],
+    );
+
+    return {
+      clip: clip.name,
+      tracks: clip.positionTracks.map((track) => {
+        const nextTrack = nextTracks.get(track.name);
+        return {
+          track: track.name,
+          before: track.positionKeys,
+          after: nextTrack?.positionKeys,
+          changedAxes: track.positionKeys?.map((key, index) => {
+            const nextKey = nextTrack?.positionKeys?.[index];
+            return {
+              time: key.time,
+              x: nextKey ? key.x !== nextKey.x : undefined,
+              y: nextKey ? key.y !== nextKey.y : undefined,
+              z: nextKey ? key.z !== nextKey.z : undefined,
+            };
+          }),
+        };
+      }),
+    };
+  });
 }
 
 function buildModelDiff(
@@ -309,6 +456,95 @@ export function installReloadStatusDebug() {
       copied
         ? "[sshReloadStatus] Before/after reload report copied."
         : "[sshReloadStatus] Before/after reload report returned and opened in a copy window.",
+      report,
+    );
+    return report;
+  };
+
+  window.sshAnimationStatus = async (options = {}) => {
+    const status = collectAnimationStatus(options);
+    const copied = await copyText(JSON.stringify(status, null, 2));
+    console.info(
+      copied
+        ? "[sshAnimationStatus] Animation status copied."
+        : "[sshAnimationStatus] Animation status returned and opened in a copy window.",
+      status,
+    );
+    return status;
+  };
+
+  window.sshAnimationBefore = (options = {}) => {
+    const status = collectAnimationStatus(options);
+    window.localStorage.setItem(
+      "sprite-sheet-helper.animation-status-before-v1",
+      JSON.stringify(status),
+    );
+    console.info(
+      "[sshAnimationStatus] Captured before status. Change the in-place mode, then run window.sshAnimationAfter().",
+      status,
+    );
+    return status;
+  };
+
+  window.sshAnimationAfter = async (options = {}) => {
+    const beforeRaw = window.localStorage.getItem(
+      "sprite-sheet-helper.animation-status-before-v1",
+    );
+    if (!beforeRaw) {
+      throw new Error("No before status found. Run window.sshAnimationBefore() first.");
+    }
+
+    const before = JSON.parse(beforeRaw) as AnimationStatusSnapshot;
+    const after = collectAnimationStatus(options);
+    const report = {
+      createdAt: new Date().toISOString(),
+      before,
+      after,
+      diff: buildAnimationDiff(before, after),
+    };
+
+    window.localStorage.removeItem(
+      "sprite-sheet-helper.animation-status-before-v1",
+    );
+    const copied = await copyText(JSON.stringify(report, null, 2));
+    console.info(
+      copied
+        ? "[sshAnimationStatus] Before/after animation report copied."
+        : "[sshAnimationStatus] Before/after animation report returned and opened in a copy window.",
+      report,
+    );
+    return report;
+  };
+
+  window.sshForceAnimationInPlaceDebug = async (mode = "horizontal", options = {}) => {
+    const before = collectAnimationStatus(options);
+    const modelUuid = before.modelUuid;
+    const animationName =
+      options.animationName ??
+      before.requestedAnimation ??
+      before.clips[0]?.name;
+
+    if (!animationName || animationName === "none") {
+      throw new Error("No animation selected for debug force-in-place.");
+    }
+
+    useModelsStore
+      .getState()
+      .forceCurrentAnimationInPlace(modelUuid, animationName, mode);
+
+    const after = collectAnimationStatus({ modelUuid, animationName });
+    const report = {
+      createdAt: new Date().toISOString(),
+      mode,
+      before,
+      after,
+      diff: buildAnimationDiff(before, after),
+    };
+    const copied = await copyText(JSON.stringify(report, null, 2));
+    console.info(
+      copied
+        ? "[sshAnimationStatus] Force-in-place debug report copied."
+        : "[sshAnimationStatus] Force-in-place debug report returned and opened in a copy window.",
       report,
     );
     return report;

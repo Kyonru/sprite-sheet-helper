@@ -13,6 +13,58 @@ const createModel = (fileName: string) => ({
   errorMessage: null,
 });
 
+function setupCurrentAnimationClip(
+  targetUuid: string,
+  values: number[],
+  name = "Jump",
+) {
+  const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
+  const targetClip = new THREE.AnimationClip(
+    name,
+    1,
+    [
+      new THREE.VectorKeyframeTrack(
+        "Root.position",
+        [0, 0.5, 1],
+        values,
+      ),
+    ],
+  );
+
+  useModelsStore.getState().reset();
+  useModelsStore.setState({
+    models: {
+      // @ts-expect-error invalid key
+      [targetUuid]: createModel(`${targetUuid}.fbx`),
+    },
+    clips: {
+      [targetUuid]: [
+        { action: targetMixer.clipAction(targetClip), clip: targetClip },
+      ],
+    },
+    mixerRef: {
+      [targetUuid]: targetMixer,
+    },
+    animations: {
+      [targetUuid]: name,
+    },
+    durations: {},
+    speeds: {},
+    loops: {},
+    currentTime: {},
+    frameStep: {},
+    freeze: {},
+  });
+}
+
+function currentPositionValues(targetUuid: string) {
+  const updatedTrack = useModelsStore
+    .getState()
+    .clips[targetUuid]?.[0]?.clip.tracks.at(0);
+  expect(updatedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
+  return Array.from((updatedTrack as THREE.VectorKeyframeTrack).values);
+}
+
 describe("resolveCollisionName", () => {
   it("keeps non-colliding names unchanged", () => {
     expect(resolveCollisionName("Walk", new Set(["Run", "Jump"]))).toBe("Walk");
@@ -188,7 +240,7 @@ describe("useModelsStore importAnimationsFromSource", () => {
     const rootTrack = new THREE.VectorKeyframeTrack(
       "Root.position",
       [0, 1],
-      [5, 0, 0, 8, 0, 0],
+      [5, 1, 2, 8, 4, 9],
     );
     const sourceClip = new THREE.AnimationClip("Walk", 1, [rootTrack]);
 
@@ -231,7 +283,121 @@ describe("useModelsStore importAnimationsFromSource", () => {
     );
     expect(importedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
     expect(Array.from((importedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
-      5, 0, 0, 5, 0, 0,
+      5, 1, 2, 5, 1, 2,
+    ]);
+  });
+
+  it("preserves imported clip vertical motion when forcing only horizontal axes in place", async () => {
+    const sourceUuid = "source-model-horizontal";
+    const targetUuid = "target-model-horizontal";
+    const sourceMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
+
+    const rootTrack = new THREE.VectorKeyframeTrack(
+      "Root.position",
+      [0, 0.5, 1],
+      [5, 1, 2, 8, 4, 9, 12, 7, 14],
+    );
+    const sourceClip = new THREE.AnimationClip("Jump", 1, [rootTrack]);
+
+    useModelsStore.getState().reset();
+    useModelsStore.setState({
+      models: {
+        // @ts-expect-error invalid key
+        [sourceUuid]: createModel(`${sourceUuid}.fbx`),
+        // @ts-expect-error invalid key
+        [targetUuid]: createModel(`${targetUuid}.fbx`),
+      },
+      clips: {
+        [sourceUuid]: [
+          { action: sourceMixer.clipAction(sourceClip), clip: sourceClip },
+        ],
+        [targetUuid]: [],
+      },
+      mixerRef: {
+        [sourceUuid]: sourceMixer,
+        [targetUuid]: targetMixer,
+      },
+      durations: {},
+      speeds: {},
+      loops: {},
+      animations: {},
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
+    });
+
+    await useModelsStore
+      .getState()
+      .importAnimationsFromSource(targetUuid, {
+        sourceModelUuid: sourceUuid,
+        forceInPlace: true,
+        inPlaceAxisMode: "horizontal",
+      });
+
+    const importedTrack = useModelsStore.getState().clips[targetUuid]?.[0]?.clip.tracks.at(
+      0,
+    );
+    expect(importedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
+    expect(Array.from((importedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
+      5, 1, 2, 5, 4, 2, 5, 7, 2,
+    ]);
+  });
+
+  it("keeps imported clip root motion unchanged when in-place axis mode is none", async () => {
+    const sourceUuid = "source-model-none";
+    const targetUuid = "target-model-none";
+    const sourceMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
+
+    const rootTrack = new THREE.VectorKeyframeTrack(
+      "Root.position",
+      [0, 0.5, 1],
+      [5, 1, 2, 8, 4, 9, 12, 7, 14],
+    );
+    const sourceClip = new THREE.AnimationClip("Jump", 1, [rootTrack]);
+
+    useModelsStore.getState().reset();
+    useModelsStore.setState({
+      models: {
+        // @ts-expect-error invalid key
+        [sourceUuid]: createModel(`${sourceUuid}.fbx`),
+        // @ts-expect-error invalid key
+        [targetUuid]: createModel(`${targetUuid}.fbx`),
+      },
+      clips: {
+        [sourceUuid]: [
+          { action: sourceMixer.clipAction(sourceClip), clip: sourceClip },
+        ],
+        [targetUuid]: [],
+      },
+      mixerRef: {
+        [sourceUuid]: sourceMixer,
+        [targetUuid]: targetMixer,
+      },
+      durations: {},
+      speeds: {},
+      loops: {},
+      animations: {},
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
+    });
+
+    await useModelsStore
+      .getState()
+      .importAnimationsFromSource(targetUuid, {
+        sourceModelUuid: sourceUuid,
+        forceInPlace: true,
+        inPlaceAxisMode: "none",
+      });
+
+    const importedTrack = useModelsStore.getState().clips[targetUuid]?.[0]?.clip.tracks.at(
+      0,
+    );
+    expect(importedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
+    expect(Array.from((importedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
+      5, 1, 2, 8, 4, 9, 12, 7, 14,
     ]);
   });
 
@@ -245,7 +411,7 @@ describe("useModelsStore importAnimationsFromSource", () => {
         new THREE.VectorKeyframeTrack(
           "Root.position",
           [0, 1],
-          [7, 0, 0, 11, 0, 0],
+          [7, 2, 3, 11, 5, 13],
         ),
       ],
     );
@@ -286,8 +452,204 @@ describe("useModelsStore importAnimationsFromSource", () => {
       .clips[targetUuid]?.[0]?.clip.tracks.at(0);
     expect(updatedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
     expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
-      7, 0, 0, 7, 0, 0,
+      7, 2, 3, 7, 2, 3,
     ]);
+  });
+
+  it("preserves selected animation vertical motion when forcing only horizontal axes in place", async () => {
+    const targetUuid = "target-model-force-current-horizontal";
+    const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const targetClip = new THREE.AnimationClip(
+      "Jump",
+      1,
+      [
+        new THREE.VectorKeyframeTrack(
+          "Root.position",
+          [0, 0.5, 1],
+          [7, 2, 3, 11, 5, 13, 17, 8, 23],
+        ),
+      ],
+    );
+
+    useModelsStore.getState().reset();
+    useModelsStore.setState({
+      models: {
+        // @ts-expect-error invalid key
+        [targetUuid]: createModel(`${targetUuid}.fbx`),
+      },
+      clips: {
+        [targetUuid]: [
+          { action: targetMixer.clipAction(targetClip), clip: targetClip },
+        ],
+      },
+      mixerRef: {
+        [targetUuid]: targetMixer,
+      },
+      animations: {
+        [targetUuid]: "Jump",
+      },
+      durations: {},
+      speeds: {},
+      loops: {},
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
+    });
+
+    const { name } = useModelsStore
+      .getState()
+      .forceCurrentAnimationInPlace(targetUuid, undefined, "horizontal");
+
+    expect(name).toBe("Jump");
+
+    const updatedTrack = useModelsStore
+      .getState()
+      .clips[targetUuid]?.[0]?.clip.tracks.at(0);
+    expect(updatedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
+    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
+      7, 2, 3, 7, 5, 3, 7, 8, 3,
+    ]);
+  });
+
+  it.each([
+    ["x", [7, 2, 3, 7, 5, 13, 7, 8, 23]],
+    ["y", [7, 2, 3, 11, 2, 13, 17, 2, 23]],
+    ["z", [7, 2, 3, 11, 5, 3, 17, 8, 3]],
+  ] as const)(
+    "freezes only the selected %s axis for the selected animation",
+    async (mode, expectedValues) => {
+      const targetUuid = `target-model-force-current-${mode}`;
+      setupCurrentAnimationClip(targetUuid, [
+        7, 2, 3, 11, 5, 13, 17, 8, 23,
+      ]);
+
+      useModelsStore
+        .getState()
+        .forceCurrentAnimationInPlace(targetUuid, undefined, mode);
+
+      expect(currentPositionValues(targetUuid)).toEqual(expectedValues);
+    },
+  );
+
+  it("accepts UI axis labels when forcing the selected animation", async () => {
+    const targetUuid = "target-model-force-current-labels";
+    const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const targetClip = new THREE.AnimationClip(
+      "Jump",
+      1,
+      [
+        new THREE.VectorKeyframeTrack(
+          "Root.position",
+          [0, 0.5, 1],
+          [7, 2, 3, 11, 5, 13, 17, 8, 23],
+        ),
+      ],
+    );
+
+    useModelsStore.getState().reset();
+    useModelsStore.setState({
+      models: {
+        // @ts-expect-error invalid key
+        [targetUuid]: createModel(`${targetUuid}.fbx`),
+      },
+      clips: {
+        [targetUuid]: [
+          { action: targetMixer.clipAction(targetClip), clip: targetClip },
+        ],
+      },
+      mixerRef: {
+        [targetUuid]: targetMixer,
+      },
+      animations: {
+        [targetUuid]: "Jump",
+      },
+      durations: {},
+      speeds: {},
+      loops: {},
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
+    });
+
+    useModelsStore
+      .getState()
+      .forceCurrentAnimationInPlace(targetUuid, undefined, "Horizontal XZ");
+
+    let updatedTrack = useModelsStore
+      .getState()
+      .clips[targetUuid]?.[0]?.clip.tracks.at(0);
+    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
+      7, 2, 3, 7, 5, 3, 7, 8, 3,
+    ]);
+
+    useModelsStore
+      .getState()
+      .forceCurrentAnimationInPlace(targetUuid, undefined, "None");
+
+    updatedTrack = useModelsStore
+      .getState()
+      .clips[targetUuid]?.[0]?.clip.tracks.at(0);
+    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
+      7, 2, 3, 11, 5, 13, 17, 8, 23,
+    ]);
+  });
+
+  it("restores selected animation root motion after forcing it in place", async () => {
+    const targetUuid = "target-model-force-current-none";
+    const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const originalValues = [7, 2, 3, 11, 5, 13, 17, 8, 23];
+    const targetClip = new THREE.AnimationClip(
+      "Jump",
+      1,
+      [
+        new THREE.VectorKeyframeTrack(
+          "Root.position",
+          [0, 0.5, 1],
+          originalValues,
+        ),
+      ],
+    );
+
+    useModelsStore.getState().reset();
+    useModelsStore.setState({
+      models: {
+        // @ts-expect-error invalid key
+        [targetUuid]: createModel(`${targetUuid}.fbx`),
+      },
+      clips: {
+        [targetUuid]: [
+          { action: targetMixer.clipAction(targetClip), clip: targetClip },
+        ],
+      },
+      mixerRef: {
+        [targetUuid]: targetMixer,
+      },
+      animations: {
+        [targetUuid]: "Jump",
+      },
+      durations: {},
+      speeds: {},
+      loops: {},
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
+    });
+
+    useModelsStore
+      .getState()
+      .forceCurrentAnimationInPlace(targetUuid, undefined, "horizontal");
+
+    useModelsStore
+      .getState()
+      .forceCurrentAnimationInPlace(targetUuid, undefined, "none");
+
+    const updatedTrack = useModelsStore
+      .getState()
+      .clips[targetUuid]?.[0]?.clip.tracks.at(0);
+    expect(updatedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
+    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual(
+      originalValues,
+    );
   });
 
   it("does not mutate target state when file parse fails", async () => {

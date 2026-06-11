@@ -11,11 +11,20 @@ import type { Schema } from "leva/plugin";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LEVA_THEME } from "@/constants/theming";
 import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
-import { useModel, useModelsStore, type LoopType } from "@/store/next/models";
+import {
+  useModel,
+  useModelsStore,
+  type LoopType,
+} from "@/store/next/models";
 import * as THREE from "three";
 import { openPoseStudio } from "@/components/camera-animation-capture";
 import { toast } from "sonner";
 import { importFile } from "@/utils/assets";
+import {
+  IN_PLACE_AXIS_OPTIONS,
+  normalizeInPlaceAxisMode,
+  type InPlaceAxisMode,
+} from "@/utils/animation-clips";
 
 const ANIMATION_LOOP_OPTIONS: Record<string, LoopType> = {
   "Loop Once": THREE.LoopOnce,
@@ -91,6 +100,10 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     candidateSourceModels.at(0)?.uuid,
   );
   const [importForceInPlace, setImportForceInPlace] = useState(false);
+  const [importInPlaceAxisMode, setImportInPlaceAxisMode] =
+    useState<InPlaceAxisMode>("all");
+  const [currentInPlaceAxisMode, setCurrentInPlaceAxisMode] =
+    useState<InPlaceAxisMode>("all");
 
   useEffect(() => {
     setImportSourceUuid((current) => {
@@ -120,6 +133,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
       const { importedNames } = await importAnimationsFromSource(uuid, {
         sourceModelUuid: importSourceUuid,
         forceInPlace: importForceInPlace,
+        inPlaceAxisMode: importInPlaceAxisMode,
       });
 
       if (importedNames.length === 0) {
@@ -127,8 +141,14 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
         return;
       }
 
+      const modeSuffix =
+        importForceInPlace && importInPlaceAxisMode === "horizontal"
+          ? " with horizontal motion frozen"
+          : importForceInPlace && importInPlaceAxisMode !== "all" && importInPlaceAxisMode !== "none"
+            ? ` with ${importInPlaceAxisMode.toUpperCase()} motion frozen`
+          : "";
       toast.success(
-        `Imported ${importedNames.length} animation(s): ${importedNames.join(", ")}`,
+        `Imported ${importedNames.length} animation(s)${modeSuffix}: ${importedNames.join(", ")}`,
       );
     } catch (error) {
       toast.error("Failed to import animations from model", {
@@ -137,6 +157,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     }
   }, [
     importForceInPlace,
+    importInPlaceAxisMode,
     importAnimationsFromSource,
     importSourceUuid,
     isModelReady,
@@ -177,6 +198,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
           const { importedNames } = await importAnimationsFromSource(uuid, {
             sourceFile: file,
             forceInPlace: importForceInPlace,
+            inPlaceAxisMode: importInPlaceAxisMode,
           });
 
           if (importedNames.length === 0) {
@@ -184,8 +206,14 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
             return;
           }
 
+          const modeSuffix =
+            importForceInPlace && importInPlaceAxisMode === "horizontal"
+              ? " with horizontal motion frozen"
+              : importForceInPlace && importInPlaceAxisMode !== "all" && importInPlaceAxisMode !== "none"
+                ? ` with ${importInPlaceAxisMode.toUpperCase()} motion frozen`
+              : "";
           toast.success(
-            `Imported ${importedNames.length} animation(s) from file: ${importedNames.join(", ")}`,
+            `Imported ${importedNames.length} animation(s) from file${modeSuffix}: ${importedNames.join(", ")}`,
           );
         } catch (error) {
           toast.error("Failed to import animations from file", {
@@ -202,12 +230,23 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
       },
     };
 
+    if (importForceInPlace) {
+      i["force imported axes"] = {
+        options: IN_PLACE_AXIS_OPTIONS,
+        value: importInPlaceAxisMode,
+        onChange: (value: string) => {
+          setImportInPlaceAxisMode(normalizeInPlaceAxisMode(value));
+        },
+      };
+    }
+
     return i;
   }, [
     candidateSourceModels.length,
     handleImportFromLoadedModel,
     importSourceOptions,
     importForceInPlace,
+    importInPlaceAxisMode,
     importSourceUuid,
     isModelReady,
     importAnimationsFromSource,
@@ -239,17 +278,36 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
       const { name } = forceCurrentAnimationInPlace(
         uuid,
         activeAnimationName,
+        currentInPlaceAxisMode,
       );
       if (activeAnimationName !== animation) {
         setAnimation(uuid, activeAnimationName);
       }
-      toast.success(`Animation "${name}" forced in place.`);
+      const modeSuffix =
+        currentInPlaceAxisMode === "horizontal"
+          ? " with horizontal motion frozen"
+          : currentInPlaceAxisMode !== "all" && currentInPlaceAxisMode !== "none"
+            ? ` with ${currentInPlaceAxisMode.toUpperCase()} motion frozen`
+          : "";
+      toast.success(
+        currentInPlaceAxisMode === "none"
+          ? `Animation "${name}" restored to original root motion.`
+          : `Animation "${name}" forced in place${modeSuffix}.`,
+      );
     } catch (error) {
       toast.error("Failed to force animation in place", {
         description: (error as Error).message,
       });
     }
-  }, [animation, animations, forceCurrentAnimationInPlace, isModelReady, setAnimation, uuid]);
+  }, [
+    animation,
+    animations,
+    currentInPlaceAxisMode,
+    forceCurrentAnimationInPlace,
+    isModelReady,
+    setAnimation,
+    uuid,
+  ]);
 
   const inputs = useMemo(() => {
     const i: Schema = {};
@@ -265,6 +323,14 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     }
 
     if (animations) {
+      i["force current axes"] = {
+        options: IN_PLACE_AXIS_OPTIONS,
+        value: currentInPlaceAxisMode,
+        onChange: (value: string) => {
+          setCurrentInPlaceAxisMode(normalizeInPlaceAxisMode(value));
+        },
+      };
+
       i["force current animation in place"] = button(
         handleForceCurrentInPlace,
       );
@@ -356,6 +422,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     setFreeze,
     currentTime,
     setCurrentTime,
+    currentInPlaceAxisMode,
     handleForceCurrentInPlace,
   ]);
 
@@ -379,6 +446,8 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   const [, set] = useControls(() => inputs satisfies Schema, { store }, [
     uuid,
     animation,
+    currentInPlaceAxisMode,
+    handleForceCurrentInPlace,
   ]);
 
   useEffect(() => {

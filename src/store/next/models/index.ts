@@ -13,6 +13,15 @@ import {
   withHistory,
   type FieldWatcher,
 } from "@/store/common/middlewares/history";
+import {
+  clearAllOriginalClips,
+  clearOriginalClip,
+  getOriginalClip,
+  makeInPlaceClip,
+  normalizeInPlaceAxisMode,
+  rememberOriginalClip,
+  type InPlaceAxisModeInput,
+} from "@/utils/animation-clips";
 
 const modelCache = new Map<string, THREE.Object3D>();
 const mixerCache = new Map<string, THREE.AnimationMixer>();
@@ -53,6 +62,7 @@ export interface ModelsState {
 
 interface SourceModelImportOptions {
   forceInPlace?: boolean;
+  inPlaceAxisMode?: InPlaceAxisModeInput;
 }
 
 interface ModelLoadOptions {
@@ -112,6 +122,7 @@ interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
   forceCurrentAnimationInPlace: (
     targetUuid: string,
     animationName?: string,
+    inPlaceAxisMode?: InPlaceAxisModeInput,
   ) => { name: string };
 }
 
@@ -254,6 +265,7 @@ export const useModelsStore = create<ModelsStore>()(
           modelCache.delete(uuid);
           mixerCache.delete(uuid);
           clipsCache.delete(uuid);
+          clearOriginalClip(uuid);
 
           set((state) => {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -351,6 +363,9 @@ export const useModelsStore = create<ModelsStore>()(
 
         importAnimationsFromSource: async (targetUuid, source) => {
           const forceInPlace = source.forceInPlace ?? false;
+          const inPlaceAxisMode = normalizeInPlaceAxisMode(
+            source.inPlaceAxisMode,
+          );
           const targetModel = get().models[targetUuid];
           if (!targetModel) {
             throw new Error("Target model not found");
@@ -398,7 +413,9 @@ export const useModelsStore = create<ModelsStore>()(
             const parsed = await parseModel(file, format);
             try {
               parsedSourceClips = parsed.clips.map((clipRef) =>
-                makeInPlaceClip(clipRef.clip, forceInPlace),
+                forceInPlace
+                  ? makeInPlaceClip(clipRef.clip, inPlaceAxisMode)
+                  : clipRef.clip.clone(),
               );
             } finally {
               disposeParsedModel(parsed);
@@ -411,7 +428,9 @@ export const useModelsStore = create<ModelsStore>()(
             }
 
             parsedSourceClips = sourceClips.map((clipRef) =>
-              makeInPlaceClip(clipRef.clip, forceInPlace),
+              forceInPlace
+                ? makeInPlaceClip(clipRef.clip, inPlaceAxisMode)
+                : clipRef.clip.clone(),
             );
             sourceDurations = get().durations[source.sourceModelUuid] ?? {};
             sourceSpeeds = get().speeds[source.sourceModelUuid] ?? {};
@@ -545,7 +564,12 @@ export const useModelsStore = create<ModelsStore>()(
           return { importedNames };
         },
 
-        forceCurrentAnimationInPlace: (targetUuid, animationName) => {
+        forceCurrentAnimationInPlace: (
+          targetUuid,
+          animationName,
+          inPlaceAxisMode = "all",
+        ) => {
+          const axisMode = normalizeInPlaceAxisMode(inPlaceAxisMode);
           const targetModel = get().models[targetUuid];
           if (!targetModel) {
             throw new Error("Target model not found");
@@ -588,8 +612,15 @@ export const useModelsStore = create<ModelsStore>()(
             throw new Error("Selected animation not found");
           }
 
-          const normalizedClip = makeInPlaceClip(sourceClipRef.clip, true);
-          const action = targetMixer.clipAction(normalizedClip);
+          if (axisMode !== "none") {
+            rememberOriginalClip(targetUuid, sourceClipRef.clip);
+          }
+
+          const nextClip =
+            axisMode === "none"
+              ? (getOriginalClip(targetUuid, clipName) ?? sourceClipRef.clip.clone())
+              : makeInPlaceClip(sourceClipRef.clip, axisMode);
+          const action = targetMixer.clipAction(nextClip);
 
           const nextClips = [...currentClips];
           const existing = nextClips[targetIndex];
@@ -601,7 +632,7 @@ export const useModelsStore = create<ModelsStore>()(
 
           nextClips[targetIndex] = {
             action,
-            clip: normalizedClip,
+            clip: nextClip,
           };
           clipsCache.set(targetUuid, nextClips);
 
@@ -616,10 +647,16 @@ export const useModelsStore = create<ModelsStore>()(
             },
           }));
 
-          return { name: normalizedClip.name };
+          return { name: nextClip.name };
         },
 
-        reset: () => set(initialState),
+        reset: () => {
+          modelCache.clear();
+          mixerCache.clear();
+          clipsCache.clear();
+          clearAllOriginalClips();
+          set(initialState);
+        },
 
         getSnapshot: () => {
           return {
@@ -809,47 +846,6 @@ function createFlatWatcher<
   };
 }
 
-const makeInPlaceClip = (
-  clip: THREE.AnimationClip,
-  forceInPlace: boolean,
-): THREE.AnimationClip => {
-  if (!forceInPlace) {
-    return clip.clone();
-  }
-
-  const tracks = clip.tracks.map((track) => {
-    if (!track.name.endsWith(".position")) {
-      return track.clone();
-    }
-
-    const stride = track.getValueSize();
-    if (stride !== 3) return track.clone();
-
-    const values = Array.from(track.values);
-    if (values.length < 3) return track.clone();
-
-    const baseX = values[0] ?? 0;
-    const baseY = values[1] ?? 0;
-    const baseZ = values[2] ?? 0;
-
-    for (let i = 0; i < values.length; i += 3) {
-      values[i] = baseX;
-      values[i + 1] = baseY;
-      values[i + 2] = baseZ;
-    }
-
-    return new THREE.VectorKeyframeTrack(
-      track.name,
-      Array.from(track.times),
-      values,
-      track.getInterpolation(),
-    );
-  });
-
-  const normalized = new THREE.AnimationClip(clip.name, clip.duration, tracks);
-  normalized.blendMode = clip.blendMode;
-  return normalized;
-};
 
 export function resolveCollisionName(base: string, taken: Set<string>): string {
   const trimmed = base.trim();

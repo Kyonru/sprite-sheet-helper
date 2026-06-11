@@ -19,6 +19,7 @@ import { normalizeWorkflowDegrees } from "@/utils/workflow-camera";
 import {
   buildPlaybackClip,
   getAnimationClipFps,
+  makeInPlaceClip,
 } from "@/utils/animation-clips";
 import type { ResolvedWorkflowCamera } from "@/utils/workflow-camera";
 import type {
@@ -52,41 +53,6 @@ function transformProps(transform?: Transform) {
     rotation: transform?.rotation ?? ([0, 0, 0] as [number, number, number]),
     scale: transform?.scale ?? ([1, 1, 1] as [number, number, number]),
   };
-}
-
-function makeInPlaceClip(clip: THREE.AnimationClip): THREE.AnimationClip {
-  const tracks = clip.tracks.map((track) => {
-    if (!track.name.endsWith(".position")) {
-      return track.clone();
-    }
-
-    const stride = track.getValueSize();
-    if (stride !== 3) return track.clone();
-
-    const values = Array.from(track.values);
-    if (values.length < 3) return track.clone();
-
-    const baseX = values[0] ?? 0;
-    const baseY = values[1] ?? 0;
-    const baseZ = values[2] ?? 0;
-
-    for (let i = 0; i < values.length; i += 3) {
-      values[i] = baseX;
-      values[i + 1] = baseY;
-      values[i + 2] = baseZ;
-    }
-
-    return new THREE.VectorKeyframeTrack(
-      track.name,
-      Array.from(track.times),
-      values,
-      track.getInterpolation(),
-    );
-  });
-
-  const normalized = new THREE.AnimationClip(clip.name, clip.duration, tracks);
-  normalized.blendMode = clip.blendMode;
-  return normalized;
 }
 
 function PreviewModel({
