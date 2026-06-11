@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- Crash recovery with auto-saved project state and a restore/debug/reset dialog
+- Animation freeze options for imported clips
+- Warnings when browser storage is almost full or a save exceeds the quota
+- MIT license and contributing guide
+- Production readiness roadmap ("Path to v1.0")
+
+### Improved
+
+- Main panel UI: explorer header, empty states, hidden-model indicator, theme-aware icons
+- Crash dialog: technical details, copy-to-clipboard, clearer actions
+- CI: Dependabot, npm audit, coverage reporting
+- Test coverage ~65% → ~74% (history, scene stores, exporters, OPFS helpers)
+- Docs: storage limits and recovery troubleshooting
+
 ## [0.5.0]
 
 ### Added
