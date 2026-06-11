@@ -56,7 +56,7 @@ const migrations: Record<number, (old: RawSnapshot) => RawSnapshot> = {
 export function migrateSnapshot(
   raw: ProjectSnapshotVersion | RawSnapshot,
 ): ProjectSnapshot {
-  let current = raw;
+  let current = raw as RawSnapshot;
   const target = CURRENT_VERSION;
 
   for (let v = current.version; v < target; v++) {
