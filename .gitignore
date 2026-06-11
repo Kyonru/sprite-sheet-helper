@@ -27,3 +27,6 @@ out
 .e2e-artifacts
 
 example_model.*
+
+# test coverage output
+coverage/
