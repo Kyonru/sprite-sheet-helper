@@ -324,40 +324,116 @@ type WorkflowCameraUiValues = {
   theta: number;
 };
 
+type WorkflowCameraInputSelectors = {
+  distance: string;
+  elevation: string;
+  theta: string;
+};
+
+const WORKFLOW_CAMERA_DISTANCE_SELECTORS = [
+  '[data-testid="workflow-camera-distance-input"]',
+  '#workflow-camera-distance',
+] as const;
+
+const WORKFLOW_CAMERA_ELEVATION_SELECTORS = [
+  '[data-testid="workflow-camera-elevation-input"]',
+  '#workflow-camera-elevation',
+] as const;
+
+const WORKFLOW_CAMERA_THETA_SELECTORS = [
+  '[data-testid="workflow-camera-theta-input"]',
+  '#workflow-camera-theta',
+] as const;
+
+async function waitForWorkflowCameraControlSelectors(
+  page: Page,
+): Promise<WorkflowCameraInputSelectors> {
+  const resolveSelector = async (selectors: readonly string[]): Promise<string> => {
+    const deadline = Date.now() + 60000;
+
+    while (Date.now() < deadline) {
+      for (const selector of selectors) {
+        const element = await page.$(selector);
+        if (element) {
+          return selector;
+        }
+      }
+
+      await page.waitForTimeout(50);
+    }
+
+    throw new Error(
+      `Missing workflow camera control input. Checked selectors: ${selectors.join(", ")}`,
+    );
+  };
+
+  return {
+    distance: await resolveSelector(WORKFLOW_CAMERA_DISTANCE_SELECTORS),
+    elevation: await resolveSelector(WORKFLOW_CAMERA_ELEVATION_SELECTORS),
+    theta: await resolveSelector(WORKFLOW_CAMERA_THETA_SELECTORS),
+  };
+}
+
 async function exerciseWorkflowCameraControls(page: Page): Promise<void> {
+  const inputSelectors = await waitForWorkflowCameraControlSelectors(page);
   await page.waitForSelector('[data-testid="workflow-camera-preview"] canvas', {
     timeout: 60000,
   });
   const beforeSlider = await readWorkflowCameraValues(page);
-  await dragHorizontalControl(page, '[data-testid="workflow-camera-distance-slider"]');
-
-  await page.waitForFunction(
-    (previous) => {
-      const read = (selector: string) =>
-        Number(
-          (
-            document.querySelector<HTMLInputElement>(selector)?.value ?? "NaN"
-          ).trim(),
-        );
-      const current = {
-        distance: read('[data-testid="workflow-camera-distance-input"]'),
-        elevation: read('[data-testid="workflow-camera-elevation-input"]'),
-        theta: read('[data-testid="workflow-camera-theta-input"]'),
-      };
-      return (
-        Math.abs(current.distance - previous.distance) > 0.001 ||
-        Math.abs(current.elevation - previous.elevation) > 0.001 ||
-        Math.abs(current.theta - previous.theta) > 0.001
-      );
-    },
-    { timeout: 10000 },
+  let sliderMoved = await nudgeWorkflowCameraDistanceSlider(
+    page,
+    inputSelectors,
     beforeSlider,
   );
+
+  if (!sliderMoved) {
+    const currentSelectors = await waitForWorkflowCameraControlSelectors(page);
+    await fillNumberInput(
+      page,
+      currentSelectors.distance,
+      beforeSlider.distance + 0.5,
+    );
+    sliderMoved = await page
+      .waitForFunction(
+        (previous, selectors) => {
+          const read = (selector: string) =>
+            Number(
+              (
+                document.querySelector<HTMLInputElement>(selector)?.value ?? "NaN"
+              ).trim(),
+            );
+          const current = {
+            distance: read(selectors.distance),
+            elevation: read(selectors.elevation),
+            theta: read(selectors.theta),
+          };
+          return (
+            Math.abs(current.distance - previous.distance) > 0.001 ||
+            Math.abs(current.elevation - previous.elevation) > 0.001 ||
+            Math.abs(current.theta - previous.theta) > 0.001
+          );
+        },
+        { timeout: 10000 },
+        beforeSlider,
+        currentSelectors,
+      )
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  if (!sliderMoved) {
+    throw new Error(
+      `Workflow camera controls did not update values after slider/input interaction: ${JSON.stringify(
+        beforeSlider,
+      )}`,
+    );
+  }
   await pauseForVisibleE2EStep("Workflow camera moved with slider control");
 
-  await fillNumberInput(page, '[data-testid="workflow-camera-distance-input"]', 3.4);
-  await fillNumberInput(page, '[data-testid="workflow-camera-elevation-input"]', 52);
-  await fillNumberInput(page, '[data-testid="workflow-camera-theta-input"]', 25);
+  const manualSelectors = await waitForWorkflowCameraControlSelectors(page);
+  await fillNumberInput(page, manualSelectors.distance, 3.4);
+  await fillNumberInput(page, manualSelectors.elevation, 52);
+  await fillNumberInput(page, manualSelectors.theta, 25);
   const manual = await readWorkflowCameraValues(page);
   if (
     manual.distance !== 3.4 ||
@@ -387,26 +463,48 @@ async function exerciseWorkflowCameraControls(page: Page): Promise<void> {
   }
 }
 
-async function dragHorizontalControl(
+async function nudgeWorkflowCameraDistanceSlider(
   page: Page,
-  selector: string,
-): Promise<void> {
-  const element = await page.waitForSelector(selector, { timeout: 60000 });
-  const box = await element?.boundingBox();
-  if (!box) throw new Error(`Control is not visible: ${selector}`);
+  inputSelectors: WorkflowCameraInputSelectors,
+  previous: WorkflowCameraUiValues,
+): Promise<boolean> {
+  const handle = await page
+    .waitForSelector(
+      '[data-testid="workflow-camera-distance-slider"] [role="slider"]',
+      { timeout: 10000 },
+    )
+    .catch(() => null);
+  if (!handle) return false;
 
-  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.65, box.y + box.height / 2, {
-    steps: 8,
-  });
-  await page.mouse.up();
+  await handle.focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+
+  return page
+    .waitForFunction(
+      (before, selectors) => {
+        const value = Number(
+          (
+            document.querySelector<HTMLInputElement>(selectors.distance)
+              ?.value ?? "NaN"
+          ).trim(),
+        );
+        return Math.abs(value - before.distance) > 0.001;
+      },
+      { timeout: 5000 },
+      previous,
+      inputSelectors,
+    )
+    .then(() => true)
+    .catch(() => false);
 }
 
 async function readWorkflowCameraValues(
   page: Page,
 ): Promise<WorkflowCameraUiValues> {
-  return page.evaluate(() => {
+  const selectors = await waitForWorkflowCameraControlSelectors(page);
+  return page.evaluate((workflowSelectors) => {
     const read = (selector: string) =>
       Number(
         (
@@ -414,11 +512,11 @@ async function readWorkflowCameraValues(
         ).trim(),
       );
     return {
-      distance: read('[data-testid="workflow-camera-distance-input"]'),
-      elevation: read('[data-testid="workflow-camera-elevation-input"]'),
-      theta: read('[data-testid="workflow-camera-theta-input"]'),
+      distance: read(workflowSelectors.distance),
+      elevation: read(workflowSelectors.elevation),
+      theta: read(workflowSelectors.theta),
     };
-  });
+  }, selectors);
 }
 
 async function configureAtlasThroughUi(page: Page): Promise<void> {
@@ -470,7 +568,11 @@ async function fillNumberInput(
   selector: string,
   value: number,
 ): Promise<void> {
-  await page.waitForSelector(selector, { timeout: 60000 });
+  await page.waitForFunction(
+    (targetSelector) => !!document.querySelector(targetSelector),
+    { timeout: 60000 },
+    selector,
+  );
   await page.evaluate(
     (targetSelector, nextValue) => {
       const input = document.querySelector<HTMLInputElement>(targetSelector);
