@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import JSZip from "jszip";
 import { inspector } from "@kyonru/zustand-inspector";
+import type { ProjectSnapshot } from "@/types/project";
 import { CURRENT_VERSION } from "@/types/project";
 import { migrateSnapshot } from "./migration";
 import { useEntitiesStore } from "../entities";
@@ -9,7 +10,10 @@ import { useTransformsStore } from "../transforms";
 import { useModelsStore } from "../models";
 import { useCamerasStore } from "../cameras";
 import { useHistoryStore } from "../history";
-import { getFileFromFS } from "@/utils/file-system/fs.web";
+import {
+  getFileFromFS,
+  readFileFromFS,
+} from "@/utils/file-system/fs.web";
 import { toast } from "sonner";
 import { useTargetsStore } from "../targets";
 import { useLightsStore } from "../lights";
@@ -36,9 +40,16 @@ interface ProjectActions {
   new: () => void;
   save: () => Promise<void>;
   saveAs: () => Promise<void>;
-  buildZipBlob: (snapshot: ProjectSnapshot) => Promise<Blob>;
+  forceReset: () => void;
+  buildZipBlob: (
+    snapshot: ProjectSnapshot,
+    debugContext?: Record<string, unknown>,
+  ) => Promise<Blob>;
   load: (file: File) => Promise<void>;
-  applySnapshot: (snapshot: ProjectSnapshot, zip: JSZip) => Promise<void>;
+  applySnapshot: (
+    snapshot: ProjectSnapshot,
+    zip?: JSZip,
+  ) => Promise<void>;
 }
 
 const stores = {
@@ -64,11 +75,6 @@ type StoreSnapshots = {
     ReturnType<(typeof stores)[K]["getState"]>["getSnapshot"]
   >;
 };
-
-type ProjectSnapshot = {
-  version: number;
-  savedAt: number;
-} & StoreSnapshots;
 
 export const useProjectStore = create<ProjectState & ProjectActions>()(
   inspector(
@@ -119,6 +125,17 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         PubSub.emit(EventType.NEW_PROJECT);
       },
 
+      forceReset: () => {
+        (Object.keys(stores) as StoreKey[]).forEach((key) => {
+          stores[key].getState().reset();
+        });
+        set({ savedAt: null });
+        useSettingsStore.getState().setName("Untitled Project");
+        useHistoryStore.getState().reset();
+        setAppTitle("Untitled Project");
+        PubSub.emit(EventType.NEW_PROJECT);
+      },
+
       save: async () => {
         const snapshot = get().snapshot();
         const blob = await get().buildZipBlob(snapshot);
@@ -148,36 +165,60 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       },
 
       // Extracted so both save and saveAs share the same zip-building logic
-      buildZipBlob: async (snapshot: ProjectSnapshot): Promise<Blob> => {
-        const zip = new JSZip();
-        const modelsFolder = zip.folder("models")!;
+      buildZipBlob: async (
+        snapshot: ProjectSnapshot,
+        debugContext?: Record<string, unknown>,
+      ): Promise<Blob> => {
+        const buildProjectArchive = async () => {
+          const zip = new JSZip();
+          const modelsFolder = zip.folder("models")!;
 
-        for (const [uuid, model] of Object.entries(snapshot.models.models)) {
-          if (model.source === "authored") continue;
-          try {
-            const fileData = await getFileFromFS(uuid, "models");
-            if (fileData) {
-              modelsFolder.file(`${uuid}.${model.format}`, fileData);
+          for (const [uuid, model] of Object.entries(snapshot.models.models)) {
+            if (model.source === "authored") continue;
+            try {
+              const fileData = await getFileFromFS(uuid, "models");
+              if (fileData) {
+                modelsFolder.file(`${uuid}.${model.format}`, fileData);
+              }
+            } catch {
+              toast.warning(`Could not bundle model file: ${model.fileName}`);
             }
-          } catch {
-            toast.warning(`Could not bundle model file: ${model.fileName}`);
           }
+
+          for (const [uuid, texture] of Object.entries(
+            snapshot.materials.textures,
+          )) {
+            try {
+              const fileData = await getFileFromFS(uuid, "materials");
+              if (fileData) {
+                zip.file(`materials/${texture.filePath}`, fileData);
+              }
+            } catch {
+              toast.warning(
+                `Could not bundle material texture: ${texture.name}`,
+              );
+            }
+          }
+
+          zip.file("project.json", JSON.stringify(snapshot, null, 2));
+          return zip;
+        };
+
+        if (debugContext) {
+          const debugZip = new JSZip();
+          const projectZip = await buildProjectArchive();
+          const projectBlob = await projectZip.generateAsync({ type: "blob" });
+
+          debugZip.file("project.sshProj", projectBlob);
+          debugZip.file("project.json", JSON.stringify(snapshot, null, 2));
+          debugZip.file(
+            "debug-trail.json",
+            JSON.stringify(debugContext, null, 2),
+          );
+          return debugZip.generateAsync({ type: "blob" });
         }
 
-        for (const [uuid, texture] of Object.entries(
-          snapshot.materials.textures,
-        )) {
-          try {
-            const fileData = await getFileFromFS(uuid, "materials");
-            if (fileData) {
-              zip.file(`materials/${texture.filePath}`, fileData);
-            }
-          } catch {
-            toast.warning(`Could not bundle material texture: ${texture.name}`);
-          }
-        }
-
-        zip.file("project.json", JSON.stringify(snapshot, null, 2));
+        const zip = await buildProjectArchive();
         return zip.generateAsync({ type: "blob" });
       },
 
@@ -199,26 +240,11 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         }
       },
 
-      applySnapshot: async (snapshot, zip) => {
-        // Restore model binaries from zip into OPFS before hydrating stores
-        for (const [uuid, model] of Object.entries(snapshot.models.models)) {
-          if (model.source === "authored") continue;
-          const zipEntry = zip.file(`models/${uuid}.${model.format}`);
-          if (zipEntry) {
-            const arrayBuffer = await zipEntry.async("arraybuffer");
-            const file = new File([arrayBuffer], model.fileName, {
-              type: model.type,
-            });
-
-            // Make sure to load the model into the store
-            useModelsStore.getState().loadFromFile(uuid, file);
-          }
-        }
-
+      applySnapshot: async (snapshot: ProjectSnapshot, zip?: JSZip) => {
         for (const [uuid, texture] of Object.entries(
           snapshot.materials.textures,
         )) {
-          const zipEntry = zip.file(`materials/${texture.filePath}`);
+          const zipEntry = zip?.file(`materials/${texture.filePath}`);
           if (!zipEntry) continue;
           const arrayBuffer = await zipEntry.async("arraybuffer");
           const file = new File([arrayBuffer], texture.fileName, {
@@ -227,8 +253,55 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           await saveFileToFS(uuid, file, "materials");
         }
 
+        for (const texture of Object.values(snapshot.materials.textures)) {
+          const file = await readFileFromFS(texture.filePath, "materials").catch(
+            () => null,
+          );
+          if (!file && !zip?.file(`materials/${texture.filePath}`)) {
+            console.warn(
+              `Could not restore material texture from OPFS: ${texture.name}`,
+            );
+          }
+        }
+
         // Hydrate all stores
         get().restore(snapshot);
+
+        for (const [uuid, model] of Object.entries(snapshot.models.models)) {
+          if (model.source === "authored") continue;
+
+          const zipEntry = zip?.file(`models/${uuid}.${model.format}`);
+          if (zipEntry) {
+            const arrayBuffer = await zipEntry.async("arraybuffer");
+            const file = new File([arrayBuffer], model.fileName, {
+              type: model.type,
+            });
+
+            await useModelsStore.getState().loadFromFile(uuid, file);
+            continue;
+          }
+
+          if (model.filePath) {
+            const storedFile = await readFileFromFS(
+              model.filePath,
+              "models",
+            ).catch(() => null);
+            if (storedFile) {
+              const file = new File([storedFile], model.fileName, {
+                type: model.type || storedFile.type,
+              });
+              useModelsStore
+                .getState()
+                .attachStoredFile(uuid, file, model.filePath, model);
+            } else {
+              toast.warning(`Could not restore model file: ${model.fileName}`);
+            }
+          } else {
+            toast.warning(
+              `Could not restore model file (missing path): ${model.fileName}`,
+            );
+          }
+        }
 
         set({
           savedAt: snapshot.savedAt,

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { flushRecoveryFromStore } from "@/utils/project-recovery";
 
 export default function useReloadPrompt() {
   const {
@@ -33,7 +34,10 @@ export default function useReloadPrompt() {
         description: "Click reload to update the app.",
         action: {
           label: "Reload",
-          onClick: () => updateServiceWorker(true),
+          onClick: () => {
+            flushRecoveryFromStore("pwa-update");
+            return updateServiceWorker(true);
+          },
         },
         cancel: {
           label: "Dismiss",

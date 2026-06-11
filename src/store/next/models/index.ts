@@ -55,8 +55,22 @@ interface SourceModelImportOptions {
   forceInPlace?: boolean;
 }
 
+interface ModelLoadOptions {
+  autoFitOnLoad?: boolean;
+}
+
 interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
-  loadFromFile: (uuid: string, file: File) => Promise<void>;
+  loadFromFile: (
+    uuid: string,
+    file: File,
+    options?: ModelLoadOptions,
+  ) => Promise<void>;
+  attachStoredFile: (
+    uuid: string,
+    file: File,
+    filePath: string,
+    metadata?: Partial<ModelComponent>,
+  ) => void;
   createAuthoredModel: (
     uuid: string,
     authoredModelId: string,
@@ -135,7 +149,7 @@ export const useModelsStore = create<ModelsStore>()(
             };
           }),
 
-        loadFromFile: async (uuid, file) => {
+        loadFromFile: async (uuid, file, options = {}) => {
           const { setLoadState } = get();
           const format = file.name
             .split(".")
@@ -157,6 +171,7 @@ export const useModelsStore = create<ModelsStore>()(
                   fileSize: file.size,
                   format,
                   source: "file",
+                  autoFitOnLoad: options.autoFitOnLoad ?? true,
                   loadState: "loading",
                   errorMessage: null,
                 },
@@ -170,6 +185,33 @@ export const useModelsStore = create<ModelsStore>()(
 
           // loadState is intentionally set to "loading" above. Parse and runtime
           // setup are completed by the scene model component.
+        },
+
+        attachStoredFile: (uuid, file, filePath, metadata = {}) => {
+          const format = (
+            metadata.format ??
+            file.name.split(".").pop()?.toLowerCase()
+          ) as ModelComponent["format"];
+
+          set((state) => ({
+            models: {
+              ...state.models,
+              [uuid]: {
+                ...state.models[uuid],
+                ...metadata,
+                file,
+                fileName: metadata.fileName ?? file.name,
+                filePath,
+                type: metadata.type ?? file.type,
+                fileSize: metadata.fileSize ?? file.size,
+                format,
+                source: "file",
+                autoFitOnLoad: metadata.autoFitOnLoad ?? true,
+                loadState: "loading",
+                errorMessage: null,
+              },
+            },
+          }));
         },
 
         createAuthoredModel: (uuid, authoredModelId, name) =>

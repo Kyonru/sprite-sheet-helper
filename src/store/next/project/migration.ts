@@ -1,6 +1,8 @@
-import { type ProjectSnapshot_v4, CURRENT_VERSION } from "@/types/project";
+import type { ProjectSnapshot } from "@/types/project";
+import type { ProjectSnapshotVersion } from "@/types/project";
+import { CURRENT_VERSION } from "@/types/project";
 
-type RawSnapshot = Record<string, unknown> & { version: number };
+export type RawSnapshot = Record<string, unknown> & { version: number };
 
 // Add a migration function here for each version bump
 const migrations: Record<number, (old: RawSnapshot) => RawSnapshot> = {
@@ -51,7 +53,9 @@ const migrations: Record<number, (old: RawSnapshot) => RawSnapshot> = {
   }),
 };
 
-export function migrateSnapshot(raw: RawSnapshot): ProjectSnapshot_v4 {
+export function migrateSnapshot(
+  raw: ProjectSnapshotVersion | RawSnapshot,
+): ProjectSnapshot {
   let current = raw;
   const target = CURRENT_VERSION;
 
@@ -61,5 +65,5 @@ export function migrateSnapshot(raw: RawSnapshot): ProjectSnapshot_v4 {
     current = migrate(current);
   }
 
-  return current as unknown as ProjectSnapshot_v4;
+  return current as unknown as ProjectSnapshot;
 }

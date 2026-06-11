@@ -37,6 +37,7 @@ export type ModelLoadState = "idle" | "loading" | "loaded" | "error";
 export interface ModelComponent {
   source?: ModelSource;
   authoredModelId?: string;
+  autoFitOnLoad?: boolean;
   file?: File;
   // file info
   fileName: string;

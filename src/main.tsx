@@ -7,10 +7,16 @@ import "./index.css";
 import App from "./App.tsx";
 import StoreInspectorPanel from "../devtools/store";
 import PubSubDevtoolPanel from "../devtools/pubsub-panel";
+import { CrashRecoveryManager } from "./components/crash-recovery";
+import { installReloadStatusDebug } from "./utils/reload-status-debug";
+
+installReloadStatusDebug();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <CrashRecoveryManager>
+      <App />
+    </CrashRecoveryManager>
 
     {import.meta.env.DEV && (
       <TanStackDevtools

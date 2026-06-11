@@ -22,6 +22,12 @@ Go to `File > Save Project` (or `File > Save Project As` to save a copy). Choose
 
 Go to `File > Open Project` and select a `.sshProj` file. The entire scene is restored to the state it was in when you last saved.
 
+## Automatic Recovery
+
+Sprite Sheet Helper keeps a browser-local recovery snapshot while you work. If the tab refreshes, the app is closed and reopened, or a PWA update reloads the page, the latest local project state is restored automatically.
+
+Recovery snapshots are stored only in the current browser profile. They are not a replacement for a `.sshProj` file, and OPFS-backed model or texture assets still need to remain available in the browser's local storage.
+
 ## Tips
 
 - Save your project before running a workflow or doing a large export — it's a good checkpoint.

@@ -43,6 +43,8 @@ export interface ProjectSnapshot_v4 extends Omit<ProjectSnapshot_v3, "version"> 
   authoredModels: AuthoredModelsState;
 }
 
+export type ProjectSnapshot = ProjectSnapshot_v4;
+
 // Union type — extend as you add versions
 export type ProjectSnapshotVersion =
   | ProjectSnapshot_v1
@@ -51,3 +53,19 @@ export type ProjectSnapshotVersion =
   | ProjectSnapshot_v4;
 
 export const CURRENT_VERSION = 4;
+
+export const RECOVERY_SNAPSHOT_VERSION = 1;
+
+export type RecoveryRuntimeMeta = {
+  source?: string;
+  url?: string;
+  userAgent?: string;
+};
+
+export interface ProjectRecoveryEnvelope {
+  version: number;
+  appVersion: string;
+  savedAt: number;
+  projectSnapshot: ProjectSnapshotVersion;
+  runtimeMeta?: RecoveryRuntimeMeta;
+}

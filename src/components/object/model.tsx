@@ -45,6 +45,7 @@ export function Based({ uuid, ...props }: { uuid: string }) {
 
   const loadRequestRef = useRef(0);
   const parsedModelRef = useRef<ParsedModel | null>(null);
+  const autoFitObjectRef = useRef<THREE.Object3D | null>(null);
 
   const [object, setObject] = useState<THREE.Object3D | null>(null);
   const materials = useMaterialsStore((state) => state.materials);
@@ -117,12 +118,6 @@ export function Based({ uuid, ...props }: { uuid: string }) {
         setModelInventory(uuid, inventory);
         mixerRef.current = parsed.mixer;
 
-        const camera = controls?.camera;
-        if (camera) {
-          const scale = fitObjectToCamera(parsed.object, camera, 1);
-          parsed.object.scale.setScalar(scale);
-        }
-
         setOriginalRuntimeModel(uuid, {
           object: parsed.object,
           mixer: parsed.mixer,
@@ -173,7 +168,20 @@ export function Based({ uuid, ...props }: { uuid: string }) {
   }, [model?.file, model?.source, setClips, setLoadState, setModelInventory, setMixerRef, uuid]);
 
   useEffect(() => {
-    if (!model || model.source !== "authored" || !authoredRecipe) return;
+    if (!object) return;
+    if (model?.source !== "file") return;
+    if (model.autoFitOnLoad === false) return;
+    if (!controls?.camera) return;
+    if (autoFitObjectRef.current === object) return;
+
+    const scale = fitObjectToCamera(object, controls.camera, 1);
+    object.scale.setScalar(scale);
+    object.updateMatrixWorld(true);
+    autoFitObjectRef.current = object;
+  }, [controls?.camera, model?.autoFitOnLoad, model?.source, object]);
+
+  useEffect(() => {
+    if (model?.source !== "authored" || !authoredRecipe) return;
 
     const built = buildAuthoredModelObject(authoredRecipe);
     const inventory = buildMaterialInventory(built.object, uuid);

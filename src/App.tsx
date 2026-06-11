@@ -23,6 +23,9 @@ import { ConfirmProvider } from "./components/confirm";
 import { ReorderModalProvider } from "./components/animation-reorder-modal";
 import { SettingsModalProvider } from "./components/panels/top/settings";
 import { useSettingsStore } from "./store/next/settings";
+import { useCamerasStore } from "./store/next/cameras";
+import { useEntitiesStore } from "./store/next/entities";
+import { useLightsStore } from "./store/next/lights";
 import { DocsModalProvider } from "./components/docs";
 import { AboutModalProvider } from "./components/about-modal";
 import { ShaderEditorProvider } from "./components/custom-shader-modal";
@@ -48,6 +51,14 @@ function App() {
     const initProject = () => {
       if (init.current) return;
       init.current = true;
+
+      const hasExistingProjectState =
+        Object.keys(useEntitiesStore.getState().entities).length > 0 ||
+        Object.keys(useCamerasStore.getState().cameras).length > 0 ||
+        Object.keys(useLightsStore.getState().lights).length > 0;
+
+      if (hasExistingProjectState) return;
+
       addCamera({
         position: [0, 2.5, 3],
       });
