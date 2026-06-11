@@ -11,11 +11,13 @@ const IMPORT_MODEL_PATH = resolve(
   process.env.E2E_IMPORT_MODEL_PATH ?? "example.fbx",
 );
 const IMPORT_ANIMATION_SOURCE_PATH = resolve(
-  process.env.E2E_IMPORT_ANIMATION_SOURCE_PATH ?? "example.fbx",
+  process.env.E2E_IMPORT_ANIMATION_SOURCE_PATH ?? "example_model.glb",
 );
 
 async function getSequenceRowCount(page: Page): Promise<number> {
-  return page.evaluate(() => window.__SSH_BRIDGE__.stores.images.getState().images.length);
+  return page.evaluate(
+    () => window.__SSH_BRIDGE__.stores.images.getState().images.length,
+  );
 }
 
 async function getModelUuids(page: Page): Promise<string[]> {
@@ -24,10 +26,15 @@ async function getModelUuids(page: Page): Promise<string[]> {
   );
 }
 
-async function getModelClipNames(page: Page, modelUuid: string): Promise<string[]> {
+async function getModelClipNames(
+  page: Page,
+  modelUuid: string,
+): Promise<string[]> {
   return page.evaluate((uuid) => {
     const clips = window.__SSH_BRIDGE__.stores.models.getState().clips[uuid];
-    return (clips ?? []).map((clip: { clip: { name: string } }) => clip.clip.name);
+    return (clips ?? []).map(
+      (clip: { clip: { name: string } }) => clip.clip.name,
+    );
   }, modelUuid);
 }
 
@@ -70,9 +77,9 @@ async function openImportModelFromFileMenu(page: Page) {
       new Promise((resolve) => setTimeout(resolve, ms));
 
     const clickImportItem = () =>
-      Array.from(document.querySelectorAll<HTMLElement>('[data-slot="menubar-item"]')).find(
-        (item) => item.textContent?.includes("Import Model"),
-      );
+      Array.from(
+        document.querySelectorAll<HTMLElement>('[data-slot="menubar-item"]'),
+      ).find((item) => item.textContent?.includes("Import Model"));
 
     for (const trigger of triggers) {
       trigger.dispatchEvent(
@@ -119,7 +126,9 @@ async function importModelFromFile(page: Page, path: string): Promise<string> {
 
   return page.evaluate((existingModelIds: string[]) => {
     const models = window.__SSH_BRIDGE__.stores.models.getState().models;
-    return Object.keys(models).find((uuid) => !existingModelIds.includes(uuid)) ?? "";
+    return (
+      Object.keys(models).find((uuid) => !existingModelIds.includes(uuid)) ?? ""
+    );
   }, before);
 }
 
@@ -137,7 +146,10 @@ async function waitForModelToLoad(page: Page, modelUuid: string) {
 async function waitForModelClips(page: Page, modelUuid: string) {
   await page.waitForFunction(
     (uuid) => {
-      return (window.__SSH_BRIDGE__.stores.models.getState().clips[uuid]?.length ?? 0) > 0;
+      return (
+        (window.__SSH_BRIDGE__.stores.models.getState().clips[uuid]?.length ??
+          0) > 0
+      );
     },
     { timeout: 30_000 },
     modelUuid,
@@ -178,80 +190,78 @@ describe("Pose Studio model import after recorded sequence", () => {
       timeoutMs: 120000,
     });
 
-    page.on("pageerror", (error) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    page.on("pageerror", (error: any) => {
       pageErrors.push(`${error.message}\n${error.stack ?? ""}`);
     });
   });
 
-  it(
-    "records a sequence, then imports animations from a different loaded model with suffixes",
-    async () => {
-      if (!page) throw new Error("Browser did not start");
+  it("records a sequence, then imports animations from a different loaded model with suffixes", async () => {
+    if (!page) throw new Error("Browser did not start");
 
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-slot="menubar-trigger"]').length > 0,
-        { timeout: 10_000 },
-      );
+    await page.waitForFunction(
+      () =>
+        document.querySelectorAll('[data-slot="menubar-trigger"]').length > 0,
+      { timeout: 10_000 },
+    );
 
-      await page.evaluate(() => {
-        const { setIterations, setIntervals } =
-          window.__SSH_BRIDGE__.stores.images.getState();
-        setIntervals(10);
-        setIterations(4);
-      });
+    await page.evaluate(() => {
+      const { setIterations, setIntervals } =
+        window.__SSH_BRIDGE__.stores.images.getState();
+      setIntervals(10);
+      setIterations(4);
+    });
 
-      const initialModelCount = await getModelUuids(page);
-      const targetModelUuid = await importModelFromFile(page, IMPORT_MODEL_PATH);
-      await waitForModelToLoad(page, targetModelUuid);
-      expect(targetModelUuid).toBeTruthy();
-      expect(initialModelCount).not.toContain(targetModelUuid);
+    const initialModelCount = await getModelUuids(page);
+    const targetModelUuid = await importModelFromFile(page, IMPORT_MODEL_PATH);
+    await waitForModelToLoad(page, targetModelUuid);
+    expect(targetModelUuid).toBeTruthy();
+    expect(initialModelCount).not.toContain(targetModelUuid);
 
-      const initialRows = await getSequenceRowCount(page);
-      await clickElementByText(page, "button", "Record", "includes");
-      await page.waitForFunction(
-        (rows) =>
-          window.__SSH_BRIDGE__.stores.images.getState().images.length > rows,
-        { timeout: 30_000 },
-        initialRows,
-      );
+    const initialRows = await getSequenceRowCount(page);
+    await clickElementByText(page, "button", "Record", "includes");
+    await page.waitForFunction(
+      (rows) =>
+        window.__SSH_BRIDGE__.stores.images.getState().images.length > rows,
+      { timeout: 30_000 },
+      initialRows,
+    );
 
-      const rowsAfterRecord = await getSequenceRowCount(page);
-      expect(rowsAfterRecord).toBeGreaterThan(initialRows);
+    const rowsAfterRecord = await getSequenceRowCount(page);
+    expect(rowsAfterRecord).toBeGreaterThan(initialRows);
 
-      const sourceModelUuid = await importModelFromFile(
-        page,
-        IMPORT_ANIMATION_SOURCE_PATH,
-      );
-      expect(sourceModelUuid).toBeTruthy();
-      expect(sourceModelUuid).not.toBe(targetModelUuid);
+    const sourceModelUuid = await importModelFromFile(
+      page,
+      IMPORT_ANIMATION_SOURCE_PATH,
+    );
+    expect(sourceModelUuid).toBeTruthy();
+    expect(sourceModelUuid).not.toBe(targetModelUuid);
 
-      await waitForModelToLoad(page, sourceModelUuid);
-      await waitForModelClips(page, sourceModelUuid);
+    await waitForModelToLoad(page, sourceModelUuid);
+    await waitForModelClips(page, sourceModelUuid);
 
-      await importFromSourceModel(page, targetModelUuid, sourceModelUuid);
-      const firstNames = await getModelClipNames(page, targetModelUuid);
-      expect(firstNames.length).toBeGreaterThan(0);
+    await importFromSourceModel(page, targetModelUuid, sourceModelUuid);
+    const firstNames = await getModelClipNames(page, targetModelUuid);
+    expect(firstNames.length).toBeGreaterThan(0);
 
-      await importFromSourceModel(page, targetModelUuid, sourceModelUuid);
-      const secondNames = await getModelClipNames(page, targetModelUuid);
-      expect(secondNames.some((name) => name.includes(" + 1"))).toBe(true);
+    await importFromSourceModel(page, targetModelUuid, sourceModelUuid);
+    const secondNames = await getModelClipNames(page, targetModelUuid);
+    expect(secondNames.some((name) => name.includes("_1"))).toBe(true);
 
-      await importFromSourceModel(page, targetModelUuid, sourceModelUuid);
-      const thirdNames = await getModelClipNames(page, targetModelUuid);
-      expect(thirdNames.some((name) => name.includes(" + 2"))).toBe(true);
+    await importFromSourceModel(page, targetModelUuid, sourceModelUuid);
+    const thirdNames = await getModelClipNames(page, targetModelUuid);
+    expect(thirdNames.some((name) => name.includes("_2"))).toBe(true);
 
-      const rowsAfterAnimationImport = await getSequenceRowCount(page);
-      expect(rowsAfterAnimationImport).toBe(rowsAfterRecord);
+    const rowsAfterAnimationImport = await getSequenceRowCount(page);
+    expect(rowsAfterAnimationImport).toBe(rowsAfterRecord);
 
-      const appRootMounted = await page.evaluate(() => {
-        const appRoot = document.querySelector("#root");
-        return Boolean(appRoot?.isConnected && appRoot.childNodes.length > 0);
-      });
-      expect(appRootMounted).toBe(true);
-      expect(pageErrors).toHaveLength(0);
-    },
-    180_000,
-  );
+    const appRootMounted = await page.evaluate(() => {
+      const appRoot = document.querySelector("#root");
+      return Boolean(appRoot?.isConnected && appRoot.childNodes.length > 0);
+    });
+    expect(appRootMounted).toBe(true);
+    expect(pageErrors).toHaveLength(0);
+  }, 180_000);
 
   afterAll(async () => {
     await page?.close();
