@@ -8,26 +8,27 @@ export const FileExplorer = () => {
   const selected = useMainPanelStore((state) => state.tab);
 
   return (
-    <div className="flex flex-col h-full gap-2 p-2 ">
-      <div className="flex flex-col overflow-y-scroll rounded-sm h-full">
-        <Tabs
-          value={selected}
-          defaultValue="explorer"
-          className="w-full h-full"
-          onValueChange={(value) => setTab(value as MainPanelTab)}
+    <div className="flex h-full min-h-0 flex-col p-2">
+      <Tabs
+        value={selected}
+        defaultValue="explorer"
+        className="flex h-full min-h-0 flex-col gap-2"
+        onValueChange={(value) => setTab(value as MainPanelTab)}
+      >
+        <TabsList className="flex w-full shrink-0">
+          <TabsTrigger value="explorer">Explorer</TabsTrigger>
+          <TabsTrigger value="effects">Effects</TabsTrigger>
+        </TabsList>
+        <TabsContent
+          value="explorer"
+          className="min-h-0 flex-1 overflow-hidden"
         >
-          <TabsList className="flex w-full">
-            <TabsTrigger value="explorer">Explorer</TabsTrigger>
-            <TabsTrigger value="effects">Effects</TabsTrigger>
-          </TabsList>
-          <TabsContent value="explorer" className="h-full overflow-y-scroll">
-            <ObjectExplorer />
-          </TabsContent>
-          <TabsContent value="effects" className="overflow-y-scroll">
-            <EffectsExplorer />
-          </TabsContent>
-        </Tabs>
-      </div>
+          <ObjectExplorer />
+        </TabsContent>
+        <TabsContent value="effects" className="min-h-0 flex-1 overflow-hidden">
+          <EffectsExplorer />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

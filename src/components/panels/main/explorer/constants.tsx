@@ -8,11 +8,17 @@ import {
 } from "lucide-react";
 
 export const ItemTypeIconMap: Record<string, React.ReactNode> = {
-  spot: <ConeIcon className="size-4 text-yellow-600" />,
-  ambient: <SunIcon className="size-4 text-yellow-600" />,
-  point: <DiamondPlusIcon className="size-4 text-yellow-600" />,
-  directional: <SunsetIcon className="size-4 text-yellow-600" />,
+  spot: <ConeIcon className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />,
+  ambient: <SunIcon className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />,
+  point: (
+    <DiamondPlusIcon className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+  ),
+  directional: (
+    <SunsetIcon className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+  ),
   transform: <></>,
-  camera: <CameraIcon className="size-4 text-pink-900" />,
-  model: <FileAxis3DIcon className="size-4 text-cyan-800" />,
+  camera: <CameraIcon className="size-4 shrink-0 text-pink-700 dark:text-pink-400" />,
+  model: (
+    <FileAxis3DIcon className="size-4 shrink-0 text-cyan-700 dark:text-cyan-400" />
+  ),
 };

@@ -155,7 +155,7 @@ export const ObjectContext = () => {
   return (
     <LevaStoreProvider key={selected} store={objectStore}>
       <div className="grid min-h-0 gap-3 pb-8">
-        <section className="relative h-[260px] overflow-hidden rounded-md border bg-background">
+        <section className="relative h-65 overflow-y-auto rounded-md border bg-background">
           <ObjectDetails uuid={selected} />
         </section>
         {authoredModelId ? (

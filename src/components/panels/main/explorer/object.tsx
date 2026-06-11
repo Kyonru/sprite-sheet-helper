@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as React from "react";
 import {
   UncontrolledTreeEnvironment,
@@ -8,15 +7,16 @@ import {
   type TreeItemIndex,
   type TreeItem,
 } from "react-complex-tree";
-import { Label } from "@/components/ui/label";
 import { useEntitiesStore } from "@/store/next/entities";
 import { useSetEntityChildren } from "@/hooks/next/use-set-entity-children";
 import { ItemTypeIconMap } from "./constants";
 import { cn } from "@/lib/utils";
-import { Eye, EyeOff, Trash2Icon } from "lucide-react";
+import { Boxes, Eye, EyeOff, ListTree, Trash2Icon } from "lucide-react";
 import { confirm } from "@/components/confirm";
 import { useRemoveEntity } from "@/hooks/next/use-remove-entity";
 import type { Entity } from "@/types/ecs";
+
+type SceneTreeItem = TreeItem<string> & { type: string };
 
 export const ObjectExplorer = () => {
   const entities = useEntitiesStore((state) => state.entities);
@@ -127,76 +127,121 @@ export const ObjectExplorer = () => {
     setVisibility(entity.uuid, entity.visible === false);
   };
 
+  const entityCount = Object.keys(entities).length;
+
   return (
-    <UncontrolledTreeEnvironment
-      key={selected}
-      dataProvider={dataProvider}
-      getItemTitle={(item) => item.data}
-      viewState={{
-        "object-tree": {
-          selectedItems: [selected ? selected : ""],
-        },
-      }}
-      canDragAndDrop={false}
-      canDropOnFolder={false}
-      canReorderItems={false}
-      onSelectItems={(item) => {
-        if (item.length === 0 || item[0] === selected) {
-          unselectEntity();
-          return;
-        }
-
-        selectEntity(item[0] as string);
-      }}
-      defaultInteractionMode={InteractionMode.ClickItemToExpand}
-      renderItemTitle={({ title, item, context }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const icon = ItemTypeIconMap[(item as any).type];
-
-        return (
-          <div className="w-full flex flex-row items-center justify-between group relative">
-            <Label
-              className={cn({
-                "text-sm font-thin text-muted-foreground": true,
-                "text-foreground": context.isSelected,
-              })}
-            >
-              {icon}
-              {title}
-            </Label>
-            <div className="flex items-center gap-1 absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100">
-              {(item as any).type === "model" && (
-                <button
-                  type="button"
-                  title={
-                    entities[(item as any).index as string]?.visible === false
-                      ? "Show model"
-                      : "Hide model"
-                  }
-                  onClick={(event) =>
-                    onToggleVisibility(event, entities[(item as any).index as string])
-                  }
-                  className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
-                >
-                  {entities[(item as any).index as string]?.visible === false ? (
-                    <EyeOff className="h-3.5 w-3.5" />
-                  ) : (
-                    <Eye className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              )}
-              {(item as any).type !== "camera" && (
-                <Trash2Icon
-                  onClick={() => onDelete(title, item)}
-                  className="h-4 w-4 text-destructive cursor-pointer"
-                />
-              )}
-            </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <ListTree size={14} />
+            Scene
           </div>
-        );
-      }}
-    >
-      <Tree treeId="object-tree" rootItem="root" treeLabel="Tree Example" />
-    </UncontrolledTreeEnvironment>
+          <p className="text-xs text-muted-foreground">
+            {entityCount} object{entityCount === 1 ? "" : "s"} · click to
+            inspect
+          </p>
+        </div>
+      </div>
+
+      {entityCount === 0 ? (
+        <div className="grid flex-1 place-items-center px-4 text-center text-sm text-muted-foreground">
+          <div>
+            <Boxes className="mx-auto mb-2 size-5" />
+            The scene is empty. Import a model to get started.
+          </div>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto p-1">
+          <UncontrolledTreeEnvironment
+            key={selected}
+            dataProvider={dataProvider}
+            getItemTitle={(item) => item.data}
+            viewState={{
+              "object-tree": {
+                selectedItems: [selected ? selected : ""],
+              },
+            }}
+            canDragAndDrop={false}
+            canDropOnFolder={false}
+            canReorderItems={false}
+            onSelectItems={(item) => {
+              if (item.length === 0 || item[0] === selected) {
+                unselectEntity();
+                return;
+              }
+
+              selectEntity(item[0] as string);
+            }}
+            defaultInteractionMode={InteractionMode.ClickItemToExpand}
+            renderItemTitle={({ title, item, context }) => {
+              const type = (item as SceneTreeItem).type;
+              const entity = entities[item.index as string];
+              const isHidden = entity?.visible === false;
+
+              return (
+                <div className="group relative flex w-full min-w-0 items-center">
+                  <span
+                    className={cn(
+                      "flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground",
+                      context.isSelected && "font-medium text-foreground",
+                      isHidden && "opacity-60",
+                    )}
+                  >
+                    {ItemTypeIconMap[type]}
+                    <span className="truncate">{title}</span>
+                  </span>
+                  <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                    {type === "model" && (
+                      <button
+                        type="button"
+                        title={isHidden ? "Show model" : "Hide model"}
+                        aria-label={
+                          isHidden ? `Show ${title}` : `Hide ${title}`
+                        }
+                        onClick={(event) => onToggleVisibility(event, entity)}
+                        className={cn(
+                          "inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground",
+                          isHidden
+                            ? "opacity-100"
+                            : "opacity-0 group-hover:opacity-100",
+                        )}
+                      >
+                        {isHidden ? (
+                          <EyeOff className="size-3.5" />
+                        ) : (
+                          <Eye className="size-3.5" />
+                        )}
+                      </button>
+                    )}
+                    {type !== "camera" && (
+                      <button
+                        type="button"
+                        title={`Delete ${title}`}
+                        aria-label={`Delete ${title}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onDelete(title, item);
+                        }}
+                        className="inline-flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                      >
+                        <Trash2Icon className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            }}
+          >
+            <Tree
+              treeId="object-tree"
+              rootItem="root"
+              treeLabel="Scene objects"
+            />
+          </UncontrolledTreeEnvironment>
+        </div>
+      )}
+    </div>
   );
 };
