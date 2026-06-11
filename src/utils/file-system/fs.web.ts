@@ -1,3 +1,9 @@
+import {
+  isQuotaExceededError,
+  notifyQuotaExceeded,
+  warnIfStorageAlmostFull,
+} from "@/utils/storage-quota";
+
 type FileSystemDirectory = "models" | "materials" | "general";
 
 const getDir = async (
@@ -13,14 +19,23 @@ export const saveFileToFS = async (
   file: File,
   folder: FileSystemDirectory = "general",
 ): Promise<string> => {
+  await warnIfStorageAlmostFull();
+
   const dir = await getDir(folder);
 
   const fileName = `${uuid}.${file.name.split(".").pop()}`;
 
-  const handleDir = await dir.getFileHandle(fileName, { create: true });
-  const writable = await handleDir.createWritable();
-  await writable.write(file);
-  await writable.close();
+  try {
+    const handleDir = await dir.getFileHandle(fileName, { create: true });
+    const writable = await handleDir.createWritable();
+    await writable.write(file);
+    await writable.close();
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      notifyQuotaExceeded(file.name);
+    }
+    throw error;
+  }
 
   return fileName;
 };

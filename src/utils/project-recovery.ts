@@ -5,6 +5,7 @@ import type {
   RecoveryRuntimeMeta,
 } from "@/types/project";
 import { CURRENT_VERSION, RECOVERY_SNAPSHOT_VERSION } from "@/types/project";
+import { warnRecoveryPersistFailed } from "@/utils/storage-quota";
 
 const STORAGE_KEY = "sprite-sheet-helper.project-recovery-v1";
 
@@ -101,6 +102,7 @@ export function saveRecoveryEnvelope(
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
     console.warn("[recovery] failed to persist recovery snapshot", error);
+    warnRecoveryPersistFailed();
   }
 }
 
