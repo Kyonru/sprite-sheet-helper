@@ -96,6 +96,45 @@ A universal spritesheet pipeline:
 
 ---
 
+## Path to v1.0 — Production Readiness
+
+> Operational hardening required before calling the tool stable. Tracks work across all platforms (web PWA, desktop, CLI/Docker).
+
+### Reliability & Data Durability
+
+- ✅ Storage quota monitoring: warn when browser storage is almost full, surface quota errors on model/texture saves and crash-recovery writes
+- Missing-model handling on project load: blocking dialog listing missing files, with the option to remove orphaned entities (today: toast + silently empty geometry)
+- Move GIF encoding to a Web Worker with progress UI (single-threaded today; freezes the UI on large exports)
+- Model import progress indicator and size-aware timeout (today: hardcoded 30s silent timeout)
+
+### Observability
+
+- Opt-in, privacy-respecting error reporting (PII-scrubbed) for web + desktop; CLI stays offline
+- Update checker
+
+### Security & CI
+
+- ✅ Dependabot (npm, GitHub Actions, cargo) and `npm audit` in CI — graduate the audit step from non-blocking to blocking
+- ✅ Coverage reporting in CI
+- UI component tests (React Testing Library) for the main panels and export workbench
+- Accessibility pass: axe-core check in CI, keyboard support for timeline scrubbing
+
+### Performance
+
+- Code-split heavy surfaces with `React.lazy` (Export Workbench, Material Workbench, Pose Studio, Asset Toybox) — the main bundle is a single ~3.7 MB chunk today
+- Bundle-size budget check in CI
+
+### Legal & Community
+
+- ✅ LICENSE (MIT) and CONTRIBUTING.md
+- Privacy statement in docs: models and projects never leave the device
+
+### Docs
+
+- ✅ Storage durability guidance in the Projects doc, recovery troubleshooting entries
+
+---
+
 ## v0.8 — Stable Release
 
 > Stable, documented, production-ready tool.
