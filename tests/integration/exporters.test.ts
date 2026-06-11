@@ -3,7 +3,12 @@ import { renderAtlasPages } from "@/utils/atlas-renderer";
 import { SpritesheetExporter } from "@/utils/exports/spritesheet";
 import { phaserExporter } from "@/utils/exports/phaser";
 import { bevyExporter } from "@/utils/exports/bevy";
-import { love2dVanillaExporter } from "@/utils/exports/love2d";
+import { love2dVanillaExporter, love2dAnim8Exporter } from "@/utils/exports/love2d";
+import { godotExporter } from "@/utils/exports/godot";
+import { unityExporter } from "@/utils/exports/unity";
+import { pygameExporter } from "@/utils/exports/pygame";
+import { raylibExporter } from "@/utils/exports/raylib";
+import { turboRustExporter } from "@/utils/exports/turbo";
 import { exportRow, frame } from "../helpers/export-fixtures";
 
 vi.mock("@/utils/atlas-renderer", () => {
@@ -27,6 +32,12 @@ describe("spritesheet atlas exporters", () => {
     [SpritesheetExporter.label, SpritesheetExporter, "spritesheet_normal.png"],
     [phaserExporter.label, phaserExporter, "spritesheet_normal.png"],
     [love2dVanillaExporter.label, love2dVanillaExporter, "spritesheet_normal.png"],
+    [love2dAnim8Exporter.label, love2dAnim8Exporter, "spritesheet_normal.png"],
+    [godotExporter.label, godotExporter, "spritesheet_normal.png"],
+    [unityExporter.label, unityExporter, "spritesheet_normal.png"],
+    [pygameExporter.label, pygameExporter, "spritesheet_normal.png"],
+    [raylibExporter.label, raylibExporter, "spritesheet_normal.png"],
+    [turboRustExporter.label, turboRustExporter, "spritesheet_normal.png"],
     [bevyExporter.label, bevyExporter, "assets/spritesheet_normal.png"],
   ])("%s includes normal atlases when requested", async (_, exporter, normalFile) => {
     const result = await exporter.run({
@@ -42,6 +53,12 @@ describe("spritesheet atlas exporters", () => {
     [SpritesheetExporter.label, SpritesheetExporter],
     [phaserExporter.label, phaserExporter],
     [love2dVanillaExporter.label, love2dVanillaExporter],
+    [love2dAnim8Exporter.label, love2dAnim8Exporter],
+    [godotExporter.label, godotExporter],
+    [unityExporter.label, unityExporter],
+    [pygameExporter.label, pygameExporter],
+    [raylibExporter.label, raylibExporter],
+    [turboRustExporter.label, turboRustExporter],
     [bevyExporter.label, bevyExporter],
   ])("%s omits normal atlases when disabled", async (_, exporter) => {
     const result = await exporter.run({
@@ -59,6 +76,12 @@ describe("spritesheet atlas exporters", () => {
     [SpritesheetExporter.label, SpritesheetExporter, "spritesheet.manifest.json"],
     [phaserExporter.label, phaserExporter, "spritesheet.manifest.json"],
     [love2dVanillaExporter.label, love2dVanillaExporter, "spritesheet.manifest.json"],
+    [love2dAnim8Exporter.label, love2dAnim8Exporter, "spritesheet.manifest.json"],
+    [godotExporter.label, godotExporter, "spritesheet.manifest.json"],
+    [unityExporter.label, unityExporter, "spritesheet.manifest.json"],
+    [pygameExporter.label, pygameExporter, "spritesheet.manifest.json"],
+    [raylibExporter.label, raylibExporter, "spritesheet.manifest.json"],
+    [turboRustExporter.label, turboRustExporter, "spritesheet.manifest.json"],
     [bevyExporter.label, bevyExporter, "assets/spritesheet.manifest.json"],
   ])("%s includes the shared atlas manifest", async (_, exporter, manifestFile) => {
     const result = await exporter.run({
@@ -116,9 +139,19 @@ describe("spritesheet atlas exporters", () => {
     );
   });
 
-  it("blocks representative engine exporters from unsafe multi-page output", async () => {
+  it.each([
+    [phaserExporter.label, phaserExporter],
+    [love2dVanillaExporter.label, love2dVanillaExporter],
+    [love2dAnim8Exporter.label, love2dAnim8Exporter],
+    [godotExporter.label, godotExporter],
+    [unityExporter.label, unityExporter],
+    [pygameExporter.label, pygameExporter],
+    [raylibExporter.label, raylibExporter],
+    [turboRustExporter.label, turboRustExporter],
+    [bevyExporter.label, bevyExporter],
+  ])("%s blocks unsafe multi-page output", async (_, exporter) => {
     await expect(
-      phaserExporter.run({
+      exporter.run({
         exportedImages: [
           exportRow(
             "walk",
