@@ -5,10 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased]
+## [0.5.0]
 
 ### Added
 
+- Add model visibility
+- Import animations into selected model
+- Add in place option
+- add more Workflow config
 - Crash recovery with auto-saved project state and a restore/debug/reset dialog
 - Animation freeze options for imported clips
 - Warnings when browser storage is almost full or a save exceeds the quota
@@ -22,15 +26,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - CI: Dependabot, npm audit, coverage reporting
 - Test coverage ~65% → ~74% (history, scene stores, exporters, OPFS helpers)
 - Docs: storage limits and recovery troubleshooting
-
-## [0.5.0]
-
-### Added
-
-- Add model visibility
-- Import animations into selected model
-- Add in place option
-- add more Workflow config
 
 ### Fixed
 

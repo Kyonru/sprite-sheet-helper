@@ -14,9 +14,15 @@ installReloadStatusDebug();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <CrashRecoveryManager>
+    {/* Headless CLI runs must stay isolated and deterministic — never
+        restore a previous session's project state. */}
+    {__CLI_BUILD__ ? (
       <App />
-    </CrashRecoveryManager>
+    ) : (
+      <CrashRecoveryManager>
+        <App />
+      </CrashRecoveryManager>
+    )}
 
     {import.meta.env.DEV && (
       <TanStackDevtools
