@@ -183,6 +183,22 @@ export const WorkflowsMenu = () => {
   }, [storedTarget]);
 
   const steps = selectedWorkflow ? buildSteps(selectedWorkflow) : [];
+  const enabledSteps = useMemo(
+    () =>
+      steps.filter(
+        (step) =>
+          !step.rowLabel ||
+          !cameraDraft?.skippedStepLabels.includes(step.rowLabel),
+      ),
+    [cameraDraft?.skippedStepLabels, steps],
+  );
+  const enabledStepOrder = useMemo(
+    () =>
+      new Map(
+        enabledSteps.map((step, index) => [step.rowLabel, index + 1] as const),
+      ),
+    [enabledSteps],
+  );
   const isRunning = workflowState.status === "running";
   const isDone = workflowState.status === "done";
   const isCancelled = workflowState.status === "cancelled";
@@ -692,8 +708,8 @@ export const WorkflowsMenu = () => {
             <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium">
-                  Will generate {steps.length} sequence
-                  {steps.length !== 1 ? "s" : ""}
+                  Will generate {enabledSteps.length} sequence
+                  {enabledSteps.length !== 1 ? "s" : ""}
                 </p>
                 <div className="text-xs text-muted-foreground">
                   {cameraDraft?.previewAppliesTo === "selected"
@@ -919,12 +935,16 @@ export const WorkflowsMenu = () => {
 
               <div className="min-h-0 flex-1 overflow-y-auto rounded-md border p-2">
                 <div className="flex flex-col gap-1">
-                  {steps.map((step, i) => {
+                  {steps.map((step) => {
+                    const stepRunIndex = enabledStepOrder.get(step.rowLabel);
                     const isCurrentStep =
-                      isRunning && i + 1 === workflowState.currentStep;
+                      isRunning && step.rowLabel === workflowState.currentLabel;
                     const isPast = isRunning
-                      ? i + 1 < workflowState.currentStep
-                      : isDone;
+                      ? Boolean(
+                          stepRunIndex &&
+                            stepRunIndex < workflowState.currentStep,
+                        )
+                      : isDone && Boolean(stepRunIndex);
                     const isSelectedDirection =
                       step.directionLabel ===
                       cameraDraft?.selectedDirectionLabel;
@@ -1044,7 +1064,13 @@ export const WorkflowsMenu = () => {
                     <div
                       className="h-full bg-primary transition-all duration-200"
                       style={{
-                        width: `${(workflowState.currentStep / workflowState.totalSteps) * 100}%`,
+                        width: `${
+                          workflowState.totalSteps > 0
+                            ? (workflowState.currentStep /
+                                workflowState.totalSteps) *
+                              100
+                            : 0
+                        }%`,
                       }}
                     />
                   </div>
@@ -1474,10 +1500,10 @@ export const WorkflowsMenu = () => {
                 <Button
                   id="run-workflow-button"
                   onClick={onRun}
-                  disabled={steps.length === 0 || !canRunWorkflow}
+                  disabled={enabledSteps.length === 0 || !canRunWorkflow}
                 >
                   {canRunWorkflow
-                    ? `Run Workflow (${steps.length} sequences)`
+                    ? `Run Workflow (${enabledSteps.length} sequences)`
                     : "Load a model first"}
                 </Button>
               </>

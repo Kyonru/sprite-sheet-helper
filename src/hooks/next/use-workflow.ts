@@ -160,6 +160,13 @@ function getDirectionForStep(
   );
 }
 
+function shouldSkipStep(
+  step: WorkflowStep,
+  options?: WorkflowRunOptions,
+): boolean {
+  return options?.skipStepLabels?.includes(step.rowLabel) ?? false;
+}
+
 async function setStepAnimation(
   step: WorkflowStep,
   options?: WorkflowRunOptions,
@@ -168,7 +175,7 @@ async function setStepAnimation(
   if (!step.modelUuid) return;
 
   const modelState = useModelsStore.getState();
-  if (options?.skipStepLabels?.includes(step.rowLabel)) {
+  if (shouldSkipStep(step, options)) {
     modelState.setAnimation(step.modelUuid, "none");
     return;
   }
@@ -201,7 +208,7 @@ function resetStepAnimation(
   step: WorkflowStep,
   options?: WorkflowRunOptions,
 ) {
-  if (options?.skipStepLabels?.includes(step.rowLabel)) {
+  if (shouldSkipStep(step, options)) {
     return;
   }
 
@@ -264,7 +271,9 @@ export const useWorkflow = () => {
       useSettingsStore.getState().setExportNormalMap(captureNormalMaps);
     }
 
-    const steps = buildStepsFromStore(workflow);
+    const steps = buildStepsFromStore(workflow).filter(
+      (step) => !shouldSkipStep(step, options),
+    );
     const workflowRunId = Date.now().toString();
     workflowRunIdRef.current = workflowRunId;
 
