@@ -504,6 +504,7 @@ export function ExportWorkbench() {
 
   const [preflightOpen, setPreflightOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [history, setHistory] = useState<ExportHistoryEntry[]>(() =>
     loadExportHistory(),
   );
@@ -562,6 +563,23 @@ export function ExportWorkbench() {
     PubSub.on(EventType.STOP_EXPORT, onStopExport);
     return () => {
       PubSub.off(EventType.STOP_EXPORT, onStopExport);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onStartAssetsCreation = () => {
+      setIsRecording(true);
+    };
+
+    const onStopAssetsCreation = () => {
+      setIsRecording(false);
+    };
+
+    PubSub.on(EventType.START_ASSETS_CREATION, onStartAssetsCreation);
+    PubSub.on(EventType.STOP_ASSETS_CREATION, onStopAssetsCreation);
+    return () => {
+      PubSub.off(EventType.START_ASSETS_CREATION, onStartAssetsCreation);
+      PubSub.off(EventType.STOP_ASSETS_CREATION, onStopAssetsCreation);
     };
   }, []);
 
@@ -668,6 +686,7 @@ export function ExportWorkbench() {
                 size="sm"
                 variant="outline"
                 onClick={() => PubSub.emit(EventType.START_ASSETS_CREATION)}
+                disabled={isRecording}
               >
                 <Play size={14} />
                 Record
