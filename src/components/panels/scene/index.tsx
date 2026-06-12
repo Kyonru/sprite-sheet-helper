@@ -196,21 +196,24 @@ function SyncCameraFromStore({
     if (!cameraValues || !controlsRef.current) return;
     const camera = controlsRef.current.camera;
 
-    camera.near = cameraValues.near;
-    camera.far = cameraValues.far;
     if (
       cameraValues.type === "perspective" &&
       camera instanceof THREE.PerspectiveCamera
     ) {
       const values = cameraValues as PerspectiveCameraComponent;
       camera.fov = values.fov;
+      camera.near = values.near;
+      camera.far = values.far;
     }
+
     if (
       cameraValues.type === "orthographic" &&
       camera instanceof THREE.OrthographicCamera
     ) {
       const values = cameraValues as OrthographicCameraComponent;
       camera.zoom = values.zoom;
+      camera.near = values.near;
+      camera.far = values.far;
     }
     camera.updateProjectionMatrix();
   }, [cameraValues, controlsRef]);
@@ -350,13 +353,13 @@ function EditorScene({
       cam instanceof THREE.PerspectiveCamera
     ) {
       cam.fov = (cameraValues as PerspectiveCameraComponent).fov;
-    }
-    if (
+    } else if (
       cameraValues.type === "orthographic" &&
       cam instanceof THREE.OrthographicCamera
     ) {
       cam.zoom = (cameraValues as OrthographicCameraComponent).zoom;
     }
+
     cam.updateProjectionMatrix();
     cameraHelper.current.update();
   }, [cameraValues, cameraHelper]);
@@ -455,20 +458,19 @@ const CameraManager = () => {
     if (!cameraValues || !cameraTransform) return;
 
     const aspect = exportWidth / exportHeight;
-    const near = cameraValues.near;
-    const far = cameraValues.far;
-    const orthoSize = 10;
     const rotation = new THREE.Euler(
       ...(cameraTransform.rotation as [number, number, number]),
     );
     const orientation = new THREE.Quaternion().setFromEuler(rotation);
-
-    const perspectiveValues = cameraValues as PerspectiveCameraComponent;
-    const orthographicValues = cameraValues as OrthographicCameraComponent;
+    const near = cameraValues.near;
+    const far = cameraValues.far;
+    const orthoSize = 10;
+    const fov = (cameraValues as PerspectiveCameraComponent).fov;
+    const zoom = (cameraValues as OrthographicCameraComponent).zoom;
 
     // Create camera instances
     const perspectiveCamera = new THREE.PerspectiveCamera(
-      perspectiveValues.fov,
+      fov,
       aspect,
       near,
       far,
@@ -494,7 +496,9 @@ const CameraManager = () => {
       cameraTransform.position[2],
     );
     orthographicCamera.quaternion.copy(orientation);
-    orthographicCamera.zoom = orthographicValues.zoom;
+    orthographicCamera.zoom = zoom;
+    orthographicCamera.near = near;
+    orthographicCamera.far = far;
     orthographicCamera.updateProjectionMatrix();
 
     // Determine the next camera based on the prop

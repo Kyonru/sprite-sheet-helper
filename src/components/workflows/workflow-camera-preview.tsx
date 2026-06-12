@@ -307,14 +307,47 @@ function PreviewCameraControls({
 }: Pick<WorkflowCameraPreviewProps, "camera" | "onCameraChange">) {
   const controlsRef = useRef<CameraControls>(null);
   const { camera: threeCamera } = useThree();
+  const viewportWidth = useThree((state) => state.size.width);
+  const viewportHeight = useThree((state) => state.size.height);
+  const cameraViewportKey = `${Math.round(viewportWidth)}x${Math.round(viewportHeight)}`;
 
   useEffect(() => {
     threeCamera.position.set(...camera.position);
     controlsRef.current?.setLookAt(...camera.position, ...camera.target, false);
   }, [camera.position, camera.target, threeCamera]);
 
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    const aspect =
+      viewportWidth > 0 && viewportHeight > 0
+        ? viewportWidth / viewportHeight
+        : 0;
+
+    if (
+      camera.cameraType === "orthographic" &&
+      threeCamera instanceof THREE.OrthographicCamera &&
+      aspect > 0
+    ) {
+      threeCamera.left = (-ORTHOGRAPHIC_SIZE * aspect) / 2;
+      threeCamera.right = (ORTHOGRAPHIC_SIZE * aspect) / 2;
+      threeCamera.top = ORTHOGRAPHIC_SIZE / 2;
+      threeCamera.bottom = -ORTHOGRAPHIC_SIZE / 2;
+      threeCamera.updateProjectionMatrix();
+    }
+
+    controls.update(0);
+  }, [
+    camera.cameraType,
+    viewportWidth,
+    viewportHeight,
+    threeCamera,
+  ]);
+
   return (
     <CameraControls
+      key={`workflow-camera-controls-${camera.cameraType}-${cameraViewportKey}`}
       ref={controlsRef}
       makeDefault
       minDistance={0.1}
@@ -390,13 +423,19 @@ function TargetHandle({
 const ORTHOGRAPHIC_SIZE = 10;
 
 function CameraFromMode({ camera }: { camera: ResolvedWorkflowCamera }) {
-  const aspect = useThree((state) => state.size.width / state.size.height);
+  const viewportWidth = useThree((state) => state.size.width);
+  const viewportHeight = useThree((state) => state.size.height);
+  const aspect =
+    viewportWidth > 0 && viewportHeight > 0
+      ? viewportWidth / viewportHeight
+      : 0;
+  const cameraKey = `${Math.round(viewportWidth)}x${Math.round(viewportHeight)}`;
 
   if (camera.cameraType === "orthographic") {
     return (
       <OrthographicCamera
         makeDefault
-        key="workflow-preview-orthographic"
+        key={`workflow-preview-orthographic-${cameraKey}`}
         position={camera.position}
         near={0.01}
         far={1000}
@@ -430,7 +469,7 @@ export function WorkflowCameraPreview({
 }: WorkflowCameraPreviewProps) {
   return (
     <div
-      className="relative h-[360px] min-h-[360px] shrink-0 overflow-hidden rounded-md border bg-muted/20"
+      className="relative h-[420px] min-h-[420px] shrink-0 overflow-hidden rounded-md border bg-muted/20"
       data-testid="workflow-camera-preview"
     >
       <Canvas gl={{ antialias: false, alpha: true }}>
@@ -440,7 +479,9 @@ export function WorkflowCameraPreview({
           camera={camera}
           onCameraChange={onCameraChange}
         />
-        <PreviewSceneObjects selectedAnimation={selectedAnimation} />
+        <PreviewSceneObjects
+          selectedAnimation={selectedAnimation}
+        />
         <TargetHandle target={camera.target} onTargetChange={onTargetChange} />
         <Grid
           args={[10, 10]}

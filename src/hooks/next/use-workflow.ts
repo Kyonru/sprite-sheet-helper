@@ -273,9 +273,6 @@ export const useWorkflow = () => {
     const intervals = useImagesStore.getState().intervals;
     const iterations = useImagesStore.getState().iterations;
     const cameraUUID = useCamerasStore.getState().mainCamera;
-    const target: [number, number, number] = cameraUUID
-      ? (useTargetsStore.getState().targets[cameraUUID] ?? [0, 0, 0])
-      : [0, 0, 0];
     const mainCameraType = cameraUUID
       ? useCamerasStore.getState().cameras[cameraUUID]?.type
       : undefined;
@@ -283,6 +280,9 @@ export const useWorkflow = () => {
     if (cameraUUID) {
       useCamerasStore.getState().setCameraType(cameraUUID, workflowCameraType);
     }
+    const target: [number, number, number] = cameraUUID
+      ? (useTargetsStore.getState().targets[cameraUUID] ?? [0, 0, 0])
+      : [0, 0, 0];
 
     setWorkflowState({
       status: "running",

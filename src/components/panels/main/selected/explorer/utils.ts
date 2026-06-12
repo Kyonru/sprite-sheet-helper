@@ -7,6 +7,14 @@ export const buildInputs = <T extends object>(
   schema: Schema,
 ) => {
   for (const key in obj) {
+    const typedObj = obj as { type?: string };
+    if (typedObj.type === "perspective" && key === "zoom") {
+      continue;
+    }
+    if (typedObj.type === "orthographic" && key === "fov") {
+      continue;
+    }
+
     if (key === "type") continue;
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment

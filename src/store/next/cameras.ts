@@ -15,7 +15,7 @@ export const DEFAULT_PERSPECTIVE_CAMERA: CameraComponent = {
 
 export const DEFAULT_ORTHOGRAPHIC_CAMERA: CameraComponent = {
   type: "orthographic" as CameraType,
-  zoom: 50,
+  zoom: 1,
   near: 0.1,
   far: 100,
 };
@@ -72,19 +72,36 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
 
         setCameraType: (uuid, type) =>
           set((state) => {
-            const defaults =
+            const current = state.cameras[uuid];
+            if (!current) return state;
+
+            const nextCamera =
               type === "orthographic"
-                ? DEFAULT_ORTHOGRAPHIC_CAMERA
-                : DEFAULT_PERSPECTIVE_CAMERA;
+                ? {
+                    ...current,
+                    type: "orthographic",
+                    near: current.near,
+                    far: current.far,
+                    zoom:
+                      current.type === "orthographic"
+                        ? current.zoom
+                        : DEFAULT_ORTHOGRAPHIC_CAMERA.zoom,
+                  }
+                : {
+                    ...current,
+                    type: "perspective",
+                    near: current.near,
+                    far: current.far,
+                    fov:
+                      current.type === "perspective"
+                        ? current.fov
+                        : DEFAULT_PERSPECTIVE_CAMERA.fov,
+                  };
 
             return {
               cameras: {
                 ...state.cameras,
-                [uuid]: {
-                  ...defaults,
-                  ...state.cameras[uuid],
-                  type,
-                },
+                [uuid]: nextCamera,
               },
             };
           }),

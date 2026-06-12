@@ -42,12 +42,12 @@ import {
 } from "lucide-react";
 import { useSettingsStore, type SettingsState } from "@/store/next/settings";
 import { useCamerasStore } from "@/store/next/cameras";
-import { type CameraType } from "@/types/camera";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { createPortal } from "react-dom";
 import * as z from "zod";
 import { ExportFormats, type ExportFormat } from "@/types/file";
+import type { CameraType } from "@/types/camera";
 import { GradientPicker } from "@/components/ui/gradient-picker";
 import { Switch } from "@/components/ui/switch";
 import { useTheme, type Theme } from "@/components/theme-provider";
@@ -147,14 +147,12 @@ function SettingsSection({
 
 export function SettingsModalProvider() {
   const settings = useSettingsStore((state) => state);
+  const updateSettings = useSettingsStore((state) => state.update);
   const mainCameraUuid = useCamerasStore((state) => state.mainCamera);
-  const mainCamera = useCamerasStore(
-    (state) =>
-      state.mainCamera ? state.cameras[state.mainCamera] : undefined,
+  const mainCamera = useCamerasStore((state) =>
+    state.mainCamera ? state.cameras[state.mainCamera] : undefined,
   );
   const setCameraType = useCamerasStore((state) => state.setCameraType);
-  const mainCameraType = mainCamera?.type ?? "perspective";
-  const updateSettings = useSettingsStore((state) => state.update);
   const [state, setState] = useState<SettingsModalState>({ open: false });
   const { setTheme } = useTheme();
   const originalThemeRef = useRef<"light" | "dark">(settings.theme);
@@ -182,7 +180,7 @@ export function SettingsModalProvider() {
       cameraDistance: settings.cameraDistance,
       cameraAngle:
         settings.cameraAngle === undefined ? "" : `${settings.cameraAngle}`,
-      cameraType: mainCameraType as CameraType,
+      cameraType: (mainCamera?.type ?? "perspective") as CameraType,
       editorBackgroundColor: settings.editorBackgroundColor,
       gridSectionColor: settings.gridSectionColor,
       gridCellColor: settings.gridCellColor,
@@ -207,14 +205,14 @@ export function SettingsModalProvider() {
         cameraDistance: settings.cameraDistance,
         cameraAngle:
           settings.cameraAngle === undefined ? "" : `${settings.cameraAngle}`,
-        cameraType: mainCameraType as CameraType,
+        cameraType: (mainCamera?.type ?? "perspective") as CameraType,
         editorBackgroundColor: settings.editorBackgroundColor,
         gridSectionColor: settings.gridSectionColor,
         gridCellColor: settings.gridCellColor,
         theme: settings.theme,
       });
     }
-  }, [form, settings, state.open, mainCameraType]);
+  }, [form, settings, state.open]);
 
   const onClose = () => {
     setTheme(originalThemeRef.current);
@@ -231,15 +229,14 @@ export function SettingsModalProvider() {
     updateSettings({
       ...projectSettings,
       cameraAngle:
-        data.cameraAngle !== undefined && data.cameraAngle !== ""
-          ? parseFloat(data.cameraAngle)
+        projectSettings.cameraAngle !== undefined &&
+        projectSettings.cameraAngle !== ""
+          ? parseFloat(projectSettings.cameraAngle)
           : undefined,
     } as SettingsState);
-
-    if (mainCameraUuid && mainCamera && cameraType !== mainCamera.type) {
+    if (mainCameraUuid) {
       setCameraType(mainCameraUuid, cameraType);
     }
-
     originalThemeRef.current = data.theme as Exclude<Theme, "system">;
     originalBgRef.current = data.editorBackgroundColor as string;
     originalGridSectionRef.current = data.gridSectionColor as string;
@@ -548,6 +545,47 @@ export function SettingsModalProvider() {
                   >
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Controller
+                        name="cameraType"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                          <Field data-invalid={fieldState.invalid}>
+                            <FieldContent>
+                              <FieldLabel htmlFor="settings-camera-type">
+                                Projection
+                              </FieldLabel>
+                              <FieldDescription>
+                                Switch between perspective and orthographic.
+                              </FieldDescription>
+                              {fieldState.invalid && (
+                                <FieldError errors={[fieldState.error]} />
+                              )}
+                            </FieldContent>
+                            <Select
+                              name={field.name}
+                              value={field.value as CameraType}
+                              onValueChange={field.onChange}
+                            >
+                              <SelectTrigger
+                                id="settings-camera-type"
+                                aria-invalid={fieldState.invalid}
+                                className="w-full sm:w-[220px]"
+                              >
+                                <SelectValue placeholder="Projection type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="perspective">
+                                  Perspective
+                                </SelectItem>
+                                <SelectItem value="orthographic">
+                                  Orthographic
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </Field>
+                        )}
+                      />
+
+                      <Controller
                         name="cameraDistance"
                         control={form.control}
                         render={({ field, fieldState }) => (
@@ -571,46 +609,6 @@ export function SettingsModalProvider() {
                               min={0}
                               aria-invalid={fieldState.invalid}
                             />
-                          </Field>
-                        )}
-                      />
-
-                      <Controller
-                        name="cameraType"
-                        control={form.control}
-                        render={({ field, fieldState }) => (
-                          <Field data-invalid={fieldState.invalid}>
-                            <FieldContent>
-                              <FieldLabel htmlFor="settings-camera-type">
-                                Projection
-                              </FieldLabel>
-                              <FieldDescription>
-                                Switch between perspective and orthographic.
-                              </FieldDescription>
-                              {fieldState.invalid && (
-                                <FieldError errors={[fieldState.error]} />
-                              )}
-                            </FieldContent>
-      <Select
-        name={field.name}
-        value={field.value as CameraType}
-        onValueChange={field.onChange}
-                            >
-                              <SelectTrigger
-                                id="settings-camera-type"
-                                aria-invalid={fieldState.invalid}
-                              >
-                                <SelectValue placeholder="Projection type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="perspective">
-                                  Perspective
-                                </SelectItem>
-                                <SelectItem value="orthographic">
-                                  Orthographic
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
                           </Field>
                         )}
                       />

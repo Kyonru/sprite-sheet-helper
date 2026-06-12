@@ -54,6 +54,7 @@ import { useCamerasStore } from "@/store/next/cameras";
 import { useTarget } from "@/store/next/targets";
 import { useModelsStore, type LoopType } from "@/store/next/models";
 import { cn } from "@/lib/utils";
+import type { CameraType } from "@/types/camera";
 
 const WORKFLOW_LOOP_OPTIONS = {
   "Loop Once": THREE.LoopOnce,
@@ -69,7 +70,7 @@ type PreviewAppliesTo = "all" | "selected";
 type WorkflowCameraDraft = {
   distance: number;
   elevationAngle: number;
-  cameraType: "perspective" | "orthographic";
+  cameraType: CameraType;
   directionRotationOffset: number;
   target: WorkflowCameraTarget;
   selectedDirectionLabel: string;
@@ -102,7 +103,7 @@ function createCameraDraft({
   workflow: WorkflowDefinition;
   cameraDistance: number;
   cameraAngle?: number;
-  cameraType: "perspective" | "orthographic";
+  cameraType: CameraType;
   target: WorkflowCameraTarget;
   captureNormalMaps: boolean;
 }): WorkflowCameraDraft {
@@ -167,12 +168,10 @@ export const WorkflowsMenu = () => {
   const setCameraAngle = useSettingsStore((state) => state.setCameraAngle);
   const exportNormalMap = useSettingsStore((state) => state.exportNormalMap);
   const cameraUUID = useCamerasStore((state) => state.mainCamera);
-  const setCameraType = useCamerasStore((state) => state.setCameraType);
   const mainCameraType = useCamerasStore(
-    (state) =>
-      (state.mainCamera ? state.cameras[state.mainCamera]?.type : "perspective") ??
-      "perspective",
+    (state) => state.cameras[cameraUUID || ""]?.type,
   );
+  const setCameraType = useCamerasStore((state) => state.setCameraType);
   const intervals = useImagesStore((state) => state.intervals);
   const iterations = useImagesStore((state) => state.iterations);
   const setIntervals = useImagesStore((state) => state.setIntervals);
@@ -400,7 +399,7 @@ export const WorkflowsMenu = () => {
           workflow,
           cameraDistance,
           cameraAngle,
-          cameraType: mainCameraType,
+          cameraType: mainCameraType ?? "perspective",
           target: defaultTarget,
           captureNormalMaps: exportNormalMap,
         }),
@@ -411,9 +410,9 @@ export const WorkflowsMenu = () => {
     [
       cameraAngle,
       cameraDistance,
-      mainCameraType,
       defaultTarget,
       exportNormalMap,
+      mainCameraType,
       setSelectedWorkflow,
       resetWorkflow,
       setDialogOpen,
@@ -443,7 +442,7 @@ export const WorkflowsMenu = () => {
         workflow: selectedWorkflow,
         cameraDistance,
         cameraAngle,
-        cameraType: mainCameraType,
+        cameraType: mainCameraType ?? "perspective",
         target: defaultTarget,
         captureNormalMaps: exportNormalMap,
       }),
@@ -451,8 +450,8 @@ export const WorkflowsMenu = () => {
   }, [
     cameraAngle,
     cameraDistance,
-    mainCameraType,
     defaultTarget,
+    mainCameraType,
     selectedWorkflow,
     exportNormalMap,
   ]);
@@ -570,11 +569,19 @@ export const WorkflowsMenu = () => {
   }, [selectedDirection]);
 
   const applyToMainCameraDefaults = useCallback(() => {
-    if (!selectedPreviewCamera || !cameraUUID) return;
+    if (!selectedPreviewCamera) return;
     setCameraDistance(selectedPreviewCamera.distance);
     setCameraAngle(selectedPreviewCamera.phi);
-    setCameraType(cameraUUID, selectedPreviewCamera.cameraType);
-  }, [cameraUUID, selectedPreviewCamera, setCameraAngle, setCameraDistance, setCameraType]);
+    if (cameraUUID) {
+      setCameraType(cameraUUID, selectedPreviewCamera.cameraType);
+    }
+  }, [
+    selectedPreviewCamera,
+    cameraUUID,
+    setCameraType,
+    setCameraAngle,
+    setCameraDistance,
+  ]);
 
   const setPreviewCamera = useCallback(
     (camera: { distance: number; phi: number; theta: number }) => {
@@ -668,7 +675,7 @@ export const WorkflowsMenu = () => {
         }}
       >
         <DialogContent
-          className="max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0 sm:max-w-[1120px] z-999"
+          className="max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0 w-[90vw] sm:max-w-[90vw] z-999"
           showCloseButton={!isRunning}
         >
           <DialogHeader>
@@ -681,7 +688,7 @@ export const WorkflowsMenu = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid min-h-0 gap-4 overflow-hidden px-6 lg:grid-cols-[minmax(0,1fr)_430px]">
+          <div className="grid min-h-0 gap-4 overflow-hidden px-6 lg:grid-cols-[minmax(0,1fr)_620px]">
             <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium">
@@ -752,6 +759,163 @@ export const WorkflowsMenu = () => {
                   Ignore all
                 </Button>
               </div>
+
+              {selectedPreviewCamera && previewDirection && (
+                <div className="grid gap-3 rounded-md border p-3">
+                  <button
+                    type="button"
+                    className="flex items-center justify-between gap-2 text-sm font-medium"
+                    onClick={() =>
+                      setAnimationSettingsExpanded((expanded) => !expanded)
+                    }
+                  >
+                    <span>Animation settings</span>
+                    {animationSettingsExpanded ? (
+                      <ChevronDownIcon className="size-4" />
+                    ) : (
+                      <ChevronRightIcon className="size-4" />
+                    )}
+                  </button>
+
+                  {animationSettingsExpanded && (
+                    <div className="grid gap-3">
+                      {shouldShowStepControls ? (
+                        <>
+                          <div className="flex min-w-0 items-center justify-between gap-3 text-xs text-muted-foreground">
+                            <span className="min-w-0 truncate">
+                              <span className="font-medium text-foreground">
+                                {selectedStep?.animationName}
+                              </span>
+                            </span>
+                            <span className="shrink-0">
+                              Angle: {previewDirection?.label}
+                            </span>
+                          </div>
+
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <div className="grid gap-1">
+                              <Label
+                                htmlFor="workflow-animation-start-frame"
+                                className="text-xs text-muted-foreground"
+                              >
+                                Start frame
+                              </Label>
+                              <Input
+                                id="workflow-animation-start-frame"
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={selectedStepStartFrame}
+                                onChange={(event) => {
+                                  const value = Number(event.target.value);
+                                  if (Number.isFinite(value)) {
+                                    updateStepAnimationRange(
+                                      value,
+                                      selectedStepLengthFrames,
+                                    );
+                                  }
+                                }}
+                                disabled={isRunning || !shouldShowStepControls}
+                                className="h-8"
+                              />
+                            </div>
+
+                            <div className="grid gap-1">
+                              <Label
+                                htmlFor="workflow-animation-duration-frames"
+                                className="text-xs text-muted-foreground"
+                              >
+                                Duration
+                              </Label>
+                              <Input
+                                id="workflow-animation-duration-frames"
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={selectedStepLengthFrames}
+                                onChange={(event) => {
+                                  const value = Number(event.target.value);
+                                  if (Number.isFinite(value)) {
+                                    updateStepAnimationRange(
+                                      selectedStepStartFrame,
+                                      value,
+                                    );
+                                  }
+                                }}
+                                disabled={isRunning || !shouldShowStepControls}
+                                className="h-8"
+                              />
+                            </div>
+
+                            <div className="grid gap-1">
+                              <Label
+                                htmlFor="workflow-animation-loop"
+                                className="text-xs text-muted-foreground"
+                              >
+                                Looping
+                              </Label>
+                              <select
+                                id="workflow-animation-loop"
+                                value={selectedStepLoop}
+                                onChange={(event) => {
+                                  if (
+                                    !selectedStepModelUuid ||
+                                    !selectedStepAnimationName ||
+                                    selectedStepAnimationName === "none"
+                                  ) {
+                                    return;
+                                  }
+
+                                  setStepLoop(
+                                    selectedStepModelUuid,
+                                    selectedStepAnimationName,
+                                    Number(event.target.value) as LoopType,
+                                  );
+                                }}
+                                disabled={isRunning || !shouldShowStepControls}
+                                className="h-8 w-full rounded border border-input bg-background px-2 text-sm"
+                              >
+                                {Object.entries(WORKFLOW_LOOP_OPTIONS).map(
+                                  ([label, value]) => (
+                                    <option key={label} value={value}>
+                                      {label}
+                                    </option>
+                                  ),
+                                )}
+                              </select>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Select an animation step to configure duration and
+                          looping.
+                        </p>
+                      )}
+
+                      <label className="flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2 text-sm">
+                        <span className="text-muted-foreground">
+                          Force animations in place
+                        </span>
+                        <Switch
+                          checked={cameraDraft?.forceAnimationsInPlace}
+                          onCheckedChange={(checked) =>
+                            setCameraDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    forceAnimationsInPlace: Boolean(checked),
+                                  }
+                                : prev,
+                            )
+                          }
+                          disabled={isRunning}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="min-h-0 flex-1 overflow-y-auto rounded-md border p-2">
                 <div className="flex flex-col gap-1">
@@ -928,215 +1092,102 @@ export const WorkflowsMenu = () => {
                   />
 
                   <div className="grid gap-3 rounded-md border p-3">
-                    <button
-                      type="button"
-                      className="flex items-center justify-between gap-2 text-sm font-medium"
-                      onClick={() =>
-                        setAnimationSettingsExpanded((expanded) => !expanded)
-                      }
-                    >
-                      <span>Animation settings</span>
-                      {animationSettingsExpanded ? (
-                        <ChevronDownIcon className="size-4" />
-                      ) : (
-                        <ChevronRightIcon className="size-4" />
-                      )}
-                    </button>
-
-                    {animationSettingsExpanded && (
-                      <div className="grid gap-2 rounded-md border p-3">
-                        {shouldShowStepControls ? (
-                          <>
-                            <div className="rounded-md border p-2">
-                              <div className="text-xs text-muted-foreground">
-                                Animation
-                              </div>
-                              <div className="text-sm font-semibold">
-                                {selectedStep?.animationName}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Angle: {previewDirection?.label}
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="rounded-md border px-3 py-2">
-                                <Label
-                                  htmlFor="workflow-animation-start-frame"
-                                  className="mb-2 block text-xs text-muted-foreground"
-                                >
-                                  Start frame
-                                </Label>
-                                <Input
-                                  id="workflow-animation-start-frame"
-                                  type="number"
-                                  min={0}
-                                  step={1}
-                                  value={selectedStepStartFrame}
-                                  onChange={(event) => {
-                                    const value = Number(event.target.value);
-                                    if (Number.isFinite(value)) {
-                                      updateStepAnimationRange(
-                                        value,
-                                        selectedStepLengthFrames,
-                                      );
-                                    }
-                                  }}
-                                  disabled={
-                                    isRunning || !shouldShowStepControls
-                                  }
-                                  className="h-8"
-                                />
-                              </div>
-
-                              <div className="rounded-md border px-3 py-2">
-                                <Label
-                                  htmlFor="workflow-animation-duration-frames"
-                                  className="mb-2 block text-xs text-muted-foreground"
-                                >
-                                  Duration (frames)
-                                </Label>
-                                <Input
-                                  id="workflow-animation-duration-frames"
-                                  type="number"
-                                  min={1}
-                                  step={1}
-                                  value={selectedStepLengthFrames}
-                                  onChange={(event) => {
-                                    const value = Number(event.target.value);
-                                    if (Number.isFinite(value)) {
-                                      updateStepAnimationRange(
-                                        selectedStepStartFrame,
-                                        value,
-                                      );
-                                    }
-                                  }}
-                                  disabled={
-                                    isRunning || !shouldShowStepControls
-                                  }
-                                  className="h-8"
-                                />
-                              </div>
-
-                              <div className="rounded-md border px-3 py-2">
-                                <Label
-                                  htmlFor="workflow-animation-loop"
-                                  className="mb-2 block text-xs text-muted-foreground"
-                                >
-                                  Looping
-                                </Label>
-                                <select
-                                  id="workflow-animation-loop"
-                                  value={selectedStepLoop}
-                                  onChange={(event) => {
-                                    if (
-                                      !selectedStepModelUuid ||
-                                      !selectedStepAnimationName ||
-                                      selectedStepAnimationName === "none"
-                                    ) {
-                                      return;
-                                    }
-
-                                    setStepLoop(
-                                      selectedStepModelUuid,
-                                      selectedStepAnimationName,
-                                      Number(event.target.value) as LoopType,
-                                    );
-                                  }}
-                                  disabled={
-                                    isRunning || !shouldShowStepControls
-                                  }
-                                  className="h-8 w-full rounded border border-input bg-background px-2 text-sm"
-                                >
-                                  {Object.entries(WORKFLOW_LOOP_OPTIONS).map(
-                                    ([label, value]) => (
-                                      <option key={label} value={value}>
-                                        {label}
-                                      </option>
-                                    ),
-                                  )}
-                                </select>
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Select an animation step to configure duration and
-                            looping.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <CameraIcon className="size-4" />
                         Camera Draft
                       </div>
-                      <div className="flex rounded-md border p-0.5">
-                        <Button
-                          type="button"
-                          size="xs"
-                          data-testid="workflow-camera-apply-all-mode"
-                          variant={
-                            cameraDraft?.previewAppliesTo === "all"
-                              ? "default"
-                              : "ghost"
-                          }
-                          disabled={isRunning}
-                          onClick={() =>
-                            setCameraDraft((prev) =>
-                              prev
-                                ? { ...prev, previewAppliesTo: "all" }
-                                : prev,
-                            )
-                          }
-                        >
-                          All
-                        </Button>
-                        <Button
-                          type="button"
-                          size="xs"
-                          data-testid="workflow-camera-apply-selected-mode"
-                          variant={
-                            cameraDraft?.previewAppliesTo === "selected"
-                              ? "default"
-                              : "ghost"
-                          }
-                          disabled={isRunning}
-                          onClick={() =>
-                            setCameraDraft((prev) =>
-                              prev
-                                ? { ...prev, previewAppliesTo: "selected" }
-                                : prev,
-                            )
-                          }
-                        >
-                          Selected
-                        </Button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          Projection
+                        </span>
+                        <div className="flex rounded-md border p-0.5">
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant={
+                              cameraDraft?.cameraType === "perspective"
+                                ? "default"
+                                : "outline"
+                            }
+                            disabled={isRunning}
+                            data-testid="workflow-camera-projection-perspective"
+                            onClick={() =>
+                              setCameraDraft((prev) =>
+                                prev
+                                  ? { ...prev, cameraType: "perspective" }
+                                  : prev,
+                              )
+                            }
+                          >
+                            Perspective
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant={
+                              cameraDraft?.cameraType === "orthographic"
+                                ? "default"
+                                : "outline"
+                            }
+                            disabled={isRunning}
+                            data-testid="workflow-camera-projection-orthographic"
+                            onClick={() =>
+                              setCameraDraft((prev) =>
+                                prev
+                                  ? { ...prev, cameraType: "orthographic" }
+                                  : prev,
+                              )
+                            }
+                          >
+                            Orthographic
+                          </Button>
+                        </div>
+                        <div className="flex rounded-md border p-0.5">
+                          <Button
+                            type="button"
+                            size="xs"
+                            data-testid="workflow-camera-apply-all-mode"
+                            variant={
+                              cameraDraft?.previewAppliesTo === "all"
+                                ? "default"
+                                : "ghost"
+                            }
+                            disabled={isRunning}
+                            onClick={() =>
+                              setCameraDraft((prev) =>
+                                prev
+                                  ? { ...prev, previewAppliesTo: "all" }
+                                  : prev,
+                              )
+                            }
+                          >
+                            All
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            data-testid="workflow-camera-apply-selected-mode"
+                            variant={
+                              cameraDraft?.previewAppliesTo === "selected"
+                                ? "default"
+                                : "ghost"
+                            }
+                            disabled={isRunning}
+                            onClick={() =>
+                              setCameraDraft((prev) =>
+                                prev
+                                  ? { ...prev, previewAppliesTo: "selected" }
+                                  : prev,
+                              )
+                            }
+                          >
+                            Selected
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="rounded-md border px-3 py-2">
-                      <label className="flex items-center justify-between gap-2 text-sm">
-                        <span className="text-muted-foreground">
-                          Force animations in place
-                        </span>
-                        <Switch
-                          checked={cameraDraft?.forceAnimationsInPlace}
-                          onCheckedChange={(checked) =>
-                            setCameraDraft((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    forceAnimationsInPlace: Boolean(checked),
-                                  }
-                                : prev,
-                            )
-                          }
-                          disabled={isRunning}
-                        />
-                      </label>
-                    </div>
                     <div className="rounded-md border px-3 py-2">
                       <label className="flex items-center justify-between gap-2 text-sm">
                         <span className="text-muted-foreground">
@@ -1316,56 +1367,6 @@ export const WorkflowsMenu = () => {
                             updateSelectedCamera({ theta: value })
                           }
                         />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                      <Label>Projection</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={
-                            selectedPreviewCamera.cameraType === "perspective"
-                              ? "default"
-                              : "outline"
-                          }
-                          disabled={isRunning}
-                          onClick={() => {
-                            setCameraDraft((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    cameraType: "perspective",
-                                  }
-                                : prev,
-                            );
-                          }}
-                        >
-                          Perspective
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={
-                            selectedPreviewCamera.cameraType === "orthographic"
-                              ? "default"
-                              : "outline"
-                          }
-                          disabled={isRunning}
-                          onClick={() => {
-                            setCameraDraft((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    cameraType: "orthographic",
-                                  }
-                                : prev,
-                            );
-                          }}
-                        >
-                          Orthographic
-                        </Button>
                       </div>
                     </div>
 
