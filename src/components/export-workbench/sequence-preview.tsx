@@ -305,6 +305,7 @@ export function SequencePreview() {
   const rows = useImagesStore((state) => state.images);
   const selectedRow = useImagesStore((state) => state.selectedRow);
   const setSelectedRow = useImagesStore((state) => state.setSelectedRow);
+  const setImages = useImagesStore((state) => state.setImages);
   const removeImagesRow = useImagesStore((state) => state.removeImagesRow);
   const removeImageFromRow = useImagesStore(
     (state) => state.removeImageFromRow,
@@ -406,6 +407,17 @@ export function SequencePreview() {
     [activeRow, removeImageFromRow, selectedRow],
   );
 
+  const removeAllRows = useCallback(() => {
+    confirm.delete("all rows", {
+      onConfirm: () => {
+        setImages([]);
+        setSelectedRow(0);
+        setPlaying(false);
+        setActiveFrameIndex(0);
+      },
+    });
+  }, [setImages, setPlaying, setActiveFrameIndex, setSelectedRow]);
+
   const selectPreviousFrame = useCallback(() => {
     if (!activeRow || activeRow.images.length <= 1) return;
     setPlaying(false);
@@ -457,6 +469,16 @@ export function SequencePreview() {
                   />
                 ))}
               </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-max justify-self-end text-xs"
+                onClick={removeAllRows}
+              >
+                <Trash2 size={12} />
+                Delete all rows
+              </Button>
 
               <div className="relative rounded-md border bg-muted/20">
                 <div className="mx-auto aspect-square w-full max-w-80">

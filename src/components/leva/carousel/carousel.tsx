@@ -265,6 +265,7 @@ export const LevaCarousel = () => {
   const frameDelay = useImagesStore((state) => state.fps);
   const selectedRow = useImagesStore((state) => state.selectedRow);
   const removeImagesRow = useImagesStore((state) => state.removeImagesRow);
+  const setImages = useImagesStore((state) => state.setImages);
   const updateLabel = useImagesStore((state) => state.updateLabel);
   const updateWidth = useImagesStore((state) => state.updateWidth);
   const updateHeight = useImagesStore((state) => state.updateHeight);
@@ -289,6 +290,15 @@ export const LevaCarousel = () => {
     },
     [removeImagesRow, setSelectedRow],
   );
+
+  const removeAllRows = useCallback(() => {
+    confirm.delete("all rows", {
+      onConfirm: () => {
+        setImages([]);
+        setSelectedRow(0);
+      },
+    });
+  }, [setImages, setSelectedRow]);
 
   const onRemoveImageFromRow = useCallback(
     (index: number, imageIndex: number) => {
@@ -343,6 +353,18 @@ export const LevaCarousel = () => {
   return (
     <>
       <Row className="max-h-40 pr-2 pb-4 overflow-y-scroll pt-2">
+        <div className="flex items-center justify-end gap-2 p-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={removeAllRows}
+          >
+            <LucideTrash className="size-3.5" />
+            Delete all rows
+          </Button>
+        </div>
         <RadioGroup>
           {images.map((row, index) => (
             <div
