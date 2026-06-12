@@ -51,6 +51,19 @@ const migrations: Record<number, (old: RawSnapshot) => RawSnapshot> = {
           }
         : old.models,
   }),
+  5: (old) => ({
+    ...old,
+    version: 5,
+    models:
+      typeof old.models === "object" && old.models !== null
+        ? {
+            ...old.models,
+            hiddenAnimations:
+              (old.models as { hiddenAnimations?: Record<string, string[]> })
+                .hiddenAnimations ?? {},
+          }
+        : old.models,
+  }),
 };
 
 export function migrateSnapshot(

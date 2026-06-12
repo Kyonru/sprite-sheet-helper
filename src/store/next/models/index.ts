@@ -55,6 +55,7 @@ export interface ModelsState {
   durations: Record<string, Record<string, [number, number]>>;
   speeds: Record<string, Record<string, number>>;
   loops: Record<string, Record<string, LoopType>>;
+  hiddenAnimations: Record<string, string[]>;
   currentTime: Record<string, number>;
   frameStep: Record<string, number>;
   freeze: Record<string, boolean>;
@@ -104,6 +105,12 @@ interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
   ) => void;
   setSpeed: (uuid: string, animation: string, speed: number) => void;
   setLoop: (uuid: string, animation: string, loop: LoopType) => void;
+  setAnimationHidden: (
+    uuid: string,
+    animation: string,
+    hidden: boolean,
+  ) => void;
+  restoreHiddenAnimations: (uuid: string) => void;
   setLoadState: (
     uuid: string,
     loadState: ModelLoadState,
@@ -134,6 +141,7 @@ const initialState: ModelsState = {
   durations: {},
   speeds: {},
   loops: {},
+  hiddenAnimations: {},
   currentTime: {},
   frameStep: {},
   freeze: {},
@@ -283,11 +291,14 @@ export const useModelsStore = create<ModelsStore>()(
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [uuid]: _______, ...loops } = state.loops;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: ________, ...currentTime } = state.currentTime;
+            const { [uuid]: ________, ...hiddenAnimations } =
+              state.hiddenAnimations;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: _________, ...frameStep } = state.frameStep;
+            const { [uuid]: _________, ...currentTime } = state.currentTime;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: __________, ...freeze } = state.freeze;
+            const { [uuid]: __________, ...frameStep } = state.frameStep;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: ___________, ...freeze } = state.freeze;
 
             return {
               models,
@@ -297,6 +308,7 @@ export const useModelsStore = create<ModelsStore>()(
               durations,
               speeds,
               loops,
+              hiddenAnimations,
               currentTime,
               frameStep,
               freeze,
@@ -334,6 +346,35 @@ export const useModelsStore = create<ModelsStore>()(
             loops: {
               ...state.loops,
               [uuid]: { ...state.loops[uuid], [animation]: loop },
+            },
+          })),
+
+        setAnimationHidden: (uuid, animation, hidden) =>
+          set((state) => {
+            if (!animation || animation === "none") return state;
+
+            const current = state.hiddenAnimations[uuid] ?? [];
+            const nextHidden = hidden
+              ? Array.from(new Set([...current, animation]))
+              : current.filter((name) => name !== animation);
+
+            return {
+              hiddenAnimations: {
+                ...state.hiddenAnimations,
+                [uuid]: nextHidden,
+              },
+              animations:
+                hidden && state.animations[uuid] === animation
+                  ? { ...state.animations, [uuid]: "none" }
+                  : state.animations,
+            };
+          }),
+
+        restoreHiddenAnimations: (uuid) =>
+          set((state) => ({
+            hiddenAnimations: {
+              ...state.hiddenAnimations,
+              [uuid]: [],
             },
           })),
 
@@ -683,6 +724,7 @@ export const useModelsStore = create<ModelsStore>()(
             durations: get().durations,
             speeds: get().speeds,
             loops: get().loops,
+            hiddenAnimations: get().hiddenAnimations,
             currentTime: get().currentTime,
             frameStep: get().frameStep,
             freeze: get().freeze,
@@ -696,6 +738,7 @@ export const useModelsStore = create<ModelsStore>()(
             durations: snapshot.durations,
             speeds: snapshot.speeds,
             loops: snapshot.loops,
+            hiddenAnimations: snapshot.hiddenAnimations ?? {},
             currentTime: snapshot.currentTime,
             frameStep: snapshot.frameStep,
             freeze: snapshot.freeze,
@@ -712,6 +755,7 @@ export const useModelsStore = create<ModelsStore>()(
           createNestedWatcher("durations", "model/duration"),
           createNestedWatcher("speeds", "model/speed"),
           createNestedWatcher("loops", "model/loop"),
+          createHiddenAnimationsWatcher(),
         ],
       },
     ),
@@ -782,6 +826,68 @@ function createNestedWatcher<K extends "durations" | "speeds" | "loops">(
           if (prevInner[anim] !== nextInner[anim]) {
             return `model:${uuid}:${key}:${anim}`;
           }
+        }
+      }
+    },
+  };
+}
+
+function createHiddenAnimationsWatcher(): FieldWatcher<
+  ModelsState & ModelsActions
+> {
+  const normalizeList = (value: unknown) =>
+    Array.isArray(value)
+      ? value.filter((entry): entry is string => typeof entry === "string")
+      : [];
+  const listKey = (value: unknown) => normalizeList(value).join("\0");
+
+  return {
+    select: (state) => state.hiddenAnimations,
+
+    toAction: (prev, next, api) => {
+      const prevMap = prev.hiddenAnimations;
+      const nextMap = next.hiddenAnimations;
+
+      for (const uuid of new Set([
+        ...Object.keys(prevMap),
+        ...Object.keys(nextMap),
+      ])) {
+        const p = normalizeList(prevMap[uuid]);
+        const n = normalizeList(nextMap[uuid]);
+
+        if (listKey(p) !== listKey(n)) {
+          return {
+            type: "model/hiddenAnimations",
+            uuid,
+            from: [...p],
+            to: [...n],
+
+            apply: ({ value }: { value: string[] }) => {
+              const hiddenAnimations = normalizeList(value);
+              api.setState((state) => ({
+                hiddenAnimations: {
+                  ...state.hiddenAnimations,
+                  [uuid]: [...hiddenAnimations],
+                },
+              }));
+            },
+          };
+        }
+      }
+
+      return null;
+    },
+
+    mergeKey: (prev, next) => {
+      const prevMap = prev.hiddenAnimations;
+      const nextMap = next.hiddenAnimations;
+
+      for (const uuid of new Set([
+        ...Object.keys(prevMap),
+        ...Object.keys(nextMap),
+      ])) {
+        if (listKey(prevMap[uuid]) !== listKey(nextMap[uuid])) {
+          return `model:${uuid}:hiddenAnimations`;
         }
       }
     },

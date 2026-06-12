@@ -81,6 +81,31 @@ describe("resolveCollisionName", () => {
   });
 });
 
+describe("useModelsStore hidden animations", () => {
+  beforeEach(() => {
+    useModelsStore.getState().reset();
+  });
+
+  it("hides the selected animation and restores hidden animations", () => {
+    const modelUuid = "model-a";
+
+    useModelsStore.getState().setAnimation(modelUuid, "Walk");
+
+    expect(() => {
+      useModelsStore.getState().setAnimationHidden(modelUuid, "Walk", true);
+    }).not.toThrow();
+
+    expect(useModelsStore.getState().hiddenAnimations[modelUuid]).toEqual([
+      "Walk",
+    ]);
+    expect(useModelsStore.getState().animations[modelUuid]).toBe("none");
+
+    useModelsStore.getState().restoreHiddenAnimations(modelUuid);
+
+    expect(useModelsStore.getState().hiddenAnimations[modelUuid]).toEqual([]);
+  });
+});
+
 describe("useModelsStore importAnimationsFromSource", () => {
   beforeEach(() => {
     useModelsStore.getState().reset();

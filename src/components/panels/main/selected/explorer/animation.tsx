@@ -32,6 +32,8 @@ const ANIMATION_LOOP_OPTIONS: Record<string, LoopType> = {
   "Ping Pong": THREE.LoopPingPong,
 };
 
+const EMPTY_HIDDEN_ANIMATIONS: string[] = [];
+
 const AnimationDetails = ({ uuid }: { uuid: string }) => {
   const store = useStoreContext();
   const entity = useEntity(uuid);
@@ -44,6 +46,15 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   const speeds = useModelsStore((state) => state.speeds);
   const setLoop = useModelsStore((state) => state.setLoop);
   const loops = useModelsStore((state) => state.loops);
+  const hiddenAnimations = useModelsStore(
+    (state) => state.hiddenAnimations[uuid] ?? EMPTY_HIDDEN_ANIMATIONS,
+  );
+  const setAnimationHidden = useModelsStore(
+    (state) => state.setAnimationHidden,
+  );
+  const restoreHiddenAnimations = useModelsStore(
+    (state) => state.restoreHiddenAnimations,
+  );
 
   const freeze = useModelsStore((state) => state.freeze[uuid]);
   const setFreeze = useModelsStore((state) => state.setFreeze);
@@ -61,6 +72,13 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   const entities = useEntitiesStore((state) => state.entities);
 
   const animations = useModelsStore((state) => state.clips[uuid]);
+  const visibleAnimations = useMemo(
+    () =>
+      animations?.filter(
+        (entry) => !hiddenAnimations.includes(entry.clip.name),
+      ),
+    [animations, hiddenAnimations],
+  );
   const isModelReady = model?.loadState === "loaded";
   const candidateSourceModels = useMemo(() => {
     const entries = Object.entries(models)
@@ -259,15 +277,17 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
       return;
     }
 
-    if (!animations || animations.length === 0) {
+    if (!visibleAnimations || visibleAnimations.length === 0) {
       toast.error("No animations available to force.");
       return;
     }
 
     const activeAnimationName =
-      animation && animation !== "none" && animations.some((clip) => clip.clip.name === animation)
+      animation &&
+      animation !== "none" &&
+      visibleAnimations.some((clip) => clip.clip.name === animation)
         ? animation
-        : animations[0]?.clip.name;
+        : visibleAnimations[0]?.clip.name;
 
     if (!activeAnimationName) {
       toast.error("Select an animation first.");
@@ -301,13 +321,28 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     }
   }, [
     animation,
-    animations,
     currentInPlaceAxisMode,
     forceCurrentAnimationInPlace,
     isModelReady,
     setAnimation,
     uuid,
+    visibleAnimations,
   ]);
+
+  const handleHideCurrentAnimation = useCallback(() => {
+    if (!animation || animation === "none") {
+      toast.error("Select an animation to hide.");
+      return;
+    }
+
+    setAnimationHidden(uuid, animation, true);
+    toast.success(`Animation "${animation}" hidden from this model.`);
+  }, [animation, setAnimationHidden, uuid]);
+
+  const handleRestoreHiddenAnimations = useCallback(() => {
+    restoreHiddenAnimations(uuid);
+    toast.success("Hidden animations restored.");
+  }, [restoreHiddenAnimations, uuid]);
 
   const inputs = useMemo(() => {
     const i: Schema = {};
@@ -317,12 +352,12 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
       !entity?.uuid ||
       !uuid ||
       !isModelReady ||
-      !animations
+      !visibleAnimations
     ) {
       return {};
     }
 
-    if (animations) {
+    if (visibleAnimations) {
       i["force current axes"] = {
         options: IN_PLACE_AXIS_OPTIONS,
         value: currentInPlaceAxisMode,
@@ -337,7 +372,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
 
       const animationOptions = [
         "none",
-        ...animations.map((clip) => clip.clip.name),
+        ...visibleAnimations.map((clip) => clip.clip.name),
       ];
 
       i["animation"] = {
@@ -347,7 +382,19 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
           setAnimation(uuid, value);
         },
       };
-      const clip = animations.find((clip) => clip.clip.name === animation);
+      i["hide selected animation"] = button(handleHideCurrentAnimation);
+
+      if (hiddenAnimations.length > 0) {
+        i["hidden animations"] = {
+          value: `${hiddenAnimations.length}`,
+          editable: false,
+        };
+        i["restore hidden animations"] = button(handleRestoreHiddenAnimations);
+      }
+
+      const clip = visibleAnimations.find(
+        (clip) => clip.clip.name === animation,
+      );
 
       i["length"] = {
         value: `${clip?.clip.duration || 0} seconds`,
@@ -409,9 +456,12 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     entity?.uuid,
     uuid,
     isModelReady,
-    animations,
+    visibleAnimations,
     animation,
     setAnimation,
+    hiddenAnimations.length,
+    handleHideCurrentAnimation,
+    handleRestoreHiddenAnimations,
     durations,
     setDuration,
     speeds,
@@ -447,18 +497,22 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     uuid,
     animation,
     currentInPlaceAxisMode,
+    hiddenAnimations.length,
     handleForceCurrentInPlace,
+    handleHideCurrentAnimation,
+    handleRestoreHiddenAnimations,
+    visibleAnimations?.length,
   ]);
 
   useEffect(() => {
-    if (!animations) return;
+    if (!visibleAnimations) return;
 
-    const clip = animations.find((clip) => clip.clip.name === animation);
+    const clip = visibleAnimations.find((clip) => clip.clip.name === animation);
 
     set({
       length: `${clip?.clip.duration ?? 0} seconds`,
     });
-  }, [uuid, set, animation, animations]);
+  }, [uuid, set, animation, visibleAnimations]);
 
   return (
     <LevaPanel

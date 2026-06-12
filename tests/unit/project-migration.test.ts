@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { migrateSnapshot } from "@/store/next/project/migration";
 
 describe("project migrations", () => {
-  it("adds empty material, downgrade, and authored model snapshots when migrating v1 projects", () => {
+  it("adds empty material, downgrade, authored model, and hidden animation snapshots when migrating v1 projects", () => {
     const migrated = migrateSnapshot({
       version: 1,
       savedAt: 1,
@@ -19,7 +19,7 @@ describe("project migrations", () => {
       effects: {},
     });
 
-    expect(migrated.version).toBe(4);
+    expect(migrated.version).toBe(5);
     expect("materials" in migrated).toBe(true);
     expect(migrated.materials).toEqual({
       materials: {},
@@ -35,6 +35,10 @@ describe("project migrations", () => {
     expect(migrated.authoredModels).toEqual({
       recipes: {},
       selectedRecipeId: undefined,
+    });
+    expect(migrated.models).toEqual({
+      models: {},
+      hiddenAnimations: {},
     });
   });
 });

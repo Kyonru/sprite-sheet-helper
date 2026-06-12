@@ -37,6 +37,22 @@ describe("workflow utilities", () => {
     expect(steps.map((step) => step.rowLabel)).toContain("idle_W");
   });
 
+  it("filters hidden animation names from workflow steps", () => {
+    const steps = buildWorkflowSteps(workflow, {
+      clips: { modelA: [clip("walk"), clip("idle")] },
+      hiddenAnimations: { modelA: ["idle"] },
+      modelUuids: ["modelA"],
+    });
+
+    expect(steps).toHaveLength(4);
+    expect(steps.map((step) => step.rowLabel)).toEqual([
+      "walk_N",
+      "walk_E",
+      "walk_S",
+      "walk_W",
+    ]);
+  });
+
   it("prefixes row labels when multiple models can collide", () => {
     const steps = buildWorkflowSteps(workflow, {
       clips: {

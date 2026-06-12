@@ -43,16 +43,21 @@ export interface ProjectSnapshot_v4 extends Omit<ProjectSnapshot_v3, "version"> 
   authoredModels: AuthoredModelsState;
 }
 
-export type ProjectSnapshot = ProjectSnapshot_v4;
+export interface ProjectSnapshot_v5 extends Omit<ProjectSnapshot_v4, "version"> {
+  version: 5;
+}
+
+export type ProjectSnapshot = ProjectSnapshot_v5;
 
 // Union type — extend as you add versions
 export type ProjectSnapshotVersion =
   | ProjectSnapshot_v1
   | ProjectSnapshot_v2
   | ProjectSnapshot_v3
-  | ProjectSnapshot_v4;
+  | ProjectSnapshot_v4
+  | ProjectSnapshot_v5;
 
-export const CURRENT_VERSION = 4;
+export const CURRENT_VERSION = 5;
 
 export const RECOVERY_SNAPSHOT_VERSION = 1;
 

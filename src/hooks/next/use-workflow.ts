@@ -143,9 +143,10 @@ const waitForAnimationReady = (
   });
 
 function buildStepsFromStore(workflow: WorkflowDefinition): WorkflowStep[] {
-  const { clips, models } = useModelsStore.getState();
+  const { clips, hiddenAnimations, models } = useModelsStore.getState();
   return buildWorkflowSteps(workflow, {
     clips,
+    hiddenAnimations,
     modelUuids: Object.keys(models),
   });
 }

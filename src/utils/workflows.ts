@@ -16,14 +16,18 @@ export type WorkflowClipEntry = {
 export type BuildWorkflowStepsInput = {
   clips: Record<string, WorkflowClipEntry[]>;
   modelUuids: string[];
+  hiddenAnimations?: Record<string, string[]>;
 };
 
 export function buildWorkflowSteps(
   workflow: WorkflowDefinition,
-  { clips, modelUuids }: BuildWorkflowStepsInput,
+  { clips, modelUuids, hiddenAnimations = {} }: BuildWorkflowStepsInput,
 ): WorkflowStep[] {
   const clipEntries = Object.entries(clips).filter(
-    ([, modelClips]) => modelClips.length > 0,
+    ([modelUuid, modelClips]) =>
+      modelClips.some(
+        (entry) => !hiddenAnimations[modelUuid]?.includes(entry.clip.name),
+      ),
   );
 
   if (clipEntries.length === 0) {
@@ -35,7 +39,14 @@ export function buildWorkflowSteps(
   }
 
   const rawSteps = clipEntries.flatMap(([modelUuid, modelClips]) => {
-    const animationNames = [...new Set(modelClips.map((c) => c.clip.name))];
+    const hiddenNames = hiddenAnimations[modelUuid] ?? [];
+    const animationNames = [
+      ...new Set(
+        modelClips
+          .map((c) => c.clip.name)
+          .filter((name) => !hiddenNames.includes(name)),
+      ),
+    ];
     return animationNames.flatMap((animationName) =>
       workflow.directions.map((dir) => ({
         modelUuid,
