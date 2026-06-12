@@ -69,6 +69,7 @@ type PreviewAppliesTo = "all" | "selected";
 type WorkflowCameraDraft = {
   distance: number;
   elevationAngle: number;
+  cameraType: "perspective" | "orthographic";
   directionRotationOffset: number;
   target: WorkflowCameraTarget;
   selectedDirectionLabel: string;
@@ -94,12 +95,14 @@ function createCameraDraft({
   workflow,
   cameraDistance,
   cameraAngle,
+  cameraType,
   target,
   captureNormalMaps,
 }: {
   workflow: WorkflowDefinition;
   cameraDistance: number;
   cameraAngle?: number;
+  cameraType: "perspective" | "orthographic";
   target: WorkflowCameraTarget;
   captureNormalMaps: boolean;
 }): WorkflowCameraDraft {
@@ -107,6 +110,7 @@ function createCameraDraft({
   return {
     distance: cameraDistance,
     elevationAngle: cameraAngle ?? firstDirection?.phi ?? 45,
+    cameraType,
     directionRotationOffset: 0,
     target: cloneTarget(target),
     selectedDirectionLabel: firstDirection?.label ?? "",
@@ -122,6 +126,7 @@ function createRunOptions(draft: WorkflowCameraDraft): WorkflowRunOptions {
   return {
     cameraDistance: draft.distance,
     cameraAngle: draft.elevationAngle,
+    cameraType: draft.cameraType,
     directionRotationOffset: draft.directionRotationOffset,
     target: cloneTarget(draft.target),
     directionOverrides: draft.directionOverrides,
@@ -162,6 +167,12 @@ export const WorkflowsMenu = () => {
   const setCameraAngle = useSettingsStore((state) => state.setCameraAngle);
   const exportNormalMap = useSettingsStore((state) => state.exportNormalMap);
   const cameraUUID = useCamerasStore((state) => state.mainCamera);
+  const setCameraType = useCamerasStore((state) => state.setCameraType);
+  const mainCameraType = useCamerasStore(
+    (state) =>
+      (state.mainCamera ? state.cameras[state.mainCamera]?.type : "perspective") ??
+      "perspective",
+  );
   const intervals = useImagesStore((state) => state.intervals);
   const iterations = useImagesStore((state) => state.iterations);
   const setIntervals = useImagesStore((state) => state.setIntervals);
@@ -389,6 +400,7 @@ export const WorkflowsMenu = () => {
           workflow,
           cameraDistance,
           cameraAngle,
+          cameraType: mainCameraType,
           target: defaultTarget,
           captureNormalMaps: exportNormalMap,
         }),
@@ -399,6 +411,7 @@ export const WorkflowsMenu = () => {
     [
       cameraAngle,
       cameraDistance,
+      mainCameraType,
       defaultTarget,
       exportNormalMap,
       setSelectedWorkflow,
@@ -430,6 +443,7 @@ export const WorkflowsMenu = () => {
         workflow: selectedWorkflow,
         cameraDistance,
         cameraAngle,
+        cameraType: mainCameraType,
         target: defaultTarget,
         captureNormalMaps: exportNormalMap,
       }),
@@ -437,6 +451,7 @@ export const WorkflowsMenu = () => {
   }, [
     cameraAngle,
     cameraDistance,
+    mainCameraType,
     defaultTarget,
     selectedWorkflow,
     exportNormalMap,
@@ -555,10 +570,11 @@ export const WorkflowsMenu = () => {
   }, [selectedDirection]);
 
   const applyToMainCameraDefaults = useCallback(() => {
-    if (!selectedPreviewCamera) return;
+    if (!selectedPreviewCamera || !cameraUUID) return;
     setCameraDistance(selectedPreviewCamera.distance);
     setCameraAngle(selectedPreviewCamera.phi);
-  }, [selectedPreviewCamera, setCameraAngle, setCameraDistance]);
+    setCameraType(cameraUUID, selectedPreviewCamera.cameraType);
+  }, [cameraUUID, selectedPreviewCamera, setCameraAngle, setCameraDistance, setCameraType]);
 
   const setPreviewCamera = useCallback(
     (camera: { distance: number; phi: number; theta: number }) => {
@@ -854,7 +870,8 @@ export const WorkflowsMenu = () => {
                   </div>
                   {workflowState.currentCamera && (
                     <div className="text-xs text-muted-foreground">
-                      Camera φ {workflowState.currentCamera.phi.toFixed(1)}° · θ{" "}
+                      Camera {workflowState.currentCamera.cameraType} · φ{" "}
+                      {workflowState.currentCamera.phi.toFixed(1)}° · θ{" "}
                       {workflowState.currentCamera.theta.toFixed(1)}° · d{" "}
                       {workflowState.currentCamera.distance.toFixed(2)}
                     </div>
@@ -1299,6 +1316,56 @@ export const WorkflowsMenu = () => {
                             updateSelectedCamera({ theta: value })
                           }
                         />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label>Projection</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            selectedPreviewCamera.cameraType === "perspective"
+                              ? "default"
+                              : "outline"
+                          }
+                          disabled={isRunning}
+                          onClick={() => {
+                            setCameraDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    cameraType: "perspective",
+                                  }
+                                : prev,
+                            );
+                          }}
+                        >
+                          Perspective
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            selectedPreviewCamera.cameraType === "orthographic"
+                              ? "default"
+                              : "outline"
+                          }
+                          disabled={isRunning}
+                          onClick={() => {
+                            setCameraDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    cameraType: "orthographic",
+                                  }
+                                : prev,
+                            );
+                          }}
+                        >
+                          Orthographic
+                        </Button>
                       </div>
                     </div>
 

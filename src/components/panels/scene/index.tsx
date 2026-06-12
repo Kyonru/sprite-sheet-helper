@@ -7,6 +7,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   OrbitControls,
   PerspectiveCamera,
+  OrthographicCamera,
   Grid,
   GizmoHelper,
   GizmoViewport,
@@ -30,7 +31,11 @@ import { EventType, PubSub } from "@/lib/events";
 import { useTarget } from "@/store/next/targets";
 import { useSettingsStore } from "@/store/next/settings";
 import { Text } from "@react-three/drei";
-import type { PerspectiveCameraComponent, Transform } from "@/types/ecs";
+import type {
+  PerspectiveCameraComponent,
+  OrthographicCameraComponent,
+  Transform,
+} from "@/types/ecs";
 import { setGLContext } from "@/lib/gl-context";
 import { useHistoryStore } from "@/store/next/history";
 import { setAppTitle } from "@/utils/app.web";
@@ -76,7 +81,7 @@ function clampFloatingPreviewPosition(
 function CameraLabel({
   cameraRef,
 }: {
-  cameraRef: React.RefObject<THREE.PerspectiveCamera>;
+  cameraRef: React.RefObject<THREE.Camera | null>;
 }) {
   const [pos, setPos] = useState<[number, number, number]>([0, 0, 0]);
 
@@ -111,9 +116,14 @@ function CameraLabel({
 function SharedScene({
   cameraRef,
 }: {
-  cameraRef?: React.RefObject<THREE.PerspectiveCamera | null>;
+  cameraRef?: React.RefObject<THREE.Camera | null>;
 }) {
   const entities = useEntitiesStore((state) => state.entities);
+  const cameraUUID = useCamerasStore((state) => state.mainCamera);
+  const camera = useCamerasStore((state) =>
+    cameraUUID ? state.cameras[cameraUUID] : undefined,
+  );
+  const isOrthographic = camera?.type === "orthographic";
 
   return (
     <>
@@ -121,7 +131,21 @@ function SharedScene({
         <EntityComponent key={entity.uuid} uuid={entity.uuid} />
       ))}
       {cameraRef && (
-        <PerspectiveCamera ref={cameraRef} position={[5, 5, 5]} fov={45} />
+        isOrthographic ? (
+          <OrthographicCamera
+            ref={cameraRef as React.RefObject<THREE.OrthographicCamera>}
+            position={[5, 5, 5]}
+            near={camera.near}
+            far={camera.far}
+            zoom={(camera as OrthographicCameraComponent).zoom}
+          />
+        ) : (
+          <PerspectiveCamera
+            ref={cameraRef as React.RefObject<THREE.PerspectiveCamera>}
+            position={[5, 5, 5]}
+            fov={45}
+          />
+        )
       )}
     </>
   );
@@ -170,12 +194,24 @@ function SyncCameraFromStore({
 
   useEffect(() => {
     if (!cameraValues || !controlsRef.current) return;
-    const camera = controlsRef.current.camera as THREE.PerspectiveCamera;
-    const values = cameraValues as PerspectiveCameraComponent;
+    const camera = controlsRef.current.camera;
 
-    camera.near = values.near;
-    camera.far = values.far;
-    camera.fov = values.fov;
+    camera.near = cameraValues.near;
+    camera.far = cameraValues.far;
+    if (
+      cameraValues.type === "perspective" &&
+      camera instanceof THREE.PerspectiveCamera
+    ) {
+      const values = cameraValues as PerspectiveCameraComponent;
+      camera.fov = values.fov;
+    }
+    if (
+      cameraValues.type === "orthographic" &&
+      camera instanceof THREE.OrthographicCamera
+    ) {
+      const values = cameraValues as OrthographicCameraComponent;
+      camera.zoom = values.zoom;
+    }
     camera.updateProjectionMatrix();
   }, [cameraValues, controlsRef]);
 
@@ -240,7 +276,7 @@ function SyncEditorCameraFromStore({
   isDragging,
   sharedCameraState,
 }: {
-  cameraRef: React.RefObject<THREE.PerspectiveCamera | null>;
+  cameraRef: React.RefObject<THREE.Camera | null>;
   isDragging: React.RefObject<boolean>;
   sharedCameraState: SharedCameraState;
 }) {
@@ -261,7 +297,7 @@ function EditorScene({
   isDragging: React.RefObject<boolean>;
   sharedCameraState: SharedCameraState;
 }) {
-  const camera2Ref = useRef<THREE.PerspectiveCamera>(null!);
+  const camera2Ref = useRef<THREE.Camera>(null!);
   const cameraHelper = useHelper(camera2Ref, THREE.CameraHelper);
   const selected = useEntitiesStore((state) => state.selected);
   const camera = useCamerasStore((state) => state.mainCamera);
@@ -306,10 +342,21 @@ function EditorScene({
 
   useEffect(() => {
     if (!cameraHelper.current || !camera2Ref.current || !cameraValues) return;
-    const cam = camera2Ref.current as THREE.PerspectiveCamera;
+    const cam = camera2Ref.current;
     cam.near = cameraValues.near;
     cam.far = cameraValues.far;
-    cam.fov = (cameraValues as PerspectiveCameraComponent).fov;
+    if (
+      cameraValues.type === "perspective" &&
+      cam instanceof THREE.PerspectiveCamera
+    ) {
+      cam.fov = (cameraValues as PerspectiveCameraComponent).fov;
+    }
+    if (
+      cameraValues.type === "orthographic" &&
+      cam instanceof THREE.OrthographicCamera
+    ) {
+      cam.zoom = (cameraValues as OrthographicCameraComponent).zoom;
+    }
     cam.updateProjectionMatrix();
     cameraHelper.current.update();
   }, [cameraValues, cameraHelper]);
@@ -408,14 +455,20 @@ const CameraManager = () => {
     if (!cameraValues || !cameraTransform) return;
 
     const aspect = exportWidth / exportHeight;
-    const fov = (cameraValues as PerspectiveCameraComponent).fov;
     const near = cameraValues.near;
     const far = cameraValues.far;
     const orthoSize = 10;
+    const rotation = new THREE.Euler(
+      ...(cameraTransform.rotation as [number, number, number]),
+    );
+    const orientation = new THREE.Quaternion().setFromEuler(rotation);
+
+    const perspectiveValues = cameraValues as PerspectiveCameraComponent;
+    const orthographicValues = cameraValues as OrthographicCameraComponent;
 
     // Create camera instances
     const perspectiveCamera = new THREE.PerspectiveCamera(
-      fov,
+      perspectiveValues.fov,
       aspect,
       near,
       far,
@@ -425,6 +478,7 @@ const CameraManager = () => {
       cameraTransform.position[1],
       cameraTransform.position[2],
     );
+    perspectiveCamera.quaternion.copy(orientation);
 
     const orthographicCamera = new THREE.OrthographicCamera(
       (orthoSize * aspect) / -2, // left
@@ -439,8 +493,9 @@ const CameraManager = () => {
       cameraTransform.position[1],
       cameraTransform.position[2],
     );
-    // Copy position and orientation from the perspective camera
-    orthographicCamera.quaternion.copy(perspectiveCamera.quaternion);
+    orthographicCamera.quaternion.copy(orientation);
+    orthographicCamera.zoom = orthographicValues.zoom;
+    orthographicCamera.updateProjectionMatrix();
 
     // Determine the next camera based on the prop
     const nextCamera =
@@ -460,7 +515,7 @@ const CameraManager = () => {
       cameraHelper.update();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cameraType]);
+  }, [cameraType, cameraValues, cameraTransform, exportWidth, exportHeight]);
   return null;
 };
 

@@ -1,6 +1,8 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   CameraControls,
+  OrthographicCamera,
+  PerspectiveCamera,
   GizmoHelper,
   GizmoViewport,
   Grid,
@@ -385,6 +387,40 @@ function TargetHandle({
   );
 }
 
+const ORTHOGRAPHIC_SIZE = 10;
+
+function CameraFromMode({ camera }: { camera: ResolvedWorkflowCamera }) {
+  const aspect = useThree((state) => state.size.width / state.size.height);
+
+  if (camera.cameraType === "orthographic") {
+    return (
+      <OrthographicCamera
+        makeDefault
+        key="workflow-preview-orthographic"
+        position={camera.position}
+        near={0.01}
+        far={1000}
+        left={(-ORTHOGRAPHIC_SIZE * aspect) / 2}
+        right={(ORTHOGRAPHIC_SIZE * aspect) / 2}
+        top={ORTHOGRAPHIC_SIZE / 2}
+        bottom={-ORTHOGRAPHIC_SIZE / 2}
+        zoom={1}
+      />
+    );
+  }
+
+  return (
+    <PerspectiveCamera
+      makeDefault
+      key="workflow-preview-perspective"
+      position={camera.position}
+      fov={45}
+      near={0.01}
+      far={1000}
+    />
+  );
+}
+
 export function WorkflowCameraPreview({
   camera,
   selectedDirection,
@@ -397,23 +433,14 @@ export function WorkflowCameraPreview({
       className="relative h-[360px] min-h-[360px] shrink-0 overflow-hidden rounded-md border bg-muted/20"
       data-testid="workflow-camera-preview"
     >
-      <Canvas
-        camera={{
-          position: camera.position,
-          fov: 45,
-          near: 0.01,
-          far: 1000,
-        }}
-        gl={{ antialias: false, alpha: true }}
-      >
+      <Canvas gl={{ antialias: false, alpha: true }}>
         <color attach="background" args={["#18181b"]} />
+        <CameraFromMode camera={camera} />
         <PreviewCameraControls
           camera={camera}
           onCameraChange={onCameraChange}
         />
-      <PreviewSceneObjects
-        selectedAnimation={selectedAnimation}
-      />
+        <PreviewSceneObjects selectedAnimation={selectedAnimation} />
         <TargetHandle target={camera.target} onTargetChange={onTargetChange} />
         <Grid
           args={[10, 10]}

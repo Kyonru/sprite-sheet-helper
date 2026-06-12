@@ -41,6 +41,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useSettingsStore, type SettingsState } from "@/store/next/settings";
+import { useCamerasStore } from "@/store/next/cameras";
+import { type CameraType } from "@/types/camera";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { createPortal } from "react-dom";
@@ -62,6 +64,7 @@ const formSchema = z.object({
   exportHeight: z.coerce.number().min(1),
   cameraDistance: z.coerce.number().min(0),
   cameraAngle: z.string().optional(),
+  cameraType: z.enum(["perspective", "orthographic"]),
   editorBackgroundColor: z.string(),
   gridSectionColor: z.string(),
   gridCellColor: z.string(),
@@ -144,6 +147,13 @@ function SettingsSection({
 
 export function SettingsModalProvider() {
   const settings = useSettingsStore((state) => state);
+  const mainCameraUuid = useCamerasStore((state) => state.mainCamera);
+  const mainCamera = useCamerasStore(
+    (state) =>
+      state.mainCamera ? state.cameras[state.mainCamera] : undefined,
+  );
+  const setCameraType = useCamerasStore((state) => state.setCameraType);
+  const mainCameraType = mainCamera?.type ?? "perspective";
   const updateSettings = useSettingsStore((state) => state.update);
   const [state, setState] = useState<SettingsModalState>({ open: false });
   const { setTheme } = useTheme();
@@ -172,6 +182,7 @@ export function SettingsModalProvider() {
       cameraDistance: settings.cameraDistance,
       cameraAngle:
         settings.cameraAngle === undefined ? "" : `${settings.cameraAngle}`,
+      cameraType: mainCameraType as CameraType,
       editorBackgroundColor: settings.editorBackgroundColor,
       gridSectionColor: settings.gridSectionColor,
       gridCellColor: settings.gridCellColor,
@@ -196,13 +207,14 @@ export function SettingsModalProvider() {
         cameraDistance: settings.cameraDistance,
         cameraAngle:
           settings.cameraAngle === undefined ? "" : `${settings.cameraAngle}`,
+        cameraType: mainCameraType as CameraType,
         editorBackgroundColor: settings.editorBackgroundColor,
         gridSectionColor: settings.gridSectionColor,
         gridCellColor: settings.gridCellColor,
         theme: settings.theme,
       });
     }
-  }, [form, settings, state.open]);
+  }, [form, settings, state.open, mainCameraType]);
 
   const onClose = () => {
     setTheme(originalThemeRef.current);
@@ -215,13 +227,19 @@ export function SettingsModalProvider() {
   };
 
   function onSubmit(data: FormValues) {
+    const { cameraType, ...projectSettings } = data;
     updateSettings({
-      ...data,
+      ...projectSettings,
       cameraAngle:
         data.cameraAngle !== undefined && data.cameraAngle !== ""
           ? parseFloat(data.cameraAngle)
           : undefined,
     } as SettingsState);
+
+    if (mainCameraUuid && mainCamera && cameraType !== mainCamera.type) {
+      setCameraType(mainCameraUuid, cameraType);
+    }
+
     originalThemeRef.current = data.theme as Exclude<Theme, "system">;
     originalBgRef.current = data.editorBackgroundColor as string;
     originalGridSectionRef.current = data.gridSectionColor as string;
@@ -553,6 +571,46 @@ export function SettingsModalProvider() {
                               min={0}
                               aria-invalid={fieldState.invalid}
                             />
+                          </Field>
+                        )}
+                      />
+
+                      <Controller
+                        name="cameraType"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                          <Field data-invalid={fieldState.invalid}>
+                            <FieldContent>
+                              <FieldLabel htmlFor="settings-camera-type">
+                                Projection
+                              </FieldLabel>
+                              <FieldDescription>
+                                Switch between perspective and orthographic.
+                              </FieldDescription>
+                              {fieldState.invalid && (
+                                <FieldError errors={[fieldState.error]} />
+                              )}
+                            </FieldContent>
+      <Select
+        name={field.name}
+        value={field.value as CameraType}
+        onValueChange={field.onChange}
+                            >
+                              <SelectTrigger
+                                id="settings-camera-type"
+                                aria-invalid={fieldState.invalid}
+                              >
+                                <SelectValue placeholder="Projection type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="perspective">
+                                  Perspective
+                                </SelectItem>
+                                <SelectItem value="orthographic">
+                                  Orthographic
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
                           </Field>
                         )}
                       />

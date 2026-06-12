@@ -276,6 +276,13 @@ export const useWorkflow = () => {
     const target: [number, number, number] = cameraUUID
       ? (useTargetsStore.getState().targets[cameraUUID] ?? [0, 0, 0])
       : [0, 0, 0];
+    const mainCameraType = cameraUUID
+      ? useCamerasStore.getState().cameras[cameraUUID]?.type
+      : undefined;
+    const workflowCameraType = options?.cameraType ?? mainCameraType ?? "perspective";
+    if (cameraUUID) {
+      useCamerasStore.getState().setCameraType(cameraUUID, workflowCameraType);
+    }
 
     setWorkflowState({
       status: "running",
@@ -313,6 +320,7 @@ export const useWorkflow = () => {
           direction: dir,
           defaultDistance: cameraDistance,
           defaultCameraAngle: cameraAngle,
+          defaultCameraType: workflowCameraType,
           defaultTarget: target,
           options,
         });

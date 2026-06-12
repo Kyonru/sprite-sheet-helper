@@ -1,4 +1,5 @@
 import { computePosition, type WorkflowDirection } from "@/constants/workflows";
+import type { CameraType } from "@/types/camera";
 
 export type WorkflowCameraTarget = [number, number, number];
 
@@ -12,6 +13,7 @@ export type WorkflowCameraDirectionOverride = {
 export type WorkflowRunOptions = {
   cameraDistance?: number;
   cameraAngle?: number;
+  cameraType?: CameraType;
   directionRotationOffset?: number;
   target?: WorkflowCameraTarget;
   directionOverrides?: Record<string, WorkflowCameraDirectionOverride>;
@@ -24,6 +26,7 @@ export type ResolvedWorkflowCamera = {
   phi: number;
   theta: number;
   distance: number;
+  cameraType: CameraType;
   target: WorkflowCameraTarget;
   position: WorkflowCameraTarget;
 };
@@ -32,6 +35,7 @@ export type ResolveWorkflowCameraInput = {
   direction: WorkflowDirection;
   defaultDistance: number;
   defaultCameraAngle?: number;
+  defaultCameraType?: CameraType;
   defaultTarget: WorkflowCameraTarget;
   options?: WorkflowRunOptions;
 };
@@ -44,6 +48,7 @@ export function resolveWorkflowCamera({
   direction,
   defaultDistance,
   defaultCameraAngle,
+  defaultCameraType,
   defaultTarget,
   options,
 }: ResolveWorkflowCameraInput): ResolvedWorkflowCamera {
@@ -55,6 +60,7 @@ export function resolveWorkflowCamera({
   const theta = normalizeWorkflowDegrees(
     override?.theta ?? direction.theta + rotationOffset,
   );
+  const cameraType = options?.cameraType ?? defaultCameraType ?? "perspective";
   const target = [
     ...(override?.target ?? options?.target ?? defaultTarget),
   ] as WorkflowCameraTarget;
@@ -63,6 +69,7 @@ export function resolveWorkflowCamera({
     phi,
     theta,
     distance,
+    cameraType,
     target,
     position: computePosition(phi, theta, distance, target),
   };
