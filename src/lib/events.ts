@@ -5,6 +5,7 @@ import {
   type AtlasOptions,
   type ExportFormat,
 } from "@/types/file";
+import type { SpritePostprocessSnapshot } from "@/types/sprite-postprocess";
 
 export const EventType = {
   TAKE_SINGLE_SCREENSHOT: "take_single_screenshot",
@@ -101,6 +102,7 @@ export type StartExportPayload =
   | {
       format?: ExportFormat;
       atlasOptions?: Partial<AtlasOptions>;
+      spritePostprocess?: SpritePostprocessSnapshot;
     };
 
 export interface EventLogEntry {

@@ -119,11 +119,12 @@ export const pygameExporter: Exporter<"pygame"> = {
   id: "pygame",
   label: "Pygame",
 
-  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+  async run({ exportedImages, includeNormalMap, atlasOptions, spritePostprocess }) {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
       exporterId: "pygame",
+      spritePostprocess,
     });
     assertSinglePageAtlas(assets, "Pygame");
     const { json, manifestFile, base64PNG, normalBase64PNG } = assets;

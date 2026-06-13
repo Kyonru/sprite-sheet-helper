@@ -148,11 +148,12 @@ export const raylibExporter: Exporter<"raylib"> = {
   id: "raylib",
   label: "Raylib",
 
-  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+  async run({ exportedImages, includeNormalMap, atlasOptions, spritePostprocess }) {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
       exporterId: "raylib",
+      spritePostprocess,
     });
     assertSinglePageAtlas(assets, "raylib");
     const { json, manifestFile, base64PNG, normalBase64PNG } = assets;

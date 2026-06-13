@@ -261,13 +261,14 @@ export const bevyExporter: Exporter<"bevy"> = {
   id: "bevy",
   label: "Bevy",
 
-  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+  async run({ exportedImages, includeNormalMap, atlasOptions, spritePostprocess }) {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
       imageName: "assets/spritesheet.png",
       normalImageName: "assets/spritesheet_normal.png",
       exporterId: "bevy",
+      spritePostprocess,
     });
     assertSinglePageAtlas(assets, "Bevy");
     const { json, manifestFile, base64PNG, normalBase64PNG } = assets;

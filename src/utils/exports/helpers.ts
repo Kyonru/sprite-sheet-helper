@@ -1,4 +1,10 @@
-import type { AtlasOptions, ExportFile, ExportFormat, ExportRow } from "@/types/file";
+import type {
+  AtlasOptions,
+  ExportFile,
+  ExportFormat,
+  ExportRow,
+} from "@/types/file";
+import type { SpritePostprocessSnapshot } from "@/types/sprite-postprocess";
 import JSZip from "jszip";
 import {
   atlasPageFileName,
@@ -8,6 +14,7 @@ import {
   type AtlasPlan,
 } from "../atlas";
 import { renderAtlasPages } from "../atlas-renderer";
+import { applySpritePostprocessRows } from "../sprite-postprocess";
 
 type BuildSpritesheetAssetsOptions = {
   includeNormalMap?: boolean;
@@ -15,6 +22,7 @@ type BuildSpritesheetAssetsOptions = {
   imageName?: string;
   normalImageName?: string;
   exporterId?: ExportFormat;
+  spritePostprocess?: SpritePostprocessSnapshot;
 };
 
 export type AtlasImageFile = ExportFile & {
@@ -252,8 +260,16 @@ export async function buildSpritesheetAssets(
   const normalImageName =
     options.normalImageName ?? "spritesheet_normal.png";
   const exporterId = options.exporterId ?? "spritesheet";
-  const plan = createAtlasPlan(exportedImages, atlasOptions);
-  const colorDataUrls = await renderAtlasPages(exportedImages, plan, atlasOptions);
+  const processedRows = await applySpritePostprocessRows(
+    exportedImages,
+    options.spritePostprocess,
+  );
+  const plan = createAtlasPlan(processedRows, atlasOptions);
+  const colorDataUrls = await renderAtlasPages(
+    processedRows,
+    plan,
+    atlasOptions,
+  );
   const colorPages = colorDataUrls.map((dataUrl, index) => ({
     name: atlasPageFileName(imageName, index),
     content: dataUrl.split("base64,")[1],
@@ -261,7 +277,7 @@ export async function buildSpritesheetAssets(
   }));
   const transparentFrames = new Map<string, string>();
   const normalRows = options.includeNormalMap
-    ? exportedImages.map((row) => ({
+    ? processedRows.map((row) => ({
         ...row,
         images: row.images.map((_, index) => {
           const normalImage = row.normalImages?.[index];
@@ -281,9 +297,9 @@ export async function buildSpritesheetAssets(
       }))
     : [];
   const hasNormalImages =
-    options.includeNormalMap && normalRows.length === exportedImages.length;
+    options.includeNormalMap && normalRows.length === processedRows.length;
   const json = createSpritesheetJSONFromAtlasPlan(
-    exportedImages,
+    processedRows,
     plan,
     imageName,
     hasNormalImages ? normalImageName : undefined,
@@ -306,7 +322,7 @@ export async function buildSpritesheetAssets(
     );
   }
   const manifest = createSpritesheetManifest({
-    rows: exportedImages,
+    rows: processedRows,
     plan,
     imageName,
     normalImageName: hasNormalImages ? normalImageName : undefined,

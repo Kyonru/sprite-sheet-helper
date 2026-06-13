@@ -162,11 +162,12 @@ export const love2dVanillaExporter: Exporter<"love2d-lua"> = {
   id: "love2d-lua",
   label: "Love2D (Lua)",
 
-  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+  async run({ exportedImages, includeNormalMap, atlasOptions, spritePostprocess }) {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
       exporterId: "love2d-lua",
+      spritePostprocess,
     });
     assertSinglePageAtlas(assets, "Love2D (Lua)");
     const { json, manifestFile, base64PNG, normalBase64PNG } = assets;
@@ -189,11 +190,12 @@ export const love2dAnim8Exporter: Exporter<"love2d-anim8"> = {
   id: "love2d-anim8",
   label: "Love2D (Anim8)",
 
-  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+  async run({ exportedImages, includeNormalMap, atlasOptions, spritePostprocess }) {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
       exporterId: "love2d-anim8",
+      spritePostprocess,
     });
     assertSinglePageAtlas(assets, "Love2D (Anim8)");
     const { json, manifestFile, base64PNG, normalBase64PNG } = assets;

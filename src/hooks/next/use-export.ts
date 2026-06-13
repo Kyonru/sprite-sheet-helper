@@ -11,6 +11,7 @@ import {
 import { useSceneStore } from "@/components/panels/scene/store";
 import { useSettingsStore } from "@/store/next/settings";
 import { useImagesStore } from "@/store/next/images";
+import { useSpritePostprocessStore } from "@/store/next/sprite-postprocess";
 import type { ExportFormat } from "@/types/file";
 import { exporters } from "@/utils/exports";
 import { buildZip, getNormalCoverage } from "@/utils/exports/helpers";
@@ -181,6 +182,10 @@ export const useExport = () => {
           frameDelay,
           includeNormalMap: exportNormalMap,
           atlasOptions,
+          spritePostprocess:
+            typeof payload === "object"
+              ? payload.spritePostprocess
+              : useSpritePostprocessStore.getState().getSnapshot(),
         });
 
         if (exportNormalMap && NORMAL_MAP_EXPORT_FORMATS.has(exportType)) {

@@ -57,6 +57,8 @@ import {
   type ExportHistoryEntry,
 } from "@/utils/export-history";
 import { SequencePreview } from "./export-workbench/sequence-preview";
+import { SpritePostprocessWorkbench } from "./export-workbench/sprite-postprocess";
+import { useSpritePostprocessStore } from "@/store/next/sprite-postprocess";
 
 const FORMAT_NOTES: Partial<
   Record<ExportFormat, { category: string; note: string }>
@@ -588,6 +590,7 @@ export function ExportWorkbench() {
     PubSub.emit(EventType.START_EXPORT, {
       format: mode,
       atlasOptions,
+      spritePostprocess: useSpritePostprocessStore.getState().getSnapshot(),
     });
     setPreflightOpen(false);
   };
@@ -712,6 +715,8 @@ export function ExportWorkbench() {
         </section>
 
         <SequencePreview />
+
+        <SpritePostprocessWorkbench rows={rows} atlasOptions={atlasOptions} />
 
         <section className="mt-3 rounded-md border">
           <div className="border-b px-3 py-2 text-sm font-medium">Output</div>

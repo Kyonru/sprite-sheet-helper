@@ -23,6 +23,7 @@ import { useEffectsStore } from "../effects";
 import { useMaterialsStore } from "../materials";
 import { useModelDowngradesStore } from "../model-downgrades";
 import { useAuthoredModelsStore } from "../authored-models";
+import { useSpritePostprocessStore } from "../sprite-postprocess";
 import { setAppTitle } from "@/utils/app.web";
 import { EventType, PubSub } from "@/lib/events";
 import { downloadFile } from "@/utils/assets";
@@ -66,6 +67,7 @@ const stores = {
   materials: useMaterialsStore,
   modelDowngrades: useModelDowngradesStore,
   authoredModels: useAuthoredModelsStore,
+  spritePostprocess: useSpritePostprocessStore,
 };
 
 type StoreKey = keyof typeof stores;

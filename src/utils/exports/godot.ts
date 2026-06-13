@@ -86,11 +86,12 @@ export const godotExporter: Exporter<"godot"> = {
   id: "godot",
   label: "Godot (GDScript)",
 
-  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+  async run({ exportedImages, includeNormalMap, atlasOptions, spritePostprocess }) {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
       exporterId: "godot",
+      spritePostprocess,
     });
     assertSinglePageAtlas(assets, "Godot");
     const { json, manifestFile, base64PNG, normalBase64PNG } = assets;

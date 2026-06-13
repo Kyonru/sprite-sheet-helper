@@ -11,6 +11,7 @@ import type { TargetsState } from "@/store/next/targets";
 import type { TransformsState } from "@/store/next/transforms";
 import type { MaterialsSnapshot } from "./materials";
 import type { AuthoredModelsState } from "./authored-models";
+import type { SpritePostprocessSnapshot } from "./sprite-postprocess";
 
 export interface ProjectSnapshot_v1 {
   version: 1;
@@ -47,7 +48,12 @@ export interface ProjectSnapshot_v5 extends Omit<ProjectSnapshot_v4, "version"> 
   version: 5;
 }
 
-export type ProjectSnapshot = ProjectSnapshot_v5;
+export interface ProjectSnapshot_v6 extends Omit<ProjectSnapshot_v5, "version"> {
+  version: 6;
+  spritePostprocess: SpritePostprocessSnapshot;
+}
+
+export type ProjectSnapshot = ProjectSnapshot_v6;
 
 // Union type — extend as you add versions
 export type ProjectSnapshotVersion =
@@ -55,9 +61,10 @@ export type ProjectSnapshotVersion =
   | ProjectSnapshot_v2
   | ProjectSnapshot_v3
   | ProjectSnapshot_v4
-  | ProjectSnapshot_v5;
+  | ProjectSnapshot_v5
+  | ProjectSnapshot_v6;
 
-export const CURRENT_VERSION = 5;
+export const CURRENT_VERSION = 6;
 
 export const RECOVERY_SNAPSHOT_VERSION = 1;
 

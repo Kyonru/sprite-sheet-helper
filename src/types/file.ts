@@ -1,3 +1,5 @@
+import type { SpritePostprocessSnapshot } from "./sprite-postprocess";
+
 export type FileType = "glb" | "gltf" | "obj" | "fbx";
 export const ExportFormats = [
   "zip",
@@ -41,6 +43,7 @@ export type ExportContext = {
   frameDelay: number;
   includeNormalMap: boolean;
   atlasOptions?: Partial<AtlasOptions>;
+  spritePostprocess?: SpritePostprocessSnapshot;
 };
 
 export type ExportFile = {

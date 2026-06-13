@@ -5,12 +5,13 @@ export const SpritesheetExporter: Exporter<"spritesheet"> = {
   id: "spritesheet",
   label: "Spritesheet",
 
-  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+  async run({ exportedImages, includeNormalMap, atlasOptions, spritePostprocess }) {
     const { json, manifestFile, colorPages, normalPages } =
       await buildSpritesheetAssets(exportedImages, {
         includeNormalMap,
         atlasOptions,
         exporterId: "spritesheet",
+      spritePostprocess,
       });
 
     return {

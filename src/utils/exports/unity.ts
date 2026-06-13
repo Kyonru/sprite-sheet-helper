@@ -181,11 +181,12 @@ export const unityExporter: Exporter<"unity"> = {
   id: "unity",
   label: "Unity (C#)",
 
-  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+  async run({ exportedImages, includeNormalMap, atlasOptions, spritePostprocess }) {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
       exporterId: "unity",
+      spritePostprocess,
     });
     assertSinglePageAtlas(assets, "Unity");
     const { json, manifestFile, base64PNG, normalBase64PNG } = assets;

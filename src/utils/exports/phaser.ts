@@ -118,11 +118,12 @@ export const phaserExporter: Exporter<"phaser"> = {
   id: "phaser",
   label: "PhaserJS",
 
-  async run({ exportedImages, includeNormalMap, atlasOptions }) {
+  async run({ exportedImages, includeNormalMap, atlasOptions, spritePostprocess }) {
     const assets = await buildSpritesheetAssets(exportedImages, {
       includeNormalMap,
       atlasOptions,
       exporterId: "phaser",
+      spritePostprocess,
     });
     assertSinglePageAtlas(assets, "PhaserJS");
     const { json, manifestFile, base64PNG, normalBase64PNG } = assets;

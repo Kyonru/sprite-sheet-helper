@@ -64,6 +64,17 @@ const migrations: Record<number, (old: RawSnapshot) => RawSnapshot> = {
           }
         : old.models,
   }),
+  6: (old) => ({
+    ...old,
+    version: 6,
+    spritePostprocess: old.spritePostprocess ?? {
+      enabled: false,
+      effects: [],
+      selectedRow: 0,
+      selectedFrame: 0,
+      compareBeforeAfter: false,
+    },
+  }),
 };
 
 export function migrateSnapshot(
