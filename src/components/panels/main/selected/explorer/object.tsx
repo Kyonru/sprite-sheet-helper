@@ -9,7 +9,11 @@ import { ModelDowngradePanel } from "./downgrade";
 import { Button } from "@/components/ui/button";
 import { openAssetToybox } from "@/components/asset-toybox/controller";
 import { useModelsStore } from "@/store/next/models";
+import { useObjectRef } from "@/store/next/refs";
+import { fitObjectToCamera } from "@/utils/camera";
 import { BoxIcon } from "lucide-react";
+import { toast } from "sonner";
+import { useMainPanelContext } from "../../context";
 
 const ObjectDetails = ({ uuid }: { uuid?: string }) => {
   const entities = useEntitiesStore((state) => state.entities);
@@ -104,6 +108,45 @@ const ObjectDetails = ({ uuid }: { uuid?: string }) => {
   return <InspectorPanel fields={fields} />;
 };
 
+function ModelCameraActions({ modelUuid }: { modelUuid?: string }) {
+  const modelRef = useObjectRef(modelUuid);
+  const { controls } = useMainPanelContext();
+  const canFit = !!modelRef?.current && !!controls?.camera;
+
+  const fitToCamera = () => {
+    if (!modelRef?.current || !controls?.camera) {
+      toast.error("Model and viewport camera must be ready first.");
+      return;
+    }
+
+    const scaleRatio = fitObjectToCamera(modelRef.current, controls.camera, 1);
+    if (!Number.isFinite(scaleRatio) || scaleRatio <= 0) {
+      toast.error("Could not calculate model framing.");
+      return;
+    }
+
+    modelRef.current.scale.multiplyScalar(scaleRatio);
+    modelRef.current.updateMatrixWorld(true);
+    toast.success("Model fit to camera.");
+  };
+
+  return (
+    <section className="grid gap-2 rounded-md border bg-background p-3">
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-0 text-muted-foreground">
+          Camera Framing
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          Scale this model to fit the current viewport camera.
+        </div>
+      </div>
+      <Button size="sm" variant="outline" disabled={!canFit} onClick={fitToCamera}>
+        Fit to Camera
+      </Button>
+    </section>
+  );
+}
+
 export const ObjectContext = () => {
   const selected = useEntitiesStore((state) => state.selected);
   const entity = useEntity(selected);
@@ -140,6 +183,9 @@ export const ObjectContext = () => {
             Edit in Asset Toybox
           </Button>
         </section>
+      ) : null}
+      {entity?.type === "model" && isModelLoaded ? (
+        <ModelCameraActions modelUuid={selected} />
       ) : null}
       {entity?.type === "model" && isModelLoaded ? (
         <ModelDowngradePanel modelUuid={selected} embedded />
