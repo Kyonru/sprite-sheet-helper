@@ -346,21 +346,24 @@ function EditorScene({
   useEffect(() => {
     if (!cameraHelper.current || !camera2Ref.current || !cameraValues) return;
     const cam = camera2Ref.current;
-    cam.near = cameraValues.near;
-    cam.far = cameraValues.far;
     if (
       cameraValues.type === "perspective" &&
       cam instanceof THREE.PerspectiveCamera
     ) {
+      cam.near = cameraValues.near;
+      cam.far = cameraValues.far;
       cam.fov = (cameraValues as PerspectiveCameraComponent).fov;
+      cam.updateProjectionMatrix();
     } else if (
       cameraValues.type === "orthographic" &&
       cam instanceof THREE.OrthographicCamera
     ) {
+      cam.near = cameraValues.near;
+      cam.far = cameraValues.far;
       cam.zoom = (cameraValues as OrthographicCameraComponent).zoom;
+      cam.updateProjectionMatrix();
     }
 
-    cam.updateProjectionMatrix();
     cameraHelper.current.update();
   }, [cameraValues, cameraHelper]);
 

@@ -57,7 +57,7 @@ class SilhouetteOutlineEffectImpl extends Effect {
     } = options;
 
     super("SilhouetteOutlineEffect", silhouetteOutlineFragmentShader, {
-      uniforms: new Map([
+      uniforms: new Map<string, Uniform<THREE.Vector2 | THREE.Color | number>>([
         ["texelSize", new Uniform(new THREE.Vector2(1 / 1024, 1 / 1024))],
         ["outlineColor", new Uniform(new THREE.Color(color))],
         ["thickness", new Uniform(thickness)],

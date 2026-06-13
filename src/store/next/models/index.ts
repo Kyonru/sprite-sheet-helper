@@ -862,7 +862,7 @@ function createHiddenAnimationsWatcher(): FieldWatcher<
             from: [...p],
             to: [...n],
 
-            apply: ({ value }: { value: string[] }) => {
+            apply: ({ value }) => {
               const hiddenAnimations = normalizeList(value);
               api.setState((state) => ({
                 hiddenAnimations: {

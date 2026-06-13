@@ -68,17 +68,23 @@ export const ExportConfig = () => {
           {
             kind: "button",
             label: "Record Sequence",
-            action: () => PubSub.emit(EventType.START_ASSETS_CREATION),
+            action: () => {
+              PubSub.emit(EventType.START_ASSETS_CREATION);
+            },
           },
           {
             kind: "button",
             label: "Add Frame to Sequence",
-            action: () => PubSub.emit(EventType.TAKE_SINGLE_SCREENSHOT),
+            action: () => {
+              PubSub.emit(EventType.TAKE_SINGLE_SCREENSHOT);
+            },
           },
           {
             kind: "button",
             label: "New Empty Sequence",
-            action: () => PubSub.emit(EventType.NEW_SEQUENCE),
+            action: () => {
+              PubSub.emit(EventType.NEW_SEQUENCE);
+            },
           },
         ],
       },
