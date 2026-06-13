@@ -118,7 +118,7 @@ export const ObjectContext = () => {
 
   return (
     <div className="grid min-h-0 gap-3 pb-8">
-      <section className="relative max-h-65 overflow-y-auto rounded-md border bg-background">
+      <section className="relative rounded-md border bg-background">
         <ObjectDetails uuid={selected} />
       </section>
       {authoredModelId ? (

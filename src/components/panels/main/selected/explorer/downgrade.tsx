@@ -3,6 +3,7 @@ import {
   AlertTriangleIcon,
   BarChart3Icon,
   BoxIcon,
+  ChevronDownIcon,
   DownloadIcon,
   EyeIcon,
   RotateCcwIcon,
@@ -11,6 +12,11 @@ import {
   ListChecksIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -145,16 +151,15 @@ export function ModelDowngradePanel({
         embedded ? "grid min-h-0 gap-3" : "grid min-h-0 gap-3 p-1 pb-8"
       }
     >
-      <section className="rounded-md border bg-background">
-        <Header
-          icon={<SlidersHorizontalIcon className="size-4" />}
-          title="Downgrade"
-          subtitle={
-            entry?.activeVariant === "downgraded"
-              ? "Downgraded variant active"
-              : "Original model active"
-          }
-        />
+      <CollapsibleSection
+        icon={<SlidersHorizontalIcon className="size-4" />}
+        title="Downgrade"
+        subtitle={
+          entry?.activeVariant === "downgraded"
+            ? "Downgraded variant active"
+            : "Original model active"
+        }
+      >
         <div className="grid gap-3 p-3">
           <label className="grid gap-1.5 text-xs font-medium">
             Preset
@@ -273,18 +278,17 @@ export function ModelDowngradePanel({
             />
           </div>
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section className="rounded-md border bg-background">
-        <Header
-          icon={<BarChart3Icon className="size-4" />}
-          title="Analysis"
-          subtitle={
-            reduction === undefined
-              ? "Analyze or preview to see model metrics"
-              : `${reduction}% triangle reduction`
-          }
-        />
+      <CollapsibleSection
+        icon={<BarChart3Icon className="size-4" />}
+        title="Analysis"
+        subtitle={
+          reduction === undefined
+            ? "Analyze or preview to see model metrics"
+            : `${reduction}% triangle reduction`
+        }
+      >
         <div className="grid grid-cols-2 gap-2 p-3">
           <Metric label="Triangles" before={analysis?.triangleCount} after={after?.triangleCount} />
           <Metric label="Meshes" before={analysis?.meshCount} after={after?.meshCount} />
@@ -333,7 +337,7 @@ export function ModelDowngradePanel({
             {entry.errorMessage}
           </div>
         ) : null}
-      </section>
+      </CollapsibleSection>
 
       <section className="grid grid-cols-2 gap-2">
         <Button
@@ -384,27 +388,40 @@ export function ModelDowngradePanel({
   );
 }
 
-function Header({
+function CollapsibleSection({
   icon,
   title,
   subtitle,
+  children,
 }: {
   icon: ReactNode;
   title: string;
   subtitle?: string;
+  children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 border-b px-3 py-2">
-      <span className="shrink-0">{icon}</span>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{title}</div>
-        {subtitle ? (
-          <div className="truncate text-[11px] text-muted-foreground">
-            {subtitle}
-          </div>
-        ) : null}
-      </div>
-    </div>
+    <Collapsible defaultOpen={false} className="rounded-md border bg-background">
+      <CollapsibleTrigger
+        type="button"
+        className="group flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/35"
+      >
+        <span className="shrink-0">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">{title}</div>
+          {subtitle ? (
+            <div className="truncate text-[11px] text-muted-foreground">
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
+        <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="border-t">
+          {children}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

@@ -1,4 +1,4 @@
-import type React from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,15 @@ import { cn } from "@/lib/utils";
 
 type InspectorValue = string | number | boolean;
 type SelectInspectorField = Extract<InspectorField, { kind: "select" }>;
+type InspectorButtonTone = "primary" | "secondary" | "danger";
+
+type InspectorButtonAction = {
+  label: string;
+  action: () => void | Promise<void>;
+  disabled?: boolean;
+  variant?: React.ComponentProps<typeof Button>["variant"];
+  tone?: InspectorButtonTone;
+};
 
 export type InspectorOption =
   | InspectorValue
@@ -99,6 +108,15 @@ export type InspectorField =
       action: () => void | Promise<void>;
       disabled?: boolean;
       variant?: React.ComponentProps<typeof Button>["variant"];
+      tone?: InspectorButtonTone;
+      className?: string;
+      fullWidth?: boolean;
+      hidden?: boolean;
+    }
+  | {
+      kind: "button-row";
+      label?: string;
+      actions: InspectorButtonAction[];
       hidden?: boolean;
     }
   | {
@@ -134,6 +152,104 @@ function parseNumber(value: string, fallback: number) {
   return Number.isFinite(next) ? next : fallback;
 }
 
+function isDraftNumber(value: string) {
+  return value === "" || value === "-" || value === "." || value === "-.";
+}
+
+function NumericInput({
+  value,
+  onValueChange,
+  onFocus,
+  onBlur,
+  ...props
+}: Omit<React.ComponentProps<typeof Input>, "type" | "value" | "onChange"> & {
+  value: number;
+  onValueChange: (value: number) => void;
+}) {
+  const [draft, setDraft] = React.useState(String(value));
+  const [focused, setFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!focused) {
+      setDraft(String(value));
+    }
+  }, [focused, value]);
+
+  return (
+    <Input
+      {...props}
+      type="number"
+      value={draft}
+      onFocus={(event) => {
+        setFocused(true);
+        onFocus?.(event);
+      }}
+      onBlur={(event) => {
+        setFocused(false);
+        if (isDraftNumber(draft) || !Number.isFinite(Number(draft))) {
+          setDraft(String(value));
+        }
+        onBlur?.(event);
+      }}
+      onChange={(event) => {
+        const nextDraft = event.target.value;
+        setDraft(nextDraft);
+
+        if (isDraftNumber(nextDraft)) return;
+
+        const nextValue = Number(nextDraft);
+        if (Number.isFinite(nextValue)) {
+          onValueChange(nextValue);
+        }
+      }}
+    />
+  );
+}
+
+function buttonVariantForTone(
+  tone: InspectorButtonTone | undefined,
+  variant: React.ComponentProps<typeof Button>["variant"] | undefined,
+) {
+  if (variant) return variant;
+  if (tone === "primary") return "default";
+  if (tone === "danger") return "outline";
+  return "secondary";
+}
+
+function buttonClassForTone(
+  tone: InspectorButtonTone | undefined,
+  fullWidth?: boolean,
+  className?: string,
+) {
+  return cn(
+    "h-7 px-2.5 text-xs",
+    fullWidth ? "w-full" : "justify-self-start",
+    tone === "danger" &&
+      "border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive",
+    tone === "secondary" &&
+      "border-transparent bg-muted/45 text-muted-foreground shadow-none hover:bg-muted hover:text-foreground",
+    className,
+  );
+}
+
+function formatReadonlyValue(value: React.ReactNode) {
+  if (typeof value !== "string") return value;
+
+  const secondsMatch = value.match(/^(-?\d+(?:\.\d+)?)\s*seconds?$/i);
+  if (secondsMatch) {
+    const seconds = Number(secondsMatch[1]);
+    if (Number.isFinite(seconds)) return `${seconds.toFixed(2)}s`;
+  }
+
+  const numericMatch = value.match(/^-?\d+\.\d{4,}$/);
+  if (numericMatch) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric.toFixed(3);
+  }
+
+  return value;
+}
+
 function InspectorRow({ field }: { field: InspectorField }) {
   if (field.hidden) return null;
 
@@ -142,9 +258,9 @@ function InspectorRow({ field }: { field: InspectorField }) {
     if (visibleFields.length === 0) return null;
 
     return (
-      <section className="rounded-md border bg-muted/15">
-        <div className="border-b px-3 py-2">
-          <div className="text-xs font-semibold uppercase tracking-0 text-muted-foreground">
+      <section className="grid gap-2 border-t border-border/70 pt-3 first:border-t-0 first:pt-0">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {field.label}
           </div>
           {field.description ? (
@@ -153,7 +269,7 @@ function InspectorRow({ field }: { field: InspectorField }) {
             </p>
           ) : null}
         </div>
-        <div className="grid gap-2 p-3">
+        <div className="grid gap-1.5">
           {visibleFields.map((item) => (
             <InspectorRow key={`${field.label}-${item.label}`} field={item} />
           ))}
@@ -167,8 +283,9 @@ function InspectorRow({ field }: { field: InspectorField }) {
       <Button
         type="button"
         size="sm"
-        variant={field.variant ?? "outline"}
+        variant={buttonVariantForTone(field.tone, field.variant)}
         disabled={field.disabled}
+        className={buttonClassForTone(field.tone, field.fullWidth, field.className)}
         onClick={() => void field.action()}
       >
         {field.label}
@@ -176,12 +293,42 @@ function InspectorRow({ field }: { field: InspectorField }) {
     );
   }
 
+  if (field.kind === "button-row") {
+    return (
+      <div className="grid gap-1.5">
+        {field.label ? (
+          <Label className="text-xs text-muted-foreground">{field.label}</Label>
+        ) : null}
+        <div
+          className={cn(
+            "grid gap-1.5",
+            field.actions.length === 1 ? "grid-cols-1" : "grid-cols-2",
+          )}
+        >
+          {field.actions.map((action) => (
+            <Button
+              key={action.label}
+              type="button"
+              size="sm"
+              variant={buttonVariantForTone(action.tone, action.variant)}
+              disabled={action.disabled}
+              className={buttonClassForTone(action.tone, true)}
+              onClick={() => void action.action()}
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (field.kind === "readonly") {
     return (
-      <div className="grid grid-cols-[minmax(7rem,0.75fr)_minmax(0,1fr)] items-center gap-3 text-xs">
-        <Label className="text-muted-foreground">{field.label}</Label>
-        <div className="min-w-0 truncate rounded-md border bg-muted/30 px-2 py-1.5 font-mono">
-          {field.value}
+      <div className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1fr)] items-center gap-2 text-xs">
+        <Label className="text-muted-foreground/90">{field.label}</Label>
+        <div className="min-w-0 truncate rounded-md bg-muted/25 px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
+          {formatReadonlyValue(field.value)}
         </div>
       </div>
     );
@@ -189,8 +336,8 @@ function InspectorRow({ field }: { field: InspectorField }) {
 
   if (field.kind === "boolean") {
     return (
-      <div className="grid grid-cols-[minmax(7rem,0.75fr)_minmax(0,1fr)] items-center gap-3 text-xs">
-        <Label className="text-muted-foreground">{field.label}</Label>
+      <div className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1fr)] items-center gap-2 py-0.5 text-xs">
+        <Label className="text-muted-foreground/90">{field.label}</Label>
         <Switch
           size="sm"
           checked={field.value}
@@ -207,8 +354,8 @@ function InspectorRow({ field }: { field: InspectorField }) {
     const selectedEntry = entries.find((entry) => String(entry.value) === selected);
 
     return (
-      <div className="grid grid-cols-[minmax(7rem,0.75fr)_minmax(0,1fr)] items-center gap-3 text-xs">
-        <Label className="text-muted-foreground">{field.label}</Label>
+      <div className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1fr)] items-center gap-2 text-xs">
+        <Label className="text-muted-foreground/90">{field.label}</Label>
         <Select
           value={selected}
           disabled={field.disabled}
@@ -217,7 +364,7 @@ function InspectorRow({ field }: { field: InspectorField }) {
             field.onChange(entry?.value ?? value);
           }}
         >
-          <SelectTrigger size="sm" className="h-8 w-full">
+          <SelectTrigger size="sm" className="h-8 w-full bg-muted/20">
             <SelectValue placeholder={selectedEntry?.label ?? "Select"} />
           </SelectTrigger>
           <SelectContent>
@@ -236,20 +383,19 @@ function InspectorRow({ field }: { field: InspectorField }) {
     const labels = ["x", "y", "z"] as const;
     return (
       <div className="grid gap-1.5 text-xs">
-        <Label className="text-muted-foreground">{field.label}</Label>
+        <Label className="text-muted-foreground/90">{field.label}</Label>
         <div className="grid grid-cols-3 gap-1.5">
           {labels.map((axis, index) => (
-            <Input
+            <NumericInput
               key={axis}
-              type="number"
-              className="h-8 px-2 font-mono"
+              className="h-8 bg-muted/20 px-2 font-mono"
               aria-label={`${field.label} ${axis}`}
               value={field.value[index]}
               step={field.step ?? 0.01}
               disabled={field.disabled}
-              onChange={(event) => {
+              onValueChange={(value) => {
                 const next = [...field.value] as [number, number, number];
-                next[index] = parseNumber(event.target.value, field.value[index]);
+                next[index] = value;
                 field.onChange(next);
               }}
             />
@@ -261,6 +407,8 @@ function InspectorRow({ field }: { field: InspectorField }) {
 
   if (field.kind === "range") {
     const [start, end] = field.value;
+    const min = field.min ?? 0;
+    const max = field.max ?? Math.max(start, end, 1);
     const updateAt = (index: 0 | 1, value: string) => {
       const next: [number, number] = [start, end];
       next[index] = parseNumber(value, next[index]);
@@ -268,30 +416,44 @@ function InspectorRow({ field }: { field: InspectorField }) {
     };
 
     return (
-      <div className="grid gap-1.5 text-xs">
-        <Label className="text-muted-foreground">{field.label}</Label>
-        <div className="grid grid-cols-2 gap-1.5">
-          <Input
-            type="number"
-            className="h-8 px-2 font-mono"
-            aria-label={`${field.label} start`}
-            value={start}
-            min={field.min}
-            max={field.max}
+      <div className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1fr)] items-start gap-2 text-xs">
+        <Label className="pt-2 text-muted-foreground/90">{field.label}</Label>
+        <div className="grid gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
+            <NumericInput
+              className="h-8 bg-muted/20 px-2 font-mono"
+              aria-label={`${field.label} start`}
+              value={start}
+              min={field.min}
+              max={field.max}
+              step={field.step ?? 0.1}
+              disabled={field.disabled}
+              onValueChange={(value) => updateAt(0, String(value))}
+            />
+            <NumericInput
+              className="h-8 bg-muted/20 px-2 font-mono"
+              aria-label={`${field.label} end`}
+              value={end}
+              min={field.min}
+              max={field.max}
+              step={field.step ?? 0.1}
+              disabled={field.disabled}
+              onValueChange={(value) => updateAt(1, String(value))}
+            />
+          </div>
+          <Slider
+            className="px-1 py-1"
+            value={[start, end]}
+            min={min}
+            max={max}
             step={field.step ?? 0.1}
             disabled={field.disabled}
-            onChange={(event) => updateAt(0, event.target.value)}
-          />
-          <Input
-            type="number"
-            className="h-8 px-2 font-mono"
-            aria-label={`${field.label} end`}
-            value={end}
-            min={field.min}
-            max={field.max}
-            step={field.step ?? 0.1}
-            disabled={field.disabled}
-            onChange={(event) => updateAt(1, event.target.value)}
+            onValueChange={([nextStart, nextEnd]) => {
+              field.onChange([
+                typeof nextStart === "number" ? nextStart : start,
+                typeof nextEnd === "number" ? nextEnd : end,
+              ]);
+            }}
           />
         </div>
       </div>
@@ -300,18 +462,18 @@ function InspectorRow({ field }: { field: InspectorField }) {
 
   if (field.kind === "color") {
     return (
-      <div className="grid grid-cols-[minmax(7rem,0.75fr)_minmax(0,1fr)] items-center gap-3 text-xs">
-        <Label className="text-muted-foreground">{field.label}</Label>
+      <div className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1fr)] items-center gap-2 text-xs">
+        <Label className="text-muted-foreground/90">{field.label}</Label>
         <div className="flex items-center gap-2">
           <Input
             type="color"
-            className="h-8 w-12 shrink-0 p-1"
+            className="h-8 w-12 shrink-0 bg-muted/20 p-1"
             value={field.value}
             disabled={field.disabled}
             onChange={(event) => field.onChange(event.target.value)}
           />
           <Input
-            className="h-8 px-2 font-mono"
+            className="h-8 bg-muted/20 px-2 font-mono"
             value={field.value}
             disabled={field.disabled}
             onChange={(event) => field.onChange(event.target.value)}
@@ -326,44 +488,41 @@ function InspectorRow({ field }: { field: InspectorField }) {
       typeof field.min === "number" && typeof field.max === "number";
 
     return (
-      <div className="grid gap-1.5 text-xs">
-        <div className="grid grid-cols-[minmax(7rem,0.75fr)_minmax(0,1fr)] items-center gap-3">
-          <Label className="text-muted-foreground">{field.label}</Label>
-          <Input
-            type="number"
-            className="h-8 px-2 font-mono"
+      <div className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1fr)] items-start gap-2 text-xs">
+        <Label className="pt-2 text-muted-foreground/90">{field.label}</Label>
+        <div className="grid gap-1.5">
+          <NumericInput
+            className="h-8 bg-muted/20 px-2 font-mono"
             value={field.value}
             min={field.min}
             max={field.max}
             step={field.step ?? 0.01}
             disabled={field.disabled}
-            onChange={(event) =>
-              field.onChange(parseNumber(event.target.value, field.value))
-            }
+            onValueChange={field.onChange}
           />
+          {hasSlider ? (
+            <Slider
+              className="px-1 py-1"
+              value={[field.value]}
+              min={field.min}
+              max={field.max}
+              step={field.step ?? 0.01}
+              disabled={field.disabled}
+              onValueChange={([value]) => {
+                if (typeof value === "number") field.onChange(value);
+              }}
+            />
+          ) : null}
         </div>
-        {hasSlider ? (
-          <Slider
-            className="px-1"
-            value={[field.value]}
-            min={field.min}
-            max={field.max}
-            step={field.step ?? 0.01}
-            disabled={field.disabled}
-            onValueChange={([value]) => {
-              if (typeof value === "number") field.onChange(value);
-            }}
-          />
-        ) : null}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-[minmax(7rem,0.75fr)_minmax(0,1fr)] items-center gap-3 text-xs">
-      <Label className="text-muted-foreground">{field.label}</Label>
+    <div className="grid grid-cols-[minmax(6.5rem,0.7fr)_minmax(0,1fr)] items-center gap-2 text-xs">
+      <Label className="text-muted-foreground/90">{field.label}</Label>
       <Input
-        className="h-8 px-2"
+        className="h-8 bg-muted/20 px-2"
         value={field.value}
         disabled={field.disabled}
         onChange={(event) => field.onChange(event.target.value)}
@@ -392,7 +551,7 @@ export function InspectorPanel({
   }
 
   return (
-    <div className={cn("grid gap-2 p-3", className)}>
+    <div className={cn("grid gap-3 p-3", className)}>
       {visibleFields.map((field) => (
         <InspectorRow key={field.label} field={field} />
       ))}

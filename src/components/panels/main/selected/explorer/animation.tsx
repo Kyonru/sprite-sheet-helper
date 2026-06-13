@@ -195,52 +195,56 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     }
 
     fields.push({
-      kind: "button",
-      label: "import from model",
-      action: handleImportFromLoadedModel,
-      disabled: candidateSourceModels.length === 0,
-    });
-
-    fields.push({
-      kind: "button",
-      label: "import from file",
-      action: async () => {
-        if (!isModelReady) {
-          toast.error("Model must be loaded before importing animations.");
-          return;
-        }
-
-        importFile(ACCEPTED_MODEL_FILE_TYPES, async (file) => {
-          try {
-            const { importedNames } = await importAnimationsFromSource(uuid, {
-              sourceFile: file,
-              forceInPlace: importForceInPlace,
-              inPlaceAxisMode: importInPlaceAxisMode,
-            });
-
-            if (importedNames.length === 0) {
-              toast.info("No animations found in source file.");
+      kind: "button-row",
+      actions: [
+        {
+          label: "From Model",
+          action: handleImportFromLoadedModel,
+          disabled: candidateSourceModels.length === 0,
+          tone: "secondary",
+        },
+        {
+          label: "From File",
+          tone: "secondary",
+          action: async () => {
+            if (!isModelReady) {
+              toast.error("Model must be loaded before importing animations.");
               return;
             }
 
-            const modeSuffix =
-              importForceInPlace && importInPlaceAxisMode === "horizontal"
-                ? " with horizontal motion frozen"
-                : importForceInPlace &&
-                    importInPlaceAxisMode !== "all" &&
-                    importInPlaceAxisMode !== "none"
-                  ? ` with ${importInPlaceAxisMode.toUpperCase()} motion frozen`
-                  : "";
-            toast.success(
-              `Imported ${importedNames.length} animation(s) from file${modeSuffix}: ${importedNames.join(", ")}`,
-            );
-          } catch (error) {
-            toast.error("Failed to import animations from file", {
-              description: (error as Error).message,
+            importFile(ACCEPTED_MODEL_FILE_TYPES, async (file) => {
+              try {
+                const { importedNames } = await importAnimationsFromSource(uuid, {
+                  sourceFile: file,
+                  forceInPlace: importForceInPlace,
+                  inPlaceAxisMode: importInPlaceAxisMode,
+                });
+
+                if (importedNames.length === 0) {
+                  toast.info("No animations found in source file.");
+                  return;
+                }
+
+                const modeSuffix =
+                  importForceInPlace && importInPlaceAxisMode === "horizontal"
+                    ? " with horizontal motion frozen"
+                    : importForceInPlace &&
+                        importInPlaceAxisMode !== "all" &&
+                        importInPlaceAxisMode !== "none"
+                      ? ` with ${importInPlaceAxisMode.toUpperCase()} motion frozen`
+                      : "";
+                toast.success(
+                  `Imported ${importedNames.length} animation(s) from file${modeSuffix}: ${importedNames.join(", ")}`,
+                );
+              } catch (error) {
+                toast.error("Failed to import animations from file", {
+                  description: (error as Error).message,
+                });
+              }
             });
-          }
-        });
-      },
+          },
+        },
+      ],
     });
 
     fields.push({
@@ -375,9 +379,14 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
       });
 
       fields.push({
-        kind: "button",
-        label: "force current animation in place",
-        action: handleForceCurrentInPlace,
+        kind: "button-row",
+        actions: [
+          {
+            label: "Force in Place",
+            action: handleForceCurrentInPlace,
+            tone: "secondary",
+          },
+        ],
       });
 
       const animationOptions = [
@@ -396,22 +405,31 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
       });
 
       fields.push({
-        kind: "button",
-        label: "hide selected animation",
-        action: handleHideCurrentAnimation,
-        disabled: !animation || animation === "none",
+        kind: "button-row",
+        actions: [
+          {
+            label: "Hide",
+            action: handleHideCurrentAnimation,
+            disabled: !animation || animation === "none",
+            tone: "danger",
+          },
+          ...(hiddenAnimations.length > 0
+            ? [
+                {
+                  label: "Restore Hidden",
+                  action: handleRestoreHiddenAnimations,
+                  tone: "secondary" as const,
+                },
+              ]
+            : []),
+        ],
       });
 
       if (hiddenAnimations.length > 0) {
         fields.push({
           kind: "readonly",
-          label: "hidden animations",
+          label: "hidden",
           value: `${hiddenAnimations.length}`,
-        });
-        fields.push({
-          kind: "button",
-          label: "restore hidden animations",
-          action: handleRestoreHiddenAnimations,
         });
       }
 
@@ -421,7 +439,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
 
       fields.push({
         kind: "readonly",
-        label: "length",
+        label: "clip length",
         value: `${clip?.clip.duration || 0} seconds`,
       });
 
@@ -522,6 +540,8 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
         kind: "button",
         label: "Create Pose / Motion Clip",
         action: () => openPoseStudio(uuid),
+        tone: "primary",
+        fullWidth: true,
       });
     }
 
