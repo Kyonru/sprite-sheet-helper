@@ -8,7 +8,7 @@ The Effects Workbench is built around a stack. Effects render from top to bottom
 
 - **Pixel Art** — Pixelation, reduced color depth, dither, and gamma correction.
 - **Toon** — Outline plus light contrast and gamma cleanup.
-- **Depth Debug** — Depth visualization and outline for checking silhouettes.
+- **Line Art** — EdgeOutline or Selection Outline with contrast and gamma cleanup.
 - **Game Boy** — Pixelation, palette mapping, dither, and scanlines.
 
 Use **Apply** to append a preset to your current stack. Use **Replace** when you want the preset to become the whole stack.
@@ -18,7 +18,7 @@ Use **Apply** to append a preset to your current stack. Use **Replace** when you
 1. Lighting and depth effects: SSAO, Bloom, Depth of Field.
 2. Color shaping: Brightness / Contrast, Hue / Saturation, Tonemap, Gamma.
 3. Stylization: Pixelation, Palette, Dither, Scanline, ASCII, Glitch.
-4. Debug overlays: Grid, Depth, Outline, Custom Shader.
+4. Line and overlay effects: EdgeOutline, Selection Outline, Silhouette Outline, Grid, Custom Shader.
 
 ## Normal Map Safety
 
@@ -34,4 +34,4 @@ Avoid or freeze temporal effects when comparing workflow output:
 - Animated Scanline
 - Shockwave
 
-For golden workflow tests, prefer static color, lighting, outline, palette, and pixelation effects.
+For golden workflow tests, prefer static color, lighting, outline, palette, and pixelation effects. Avoid removed or debug-only effects in production presets.

@@ -57,21 +57,41 @@ Multi-page output is fully supported by the generic Sprite Sheet format. Engine 
 
 Atlas-style exports also include `spritesheet.manifest.json`, a shared metadata file with atlas options, pages, animation names, frame rects, slot rects, normal-map references, source dimensions, and exporter id. Existing exporter-specific JSON files remain unchanged for compatibility.
 
+## Spritesheet Postprocess
+
+The Export Workbench includes a collapsible **Spritesheet Postprocess** section for 2D effects that run after capture but before atlas packing. This is separate from the viewport Effects stack: viewport effects shape the 3D render, while spritesheet postprocess edits the captured 2D frames before they become atlas pages.
+
+Available export-time 2D effects:
+
+- **Outer Outline** — Adds an alpha-based outline around each sprite. Use **Smooth** for softer strokes or **Crisp Pixel** for nearest-pixel style outlines.
+- **Drop Shadow** — Adds a 2D shadow using offset, blur, spread, color, and opacity.
+- **Glow** — Expands a colored glow from the sprite alpha.
+- **Color Adjust** — Applies brightness, contrast, and saturation tweaks to color frames.
+
+Effects are ordered and can be enabled, disabled, reordered, or removed. When postprocess is disabled, exports use the captured frames unchanged.
+
+The animated preview shows the processed sequence. Turn on **Before / After** to compare original and processed frames with a draggable divider. The zoom buttons in the preview are inspection-only and do not affect exported pixel dimensions.
+
+Outline, shadow, and glow can expand each frame with transparent padding so the added pixels are not clipped. This means the sprite may appear smaller inside its frame because the exported frame is larger. The JSON and manifest frame sizes reflect the processed dimensions.
+
 ## Normal Map Exports
 
 When **Capture normal maps** is enabled, atlas-style exports include matching normal pages alongside the color pages. Single-page output uses `spritesheet_normal.png`; multi-page generic output uses `spritesheet_normal.png`, `spritesheet_normal_2.png`, and so on.
 
 Normal maps are captured at frame creation time. Existing color-only frames do not gain real normal data just by turning the option on later; they export as transparent placeholder normal frames until you recapture or add them again with normal capture enabled.
 
+Spritesheet postprocess effects apply to color frames only. Normal-map frames are padded to match processed color frame dimensions when needed, but their normal data is not outlined, shadowed, glowed, or color-adjusted.
+
 The preflight modal reports normal-map coverage as Ready, Partial, or Missing. Partial and missing normal coverage does not block export because placeholder pages can still preserve the atlas layout.
 
 ## Export History
 
-The workbench stores recent successful exports in browser local storage. History records the format, filename/download intent, frame count, animation count, page count, normal status, atlas settings, and warnings. It does not modify project files and browser exports do not record a real filesystem path.
+The workbench stores recent successful exports in browser local storage. History records the format, filename/download intent, frame count, animation count, page count, normal status, atlas settings, and warnings. It does not modify project files and browser exports do not record a real filesystem path. The **Recent Exports** section is collapsible so it can stay out of the way while configuring captures.
 
 ## Tips
 
 - Use `.glb` models for best animation compatibility.
 - Export at power-of-two frame sizes (64, 128, 256, 512) for best GPU texture performance.
 - Use Packed layout for production atlases with uneven sequence lengths.
+- Use Spritesheet Postprocess for clean 2D outlines or shadows after capture, especially when a 3D outline effect is too noisy.
 - The **Sprite Sheet** format is the most universal — all game engines can load a PNG + JSON atlas.

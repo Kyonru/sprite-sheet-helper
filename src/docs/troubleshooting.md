@@ -19,9 +19,28 @@ Turn on **Capture normal maps** before recording frames. If frames were captured
 
 Exports use the enabled effect stack in order. If output is unexpected, check stack order and use each effect's enable switch to compare the viewport with and without that effect.
 
+## Sprite Looks Smaller After Adding Outline
+
+Spritesheet Postprocess expands frames with transparent padding when an outline, shadow, or glow would otherwise be clipped. The character pixels may stay the same size, but the exported frame becomes larger, so the sprite can appear smaller inside the frame. This is expected and keeps the outline safe at atlas edges.
+
+Use the postprocess preview zoom controls to inspect the result. If you want pixel-art-style edges, set Outer Outline to **Crisp Pixel**.
+
+## Spritesheet Postprocess Preview Looks Different
+
+The postprocess preview compares original and processed frames after temporary alignment. The exported files are still generated from the processed frame rows before atlas packing.
+
+If the preview looks surprising:
+
+- Confirm the **Before / After** divider is showing the side you expect.
+- Check whether outline, glow, or shadow padding expanded the processed frame.
+- Use preview zoom for inspection only; it does not change export size.
+- Remember that normal-map frames are padded to match color frame dimensions but are not color-processed.
+
 ## Workflow Output Changed
 
 - Confirm workflow preset, frames, FPS, size, camera distance, and atlas settings.
+- Confirm workflow camera type, camera draft settings, and animation enable toggles.
+- Check whether **Force animation in place** is enabled for root-motion clips.
 - Disable temporal effects such as Glitch, Noise, Smear, animated Scanline, or Shockwave.
 - Compare `spritesheet.png`, `spritesheet_normal.png`, and normalized `spritesheet.json`.
 

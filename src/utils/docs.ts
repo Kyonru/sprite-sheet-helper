@@ -10,6 +10,7 @@ export const DOC_ORDER = [
   "tutorial",
   "projects",
   "animations",
+  "materials",
   "pose-studio",
   "camera-capture",
   "camera",
@@ -36,6 +37,12 @@ export const DOC_TASK_GUIDES: DocsTaskGuide[] = [
     title: "Pose Studio",
     description: "Capture a pose or motion clip, repair mapping, and edit it.",
     docSlug: "pose-studio",
+  },
+  {
+    id: "materials",
+    title: "Materials Workbench",
+    description: "Assign reusable materials and generate texture variants.",
+    docSlug: "materials",
   },
   {
     id: "effects",

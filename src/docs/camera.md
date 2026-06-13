@@ -22,6 +22,17 @@ Choose a preset that matches your game's perspective:
 
 Use the **Distance** slider in the Camera tab to zoom in or out. A larger distance shows more of the model; a smaller distance fills the frame.
 
+## Perspective vs Orthographic
+
+The main camera can render in either **Perspective** or **Orthographic** mode.
+
+- **Perspective** keeps natural depth foreshortening. Objects farther from the camera appear smaller.
+- **Orthographic** removes perspective distortion. This is useful for isometric, tactical, pixel-art, and engine-facing sprite work where consistent scale matters.
+
+You can switch camera type from the camera/settings controls and from workflow setup. The active camera type is used consistently by the editor viewport, workflow preview, workflow capture, and exported frames.
+
+Orthographic uses zoom-like framing instead of perspective field-of-view. If a scene looks too close or too far after switching modes, adjust the orthographic zoom or use a fit/framing action for the selected model.
+
 ## Manual Orbit
 
 In the 3D viewport you can manually orbit the camera:
@@ -35,3 +46,5 @@ In the 3D viewport you can manually orbit the camera:
 ## Multi-Angle Workflows
 
 If you need to export the same model from multiple directions (e.g. 8-directional walk cycles), use **Workflows** instead of manually rotating the camera. See the [Workflows](workflows) doc for details.
+
+Workflow camera settings include the same perspective/orthographic choice as the main viewport. This lets you preview and capture a whole directional set with the projection style you intend to ship.

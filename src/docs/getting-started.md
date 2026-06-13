@@ -28,7 +28,8 @@ The app is divided into several panels:
 - **Top menu bar** — Tabs for File, Camera, Lighting, Effects, Settings, Workflows, History, and Help.
 - **Left panel** — Scene explorer showing all objects in the scene hierarchy.
 - **Center viewport** — Live 3D preview. Click and drag to orbit the camera.
-- **Right panel** — Export configuration controls.
+- **Right panel** — Capture, export, atlas, and Spritesheet Postprocess controls.
+- **Materials Workbench** — Open from the Materials menu to edit reusable materials, assign them to model slots, and generate non-destructive texture variants in a large studio-style workspace. See [Materials Workbench](materials).
 
 ## Saving Your Work
 

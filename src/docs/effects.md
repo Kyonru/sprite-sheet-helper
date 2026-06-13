@@ -429,9 +429,9 @@ The **Smear** effect blends each rendered frame with a decaying afterimage of pr
 
 > **Note:** Because Smear accumulates frames over time, it works best with looping animations. For still renders or single-frame exports the trail will not be visible.
 
-### Outline
+### Selection Outline
 
-Draws stylized edges around objects by detecting depth and geometry boundaries, enhancing shape readability and enabling effects like toon shading or technical highlighting.
+Draws outlines around selected scene objects using object/depth masking. Use this when you want a controllable object highlight or a toon-like selection edge.
 
 | Parameter          | Description                                              |
 | ------------------ | -------------------------------------------------------- |
@@ -446,6 +446,22 @@ Draws stylized edges around objects by detecting depth and geometry boundaries, 
 | Multisampling      | MSAA sample count for edge quality                       |
 | Resolution Scale   | Internal render resolution relative to viewport          |
 | Resolution X/Y     | Explicit internal resolution in pixels (0 = auto)        |
+
+### EdgeOutline
+
+Creates screen-space visible edge lines from depth and normal discontinuities. Use EdgeOutline for line-art or toon-like renders where internal visible edges are part of the style.
+
+EdgeOutline is different from Selection Outline:
+
+- **EdgeOutline** emphasizes visible screen-space edges and surface breaks.
+- **Selection Outline** emphasizes selected object masks.
+- **Silhouette Outline** focuses on the outer contour of the selected model.
+
+### Silhouette Outline
+
+Creates an outer-contour style outline for selected models. Use this when you want a cleaner shell around a character or prop without emphasizing every internal mesh edge.
+
+For the cleanest exported sprite outline, also consider **Spritesheet Postprocess > Outer Outline** in the Export Workbench. That effect runs on the captured 2D frames before atlas packing and can use **Crisp Pixel** mode for nearest-pixel outlines.
 
 ### Custom Shader
 

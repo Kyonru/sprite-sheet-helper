@@ -10,8 +10,10 @@ A **project file** (`.sshProj`) saves your entire scene state so you can pick up
 - All lights (type, position, color, intensity)
 - Camera angle and distance
 - Active post-processing effects and their settings
+- Spritesheet postprocess settings for export-time 2D effects
 - Animation clip configuration (speed, trim, loop mode)
 - Export settings (format, frame size, FPS)
+- Material assets, material assignments, and generated texture variants
 - Full undo/redo history
 
 ## Saving a Project
@@ -31,6 +33,10 @@ Recovery snapshots are stored only in the current browser profile. They are not 
 ## Storage Limits & Durability
 
 Models and textures are stored in the browser's private storage (OPFS), which has a quota set by the browser. The app warns you when storage is almost full, and shows an error if a model or texture cannot be saved because the quota is exceeded.
+
+When you save a `.sshProj`, the archive bundles project JSON plus model files and texture files known to the project, including uploaded material textures and generated texture variants. While you are working before a save, those files still live in browser-local storage.
+
+Spritesheet postprocess settings are stored as project JSON because they are small serializable export settings. They do not create extra files until you export a spritesheet.
 
 Keep in mind:
 

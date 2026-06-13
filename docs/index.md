@@ -9,10 +9,20 @@ Sprite Sheet Helper turns 3D models into sprite sheets, normal-map atlases, and 
 ## Start Here
 
 - [Getting Started](getting-started.md)
+- [Tutorial](tutorial.md)
+- [Projects](projects.md)
+- [Camera](camera.md)
+- [Animations](animations.md)
+- [Pose Studio](pose-studio.md)
+- [Materials Workbench](materials.md)
+- [Effects](effects.md)
+- [Effects Recipes](effects-recipes.md)
+- [Normal Maps](normal-maps.md)
 - [Exporting](exporting.md)
+- [Workflows](workflows.md)
 - [CLI & Headless Mode](cli.md)
 - [CI, Docker, and GitHub Actions](ci.md)
-- [Workflows](workflows.md)
+- [Troubleshooting](troubleshooting.md)
 
 ## Docs Source
 

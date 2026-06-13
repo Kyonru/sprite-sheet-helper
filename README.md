@@ -81,7 +81,18 @@ Record animation clips directly from a webcam or a photo — no 3D animation sof
 
 ### Project files
 
-Save and load `.sshProj` files to preserve the full scene state — objects, lights, camera, animations, and undo history included.
+Save and load `.sshProj` files to preserve the full scene state — objects, lights, camera, animations, materials, spritesheet postprocess settings, and undo history included.
+
+### Spritesheet postprocess
+
+The Export Workbench can apply 2D effects after capture and before atlas packing:
+
+- Outer Outline, including crisp pixel outlines
+- Drop Shadow and Glow
+- Color Adjust
+- Before/after preview with a draggable divider
+
+Normal-map atlases stay clean: color frames are processed, while matching normal frames are only padded when needed so atlas rects stay aligned.
 
 ---
 

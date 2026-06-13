@@ -11,6 +11,7 @@ This tutorial walks you through the full workflow from an empty scene to an expo
 - Adding a light to the scene
 - Creating animation sequences
 - Running a directional workflow
+- Adding export-time spritesheet postprocess effects
 - Exporting to LÖVE 2D format
 
 ---
@@ -117,7 +118,19 @@ The output will contain 8 labeled sequences: `idle_N`, `idle_E`, `idle_S`, `idle
 
 ---
 
-## Step 9 — Export to LÖVE 2D
+## Step 9 — Add Spritesheet Postprocess (Optional)
+
+Spritesheet Postprocess runs after capture and before atlas packing. It is useful for clean 2D outlines and shadows that are easier to control on captured frames than in the 3D viewport.
+
+1. In the **Export panel**, expand **Spritesheet Postprocess**.
+2. Enable the section.
+3. Add **Outer Outline**.
+4. Choose **Crisp Pixel** if you want nearest-pixel edges.
+5. Use the animated preview and draggable before/after divider to compare the captured frames with the processed result.
+
+The outline may add transparent padding so it does not clip at atlas edges. The exported JSON reflects the processed frame size.
+
+## Step 10 — Export to LÖVE 2D
 
 1. In the **Export panel**, open the **Format** dropdown.
 2. Select **LÖVE 2D (Lua)**.

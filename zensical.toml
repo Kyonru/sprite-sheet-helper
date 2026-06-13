@@ -14,6 +14,7 @@ nav = [
   { "App Workflows" = [
     { "Camera" = "camera.md" },
     { "Lighting" = "lighting.md" },
+    { "Materials Workbench" = "materials.md" },
     { "Effects" = "effects.md" },
     { "Effects Recipes" = "effects-recipes.md" },
     { "Animations" = "animations.md" },

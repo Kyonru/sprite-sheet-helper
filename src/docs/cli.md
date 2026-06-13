@@ -66,6 +66,10 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 | --target         | string | —           | Camera target as `x,y,z`                  |
 | --directionOverride | string | —       | Per-direction override, e.g. `N:phi=45,theta=0,distance=3,target=0,0.8,0` |
 | --normalMap      | string | false       | Capture and export a matching normal atlas |
+| --skipStepLabel  | string | —           | Skip one workflow row label; repeat for multiple labels |
+| --skipStepLabels | string | —           | Comma-separated workflow row labels to skip |
+| --forceAnimationsInPlace | string | false | Keep workflow animation playback at the same root location |
+| --captureNormalMaps | string | false   | Override normal-map capture during workflow runs |
 | --atlasLayout    | string | rows        | `rows` or deterministic `packed` layout   |
 | --atlasPadding   | number | 0           | Empty pixels around each frame slot       |
 | --atlasBleed     | number | 0           | Edge-pixel extrusion around each frame    |

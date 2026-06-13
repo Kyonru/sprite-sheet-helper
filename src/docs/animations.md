@@ -23,6 +23,17 @@ Select an animation clip to configure it:
 | Trim Start / End | Cut frames from the beginning or end of the clip        |
 | Duration         | Total duration of the clip in seconds                   |
 
+## Hiding Animation Clips
+
+If a model imports with extra clips, duplicates, or test takes, use **Hide selected animation** instead of deleting the data. Hidden animations are filtered out of animation dropdowns and workflow generation, which keeps capture lists easier to read.
+
+Hidden clips are reversible:
+
+- **Hide selected animation** hides the active clip for the current model.
+- **Restore hidden animations** makes every hidden clip for that model visible again.
+
+If the currently selected animation is hidden, the model switches to no active animation so playback and workflows do not accidentally use the hidden clip.
+
 ## Creating Animations from Camera or Photo
 
 You can generate animation clips directly from your webcam, a video, or a photo using **Pose Studio**. Open it from the top **Pose** menu or click **Create Pose / Motion Clip** in the Animation panel. After capture, the edit step lets you trim frames, fix tilt or facing direction, mirror poses, select bones in the preview, rotate them directly, and fine-tune values before saving.

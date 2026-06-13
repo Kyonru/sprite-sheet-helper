@@ -20,6 +20,8 @@ Atlas-style exporters include `spritesheet_normal.png` when normal maps are requ
 
 Post-processing affects the color capture path only. Normal maps bypass effects, lights, and stylized rendering so the normal atlas stays useful for engine lighting.
 
+The Export Workbench also has **Spritesheet Postprocess** effects such as Outer Outline, Drop Shadow, Glow, and Color Adjust. These effects also apply only to color frames. If an effect expands the color frame with transparent padding, the matching normal frame is padded to the same dimensions so color and normal atlas rects stay aligned, but the normal pixels themselves remain unmodified.
+
 ## Common Warnings
 
 - **Ready** means every color frame has a matching normal frame.
