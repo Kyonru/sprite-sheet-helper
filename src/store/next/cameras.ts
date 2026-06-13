@@ -74,6 +74,7 @@ export const useCamerasStore = create<CamerasState & CamerasActions>()(
           set((state) => {
             const current = state.cameras[uuid];
             if (!current) return state;
+            if (current.type === type) return state;
 
             const nextCamera: CameraComponent =
               type === "orthographic"

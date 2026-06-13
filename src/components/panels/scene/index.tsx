@@ -130,7 +130,7 @@ function SharedScene({
       {Object.values(entities).map((entity) => (
         <EntityComponent key={entity.uuid} uuid={entity.uuid} />
       ))}
-      {cameraRef && (
+      {cameraRef && camera && (
         isOrthographic ? (
           <OrthographicCamera
             ref={cameraRef as React.RefObject<THREE.OrthographicCamera>}
@@ -143,7 +143,9 @@ function SharedScene({
           <PerspectiveCamera
             ref={cameraRef as React.RefObject<THREE.PerspectiveCamera>}
             position={[5, 5, 5]}
-            fov={45}
+            near={camera.near}
+            far={camera.far}
+            fov={(camera as PerspectiveCameraComponent).fov}
           />
         )
       )}

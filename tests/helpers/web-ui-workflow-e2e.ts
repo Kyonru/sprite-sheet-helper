@@ -156,6 +156,7 @@ async function exerciseDowngradeThroughUi(
   await page.waitForSelector('[data-testid="downgrade-analyze-button"]', {
     timeout: 60000,
   });
+  await clickElement(page, '[data-testid="downgrade-section-trigger"]');
   await fillNumberInput(page, '[data-testid="downgrade-triangle-budget-input"]', 600);
   await fillNumberInput(page, '[data-testid="downgrade-texture-size-input"]', 64);
   await fillNumberInput(page, '[data-testid="downgrade-animation-fps-input"]', 8);

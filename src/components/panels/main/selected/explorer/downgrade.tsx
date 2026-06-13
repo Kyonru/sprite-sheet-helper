@@ -154,6 +154,7 @@ export function ModelDowngradePanel({
       <CollapsibleSection
         icon={<SlidersHorizontalIcon className="size-4" />}
         title="Downgrade"
+        triggerTestId="downgrade-section-trigger"
         subtitle={
           entry?.activeVariant === "downgraded"
             ? "Downgraded variant active"
@@ -283,6 +284,7 @@ export function ModelDowngradePanel({
       <CollapsibleSection
         icon={<BarChart3Icon className="size-4" />}
         title="Analysis"
+        triggerTestId="downgrade-analysis-section-trigger"
         subtitle={
           reduction === undefined
             ? "Analyze or preview to see model metrics"
@@ -391,11 +393,13 @@ export function ModelDowngradePanel({
 function CollapsibleSection({
   icon,
   title,
+  triggerTestId,
   subtitle,
   children,
 }: {
   icon: ReactNode;
   title: string;
+  triggerTestId?: string;
   subtitle?: string;
   children: ReactNode;
 }) {
@@ -403,6 +407,7 @@ function CollapsibleSection({
     <Collapsible defaultOpen={false} className="rounded-md border bg-background">
       <CollapsibleTrigger
         type="button"
+        data-testid={triggerTestId}
         className="group flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/35"
       >
         <span className="shrink-0">{icon}</span>
