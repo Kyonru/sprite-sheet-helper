@@ -19,7 +19,7 @@ describe("project migrations", () => {
       effects: {},
     });
 
-    expect(migrated.version).toBe(5);
+    expect(migrated.version).toBe(6);
     expect("materials" in migrated).toBe(true);
     expect(migrated.materials).toEqual({
       materials: {},
@@ -39,6 +39,13 @@ describe("project migrations", () => {
     expect(migrated.models).toEqual({
       models: {},
       hiddenAnimations: {},
+    });
+    expect(migrated.spritePostprocess).toEqual({
+      enabled: false,
+      effects: [],
+      selectedRow: 0,
+      selectedFrame: 0,
+      compareBeforeAfter: false,
     });
   });
 });

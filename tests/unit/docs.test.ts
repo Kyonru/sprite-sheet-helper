@@ -9,10 +9,11 @@ describe("docs task guides", () => {
   it("points task guides at ordered documentation pages", () => {
     const orderedSlugs = new Set(DOC_ORDER);
 
-    expect(DOC_TASK_GUIDES).toHaveLength(8);
+    expect(DOC_TASK_GUIDES).toHaveLength(9);
     expect(DOC_TASK_GUIDES.map((guide) => guide.id)).toEqual([
       "capture",
       "pose",
+      "materials",
       "effects",
       "export",
       "workflows",

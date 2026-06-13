@@ -68,20 +68,23 @@ describe("effects store stack", () => {
     expect(state.order).toHaveLength(4);
     expect(state.order.map((uuid) => state.effects[uuid].type)).toEqual([
       "pixelation",
-      "colorDepth",
       "dither",
+      "colorDepth",
       "gammaCorrection",
     ]);
   });
 
   it("replaces existing stack with a preset", () => {
     useEffectsStore.getState().initEffect("bloom");
-    useEffectsStore.getState().applyEffectsPreset("depth-debug", "replace");
+    useEffectsStore.getState().applyEffectsPreset("toon", "replace");
 
     const state = useEffectsStore.getState();
     expect(state.order.map((uuid) => state.effects[uuid].type)).toEqual([
-      "depth",
-      "outline",
+      "edgeOutline",
+      "colorDepth",
+      "hueSaturation",
+      "brightnessContrast",
+      "gammaCorrection",
     ]);
   });
 
