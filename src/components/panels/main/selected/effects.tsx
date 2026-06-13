@@ -51,6 +51,7 @@ const OPTIONS_MAP: Record<string, Record<string, number | string>> = {
 
 const CONTROL_LABELS: Record<string, string> = {
   adaptive: "Adaptive",
+  alphaThreshold: "Alpha Threshold",
   amplitude: "Amplitude",
   averageLuminance: "Average Luma",
   bias: "Bias",
@@ -131,6 +132,8 @@ const CONTROL_LABELS: Record<string, string> = {
   start: "Start",
   strength: "Strength",
   taper: "Taper",
+  threshold: "Threshold",
+  thickness: "Thickness",
   tint: "Tint",
   visibleEdgeColor: "Visible Edge",
   wavelength: "Wavelength",

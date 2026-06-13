@@ -17,6 +17,8 @@ export type EffectType =
   | "noise"
   | "vignette"
   | "outline"
+  | "edgeOutline"
+  | "silhouetteOutline"
   | "ascii"
   | "brightnessContrast"
   | "chromaticAberration"
@@ -98,6 +100,21 @@ export type EffectComponent = { type: EffectType; enabled: boolean } & (
       resolutionScale: number;
       resolutionX: number;
       resolutionY: number;
+    }
+  | {
+      type: "edgeOutline";
+      color: string;
+      strength: number;
+      thickness: number;
+      threshold: number;
+      opacity: number;
+    }
+  | {
+      type: "silhouetteOutline";
+      color: string;
+      thickness: number;
+      opacity: number;
+      alphaThreshold: number;
     }
   | {
       type: "ascii";

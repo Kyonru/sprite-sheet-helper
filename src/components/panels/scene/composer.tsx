@@ -27,6 +27,8 @@ import { PaletteEffect } from "./custom-effects.tsx/palette";
 import { DitherEffect } from "./custom-effects.tsx/dither";
 import { CustomShaderEffect } from "./custom-effects.tsx/custom-shader";
 import { SmearEffect } from "./custom-effects.tsx/smear";
+import { EdgeOutlineEffect } from "./custom-effects.tsx/edge-outline";
+import { SilhouetteOutlineEffect } from "./custom-effects.tsx/silhouette-outline";
 
 import { useRefsStore } from "@/store/next/refs";
 import { useMemo } from "react";
@@ -45,6 +47,7 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
 
     for (const [, ref] of entries) {
       if (ref.type !== "model") continue;
+      if (!ref.current) continue;
       objects.push(ref.current);
     }
 
@@ -116,6 +119,8 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
       );
 
     case "outline":
+      if (selection.length === 0) return null;
+
       return (
         <Outline
           blendFunction={effect.blendFunction}
@@ -133,6 +138,27 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
           resolutionX={effect.resolutionX}
           resolutionY={effect.resolutionY}
           selection={selection}
+        />
+      );
+
+    case "edgeOutline":
+      return (
+        <EdgeOutlineEffect
+          color={effect.color}
+          strength={effect.strength}
+          thickness={effect.thickness}
+          threshold={effect.threshold}
+          opacity={effect.opacity}
+        />
+      );
+
+    case "silhouetteOutline":
+      return (
+        <SilhouetteOutlineEffect
+          color={effect.color}
+          thickness={effect.thickness}
+          opacity={effect.opacity}
+          alphaThreshold={effect.alphaThreshold}
         />
       );
 
@@ -176,9 +202,10 @@ function EffectNode({ effect }: { effect: EffectComponent }) {
       );
 
     case "depth":
-      return (
-        <DepthOfField /> // swap for actual Depth effect if available
-      );
+      // The old Depth node rendered DepthOfField here, which can freeze the
+      // live editor preview. Keep legacy depth effects loadable, but render
+      // nothing until a safe depth visualization pass is added.
+      return null;
 
     case "tiltShift":
       return (

@@ -59,7 +59,6 @@ export type EffectMetadata = {
 export type EffectPresetId =
   | "pixel-art"
   | "toon"
-  | "depth-debug"
   | "game-boy";
 
 export type EffectPreset = {
@@ -264,10 +263,22 @@ export const EFFECT_METADATA: EffectMetadata[] = [
   },
   {
     key: "outline",
-    name: "Outline",
+    name: "Selection Outline",
     category: "debug",
-    description: "Depth and object edge highlighting.",
+    description: "Object-mask outline for selected model roots.",
     warnings: ["performance"],
+  },
+  {
+    key: "edgeOutline",
+    name: "EdgeOutline",
+    category: "stylization",
+    description: "Screen-space line art from visible color and luminance edges.",
+  },
+  {
+    key: "silhouetteOutline",
+    name: "Silhouette Outline",
+    category: "stylization",
+    description: "Outside-only contour from the rendered alpha silhouette.",
   },
   {
     key: "depth",
@@ -300,42 +311,48 @@ export const EFFECT_PRESETS: Record<EffectPresetId, EffectPreset> = {
   "pixel-art": {
     id: "pixel-art",
     name: "Pixel Art",
-    description: "Chunky pixels with reduced color depth and dither.",
+    description: "Chunky pixels with visibly reduced color depth and ordered dither.",
     effects: [
-      { type: "pixelation", props: { granularity: 4 } },
-      { type: "colorDepth", props: { bits: 8 } },
-      { type: "dither", props: { ditherStrength: 0.35, ditherScale: 1 } },
-      { type: "gammaCorrection", props: { gamma: 2 } },
+      { type: "pixelation", props: { granularity: 5 } },
+      { type: "dither", props: { ditherStrength: 0.22, ditherScale: 1 } },
+      { type: "colorDepth", props: { bits: 4 } },
+      { type: "gammaCorrection", props: { gamma: 2.2 } },
     ],
   },
   toon: {
     id: "toon",
     name: "Toon",
-    description: "Readable outlines with clean color grading.",
+    description: "Dark silhouette outlines with slightly posterized, punchy color.",
     effects: [
-      { type: "outline", props: { edgeStrength: 1.5, blur: false } },
-      { type: "brightnessContrast", props: { brightness: 0, contrast: 0.12 } },
-      { type: "gammaCorrection", props: { gamma: 2 } },
-    ],
-  },
-  "depth-debug": {
-    id: "depth-debug",
-    name: "Depth Debug",
-    description: "Inspect depth and silhouette boundaries.",
-    effects: [
-      { type: "depth" },
-      { type: "outline", props: { edgeStrength: 1, xRay: false } },
+      {
+        type: "edgeOutline",
+        props: {
+          color: "#111111",
+          strength: 4,
+          thickness: 1.25,
+          threshold: 0.14,
+          opacity: 1,
+        },
+      },
+      { type: "colorDepth", props: { bits: 5 } },
+      {
+        type: "hueSaturation",
+        props: { hue: 0, saturation: 0.12 },
+      },
+      { type: "brightnessContrast", props: { brightness: 0.02, contrast: 0.22 } },
+      { type: "gammaCorrection", props: { gamma: 2.2 } },
     ],
   },
   "game-boy": {
     id: "game-boy",
     name: "Game Boy",
-    description: "Small pixels, limited palette, dither, and scanlines.",
+    description: "4-color green palette with chunky pixels, dither, and static scanlines.",
     effects: [
-      { type: "pixelation", props: { granularity: 3 } },
-      { type: "palette", props: { palette: 1 } },
-      { type: "dither", props: { ditherStrength: 0.45, ditherScale: 1 } },
-      { type: "scanline", props: { density: 0.7, scrollSpeed: 0 } },
+      { type: "pixelation", props: { granularity: 4 } },
+      { type: "dither", props: { ditherStrength: 0.2, ditherScale: 1 } },
+      { type: "palette", props: { palette: 0 } },
+      { type: "scanline", props: { density: 0.35, scrollSpeed: 0 } },
+      { type: "gammaCorrection", props: { gamma: 2.2 } },
     ],
   },
 };
