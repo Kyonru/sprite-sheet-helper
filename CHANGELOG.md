@@ -5,6 +5,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.6.0]
+
+### Added
+
+- Perspective/Orthographic main camera mode across editor, workflows, preview, and export.
+- Reversible animation hide/filter controls, including workflow filtering for disabled clips.
+- First-party inspector controls replacing Leva in main editor inspectors.
+- Export-time Spritesheet Postprocess with Outer Outline, Drop Shadow, Glow, Color Adjust, crisp-pixel outlines, animated preview, and normal-map-safe padding.
+- New outline options: EdgeOutline, Silhouette Outline, and renamed Selection Outline.
+- Model Fit to Camera action.
+
+### Improved
+
+- Workflow UI layout, preview resizing, animation settings, and force-in-place controls.
+- Inspector styling, numeric input editing, range sliders, and compact export/postprocess panels.
+- Materials Workbench sizing with a Pose Studio-like workspace.
+- Collapsible Spritesheet Postprocess and Recent Exports sections.
+
+### Fixed
+
+- Camera type switching bugs, including orthographic property updates and workflow preview/export consistency.
+- Workflow preview resizing, disabled-animation row generation, and record-button state during active captures.
+- Leva update-depth crashes and hidden-animation history watcher crashes.
+- Effect preset crashes after deleting effects and preview freezes from Depth Debug.
+- Spritesheet postprocess preview, zoom, before/after alignment, atlas metadata, normal padding, and project persistence.
+
+### Removed
+
+- Depth Debug preset/effect path.
+- Leva usage from migrated main editor inspector surfaces.
+
+### Documentation
+
+- Updated camera, workflows, animations, effects, exporting, normal maps, projects, troubleshooting, tutorial, README, and CLI docs.
+- Added Materials Workbench docs and navigation.
+
 ## [0.5.0]
 
 ### Added
