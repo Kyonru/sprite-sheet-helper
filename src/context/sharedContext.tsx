@@ -1,11 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useCreateStore } from "leva";
-import type { StoreType } from "leva/dist/declarations/src/types";
 import React, { type PropsWithChildren } from "react";
 
-interface SharedContextProps {
-  levaStore?: StoreType;
-}
+type SharedContextProps = Record<string, never>;
 
 const sharedContext = React.createContext<SharedContextProps>({});
 
@@ -23,11 +19,5 @@ export function useSharedContext() {
 export function SharedContextProvider({
   children,
 }: PropsWithChildren<SharedContextProps>) {
-  const levaStore = useCreateStore();
-
-  return (
-    <sharedContext.Provider value={{ levaStore }}>
-      {children}
-    </sharedContext.Provider>
-  );
+  return <sharedContext.Provider value={{}}>{children}</sharedContext.Provider>;
 }

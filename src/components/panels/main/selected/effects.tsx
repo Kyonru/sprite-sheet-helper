@@ -9,17 +9,9 @@ import {
   Wand2,
   Zap,
 } from "lucide-react";
-import {
-  button,
-  LevaPanel,
-  LevaStoreProvider,
-  useControls,
-  useCreateStore,
-  useStoreContext,
-} from "leva";
-import type { Schema } from "leva/plugin";
 import { confirm } from "@/components/confirm";
 import { openShaderEditor } from "@/components/custom-shader-modal";
+import { InspectorPanel, type InspectorField } from "@/components/inspector";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -36,7 +28,6 @@ import {
   TONE_MAPPING_MODES,
   type EffectPresetId,
 } from "@/constants/effects";
-import { LEVA_THEME } from "@/constants/theming";
 import { cn } from "@/lib/utils";
 import { useEffectsStore } from "@/store/next/effects";
 import type { EffectType } from "@/types/effects";
@@ -56,16 +47,6 @@ const OPTIONS_MAP: Record<string, Record<string, number | string>> = {
   edgeDetectionMode: EDGE_DETECTION_MODES,
   predicationMode: PREDICATION_MODES,
   palette: PALETTE_INDEX,
-};
-
-const EFFECT_LEVA_THEME = {
-  ...LEVA_THEME,
-  sizes: {
-    ...LEVA_THEME.sizes,
-    controlWidth: "56%",
-    rowHeight: "28px",
-    numberInputMinWidth: "52px",
-  },
 };
 
 const CONTROL_LABELS: Record<string, string> = {
@@ -167,22 +148,29 @@ function controlLabel(key: string): string {
   return CONTROL_LABELS[key] ?? key;
 }
 
+function isColorValue(key: string, value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    (key.toLowerCase().includes("color") || /^#[0-9a-f]{6}$/i.test(value))
+  );
+}
+
 const EffectDetails = ({ uuid }: { uuid?: string }) => {
-  const store = useStoreContext();
   const effects = useEffectsStore((state) => state.effects);
   const setEffect = useEffectsStore((state) => state.setEffect);
 
-  const inputs = useMemo(() => {
-    const i: Schema = {};
-    if (!uuid) return i;
+  const fields = useMemo(() => {
+    const items: InspectorField[] = [];
+    if (!uuid) return items;
 
     const effect = effects[uuid];
-    if (!effect || !uuid) return {};
+    if (!effect || !uuid) return items;
 
-    i.ID = {
-      value: `${uuid}`,
-      editable: false,
-    };
+    items.push({
+      kind: "readonly",
+      label: "ID",
+      value: uuid,
+    });
 
     for (const key in effect) {
       if (key === "type") continue;
@@ -198,15 +186,19 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
         key === "preset"
       ) {
         const options = OPTIONS_MAP[key];
-        i[controlLabel(key)] = {
+        items.push({
+          kind: "select",
+          label: controlLabel(key),
           options,
           value,
           onChange: (newValue: unknown) => {
             setEffect(uuid, { [key]: newValue } as never);
           },
-        };
+        });
       } else if (key === "scale" && effect.type === "grid") {
-        i[controlLabel(key)] = {
+        items.push({
+          kind: "number",
+          label: controlLabel(key),
           min: 0,
           max: 1,
           step: 0.1,
@@ -214,23 +206,33 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
           onChange: (newValue: unknown) => {
             setEffect(uuid, { [key]: newValue } as never);
           },
-        };
+        });
       } else if (key === "mode") {
         const options = MODE_OPTIONS_MAP[effect.type];
 
-        i[controlLabel(key)] = {
-          options,
-          value,
-          onChange: (newValue: unknown) => {
-            setEffect(uuid, { [key]: newValue } as never);
-          },
-        };
+        if (options) {
+          items.push({
+            kind: "select",
+            label: controlLabel(key),
+            options,
+            value,
+            onChange: (newValue: unknown) => {
+              setEffect(uuid, { [key]: newValue } as never);
+            },
+          });
+        }
       } else if (key === "fragmentShader") {
-        i[controlLabel(key)] = button(() => {
-          openShaderEditor(uuid);
+        items.push({
+          kind: "button",
+          label: controlLabel(key),
+          action: () => {
+            openShaderEditor(uuid);
+          },
         });
       } else if (key === "brightness" || key === "contrast") {
-        i[controlLabel(key)] = {
+        items.push({
+          kind: "number",
+          label: controlLabel(key),
           value,
           min: -1,
           max: 1,
@@ -238,9 +240,11 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
           onChange: (newValue: unknown) => {
             setEffect(uuid, { [key]: newValue } as never);
           },
-        };
+        });
       } else if (key === "damp") {
-        i[controlLabel(key)] = {
+        items.push({
+          kind: "number",
+          label: controlLabel(key),
           value,
           min: 0,
           max: 0.99,
@@ -248,44 +252,62 @@ const EffectDetails = ({ uuid }: { uuid?: string }) => {
           onChange: (newValue: unknown) => {
             setEffect(uuid, { [key]: newValue } as never);
           },
-        };
-      } else {
-        i[controlLabel(key)] = {
+        });
+      } else if (typeof value === "number") {
+        items.push({
+          kind: "number",
+          label: controlLabel(key),
           value,
           onChange: (newValue: unknown) => {
             setEffect(uuid, { [key]: newValue } as never);
           },
-        };
+        });
+      } else if (typeof value === "boolean") {
+        items.push({
+          kind: "boolean",
+          label: controlLabel(key),
+          value,
+          onChange: (newValue: unknown) => {
+            setEffect(uuid, { [key]: newValue } as never);
+          },
+        });
+      } else if (isColorValue(key, value)) {
+        items.push({
+          kind: "color",
+          label: controlLabel(key),
+          value,
+          onChange: (newValue: unknown) => {
+            setEffect(uuid, { [key]: newValue } as never);
+          },
+        });
+      } else if (typeof value === "string") {
+        items.push({
+          kind: "text",
+          label: controlLabel(key),
+          value,
+          onChange: (newValue: unknown) => {
+            setEffect(uuid, { [key]: newValue } as never);
+          },
+        });
+      } else {
+        items.push({
+          kind: "readonly",
+          label: controlLabel(key),
+          value: JSON.stringify(value),
+        });
       }
     }
 
-    return i;
+    return items;
   }, [effects, uuid, setEffect]);
 
-  useControls(() => inputs satisfies Schema, { store }, [uuid]);
-
-  return (
-    <LevaPanel
-      theme={EFFECT_LEVA_THEME}
-      hidden={false}
-      neverHide
-      store={store}
-      fill
-      flat
-      titleBar={false}
-    />
-  );
+  return <InspectorPanel fields={fields} />;
 };
 
 const EffectContext = () => {
   const selected = useEffectsStore((state) => state.selected);
-  const store = useCreateStore();
 
-  return (
-    <LevaStoreProvider key={selected} store={store}>
-      <EffectDetails uuid={selected} />
-    </LevaStoreProvider>
-  );
+  return <EffectDetails uuid={selected} />;
 };
 
 function PresetsPanel() {

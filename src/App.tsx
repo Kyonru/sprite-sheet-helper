@@ -8,12 +8,10 @@ import {
 
 import AssetCreation from "./components/panels/scene";
 import Layout from "./layout";
-import { SharedContextProvider } from "./context/sharedContext";
 import MainPanel from "./components/panels/main";
 
 import { ExportModal } from "./components/export-modal";
 import { MainPanelContextProvider } from "./components/panels/main/context";
-import { useCreateStore } from "leva";
 import { useAddCamera } from "./hooks/next/use-add-camera";
 import { useAddLight } from "./hooks/next/use-add-light";
 import { useEffect, useRef } from "react";
@@ -41,8 +39,6 @@ THREE.Cache.enabled = true;
 initShortcutRegistry();
 
 function App() {
-  const mainPanelStore = useCreateStore();
-
   const addCamera = useAddCamera(true);
   const addLight = useAddLight(false);
   const init = useRef(false);
@@ -91,34 +87,32 @@ function App() {
 
   return (
     <ThemeProvider defaultTheme={theme} storageKey="vite-ui-theme">
-      <SharedContextProvider>
-        <MainPanelContextProvider defaultStore={mainPanelStore}>
-          <Layout>
-            <ResizablePanelGroup
-              orientation="horizontal"
-              className="min-h-0 max-w-full overflow-hidden border"
+      <MainPanelContextProvider>
+        <Layout>
+          <ResizablePanelGroup
+            orientation="horizontal"
+            className="min-h-0 max-w-full overflow-hidden border"
+          >
+            <ResizablePanel
+              defaultSize="20%"
+              className="min-h-0 overflow-hidden"
             >
-              <ResizablePanel
-                defaultSize="20%"
-                className="min-h-0 overflow-hidden"
-              >
-                <MainPanel />
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <SharedSceneProvider>
-                <AssetCreation />
-              </SharedSceneProvider>
-              <ResizableHandle withHandle />
-              <ResizablePanel
-                defaultSize="20%"
-                className="min-h-0 overflow-hidden"
-              >
-                <ExportModal />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </Layout>
-        </MainPanelContextProvider>
-      </SharedContextProvider>
+              <MainPanel />
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <SharedSceneProvider>
+              <AssetCreation />
+            </SharedSceneProvider>
+            <ResizableHandle withHandle />
+            <ResizablePanel
+              defaultSize="20%"
+              className="min-h-0 overflow-hidden"
+            >
+              <ExportModal />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </Layout>
+      </MainPanelContextProvider>
       <ConfirmProvider />
       <ReorderModalProvider />
       <SettingsModalProvider />

@@ -1,200 +1,179 @@
-import { useSharedContext } from "@/context/sharedContext";
 import { type ExportFormat } from "@/types/file";
-import { button, folder, useControls } from "leva";
-import { useEffect } from "react";
-import { carousel } from "../leva/carousel";
+import { useMemo } from "react";
+import { InspectorPanel, type InspectorField } from "@/components/inspector";
 import { useImagesStore } from "@/store/next/images";
 import { useSettingsStore } from "@/store/next/settings";
 import { EventType, PubSub } from "@/lib/events";
 import { exporters } from "@/utils/exports";
 
 export const ExportConfig = () => {
-  const { levaStore } = useSharedContext();
-  const exportHeightDefault = useSettingsStore((state) => state.exportHeight);
-  const exportWidthDefault = useSettingsStore((state) => state.exportWidth);
-  const fpsDefault = useImagesStore((state) => state.fps);
+  const exportHeight = useSettingsStore((state) => state.exportHeight);
+  const exportWidth = useSettingsStore((state) => state.exportWidth);
+  const fps = useImagesStore((state) => state.fps);
   const setFPS = useImagesStore((state) => state.setFPS);
-  const intervalsDefault = useImagesStore((state) => state.intervals);
-  const iterationsDefault = useImagesStore((state) => state.iterations);
+  const intervals = useImagesStore((state) => state.intervals);
+  const iterations = useImagesStore((state) => state.iterations);
   const setIntervals = useImagesStore((state) => state.setIntervals);
   const setIterations = useImagesStore((state) => state.setIterations);
-  const exportModeDefault = useSettingsStore((state) => state.mode);
+  const exportMode = useSettingsStore((state) => state.mode);
   const setExportMode = useSettingsStore((state) => state.setMode);
-  const exportNormalMapDefault = useSettingsStore(
-    (state) => state.exportNormalMap,
-  );
+  const exportNormalMap = useSettingsStore((state) => state.exportNormalMap);
   const setExportNormalMap = useSettingsStore(
     (state) => state.setExportNormalMap,
   );
 
-  const heightDefault = useSettingsStore((state) => state.height);
-  const widthDefault = useSettingsStore((state) => state.width);
+  const previewHeight = useSettingsStore((state) => state.height);
+  const previewWidth = useSettingsStore((state) => state.width);
   const setHeight = useSettingsStore((state) => state.setHeight);
   const setWidth = useSettingsStore((state) => state.setWidth);
   const setExportHeight = useSettingsStore((state) => state.setExportHeight);
   const setExportWidth = useSettingsStore((state) => state.setExportWidth);
 
-  const [
-    {
-      fps,
-      mode,
-      intervals,
-      iterations,
-      height,
-      width,
-      previewHeight,
-      previewWidth,
-      exportNormalMap,
-    },
-    set,
-  ] = useControls(
-    () => ({
-      "Sequence Options": folder(
-        {
-          intervals: {
+  const exportModeOptions = useMemo(
+    () =>
+      Object.values(exporters).reduce(
+        (acc, exporter) => {
+          acc[exporter.label] = exporter.id;
+          return acc;
+        },
+        {} as Record<string, ExportFormat>,
+      ),
+    [],
+  );
+
+  const fields = useMemo<InspectorField[]>(
+    () => [
+      {
+        kind: "group",
+        label: "Sequence Options",
+        fields: [
+          {
+            kind: "number",
             label: "Time between frames",
-            value: intervalsDefault,
+            value: intervals,
             min: 1,
             max: 1000,
             step: 1,
+            onChange: setIntervals,
           },
-          iterations: {
+          {
+            kind: "number",
             label: "Frames amount",
-            value: iterationsDefault,
+            value: iterations,
             min: 1,
             max: 100,
             step: 1,
+            onChange: setIterations,
           },
-
-          "Record Sequence": button(() => {
-            PubSub.emit(EventType.START_ASSETS_CREATION);
-          }, {}),
-
-          "Add Frame to Sequence": button(() => {
-            PubSub.emit(EventType.TAKE_SINGLE_SCREENSHOT);
-          }, {}),
-
-          "New Empty Sequence": button(() => {
-            PubSub.emit(EventType.NEW_SEQUENCE);
-          }, {}),
-        },
-        {
-          color: "var(--chart-2)",
-        },
-      ),
-
-      "Default Sizes": folder(
-        {
-          preview: folder(
-            {
-              previewHeight: {
-                label: "height",
-                value: heightDefault,
-              },
-              previewWidth: {
-                label: "width",
-                value: widthDefault,
-              },
-            },
-            {
-              collapsed: true,
-            },
-          ),
-          export: folder(
-            {
-              height: exportHeightDefault,
-              width: exportWidthDefault,
-            },
-            {
-              collapsed: true,
-            },
-          ),
-        },
-        {
-          color: "var(--chart-3)",
-        },
-      ),
-
-      "Export Options": folder(
-        {
-          mode: {
-            options: Object.values(exporters)
-              .map((exporter) => ({
-                label: exporter.label,
-                value: exporter.id,
-              }))
-              .reduce(
-                (acc, curr) => {
-                  acc[curr.label] = curr.value;
-                  return acc;
-                },
-                {} as Record<string, ExportFormat>,
-              ),
-            value: exportModeDefault,
+          {
+            kind: "button",
+            label: "Record Sequence",
+            action: () => PubSub.emit(EventType.START_ASSETS_CREATION),
           },
-          fps: {
+          {
+            kind: "button",
+            label: "Add Frame to Sequence",
+            action: () => PubSub.emit(EventType.TAKE_SINGLE_SCREENSHOT),
+          },
+          {
+            kind: "button",
+            label: "New Empty Sequence",
+            action: () => PubSub.emit(EventType.NEW_SEQUENCE),
+          },
+        ],
+      },
+      {
+        kind: "group",
+        label: "Preview Size",
+        fields: [
+          {
+            kind: "number",
+            label: "height",
+            value: previewHeight,
+            onChange: setHeight,
+          },
+          {
+            kind: "number",
+            label: "width",
+            value: previewWidth,
+            onChange: setWidth,
+          },
+        ],
+      },
+      {
+        kind: "group",
+        label: "Export Size",
+        fields: [
+          {
+            kind: "number",
+            label: "height",
+            value: exportHeight,
+            onChange: setExportHeight,
+          },
+          {
+            kind: "number",
+            label: "width",
+            value: exportWidth,
+            onChange: setExportWidth,
+          },
+        ],
+      },
+      {
+        kind: "group",
+        label: "Export Options",
+        fields: [
+          {
+            kind: "select",
+            label: "mode",
+            options: exportModeOptions,
+            value: exportMode,
+            onChange: (value) => setExportMode(value as ExportFormat),
+          },
+          {
+            kind: "number",
             label: "Frame duration",
-            value: fpsDefault,
+            value: fps,
             min: 1,
             max: 1000,
             step: 1,
+            onChange: setFPS,
           },
-          exportNormalMap: {
+          {
+            kind: "boolean",
             label: "Capture normal maps",
-            value: exportNormalMapDefault,
+            value: exportNormalMap,
+            onChange: setExportNormalMap,
           },
-          preview: carousel(),
-        },
-        {
-          color: "var(--chart-4)",
-        },
-      ),
-    }),
-    {
-      store: levaStore,
-    },
-    [exportHeightDefault, exportWidthDefault],
+          {
+            kind: "readonly",
+            label: "Preview",
+            value: `${exportWidth}x${exportHeight}`,
+          },
+        ],
+      },
+    ],
+    [
+      exportHeight,
+      exportMode,
+      exportModeOptions,
+      exportNormalMap,
+      exportWidth,
+      fps,
+      intervals,
+      iterations,
+      previewHeight,
+      previewWidth,
+      setExportHeight,
+      setExportMode,
+      setExportNormalMap,
+      setExportWidth,
+      setFPS,
+      setHeight,
+      setIntervals,
+      setIterations,
+      setWidth,
+    ],
   );
 
-  useEffect(() => {
-    setFPS(fps);
-  }, [fps, setFPS]);
-
-  useEffect(() => {
-    setIntervals(intervals);
-  }, [intervals, setIntervals]);
-
-  useEffect(() => {
-    setIterations(iterations);
-  }, [iterations, setIterations]);
-
-  useEffect(() => {
-    set({
-      preview: {
-        // @ts-expect-error 🤷 Preview type is broken
-        width: exportWidthDefault,
-        height: exportHeightDefault,
-      },
-    });
-  }, [set, exportHeightDefault, exportWidthDefault]);
-
-  useEffect(() => {
-    setExportMode(mode as ExportFormat);
-  }, [mode, setExportMode]);
-
-  useEffect(() => {
-    setExportNormalMap(exportNormalMap);
-  }, [exportNormalMap, setExportNormalMap]);
-
-  useEffect(() => {
-    setHeight(previewHeight);
-    setWidth(previewWidth);
-  }, [previewHeight, previewWidth, setHeight, setWidth]);
-
-  useEffect(() => {
-    setExportHeight(height);
-    setExportWidth(width);
-  }, [height, width, setExportHeight, setExportWidth]);
-
-  return null;
+  return <InspectorPanel fields={fields} />;
 };

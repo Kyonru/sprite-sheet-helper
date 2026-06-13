@@ -1,12 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { CameraControls } from "@react-three/drei";
-import type { StoreType } from "leva/dist/declarations/src/types";
 import React, { useState, type PropsWithChildren } from "react";
 import * as THREE from "three";
 
 interface MainPanelContextProps {
-  store?: StoreType;
-  setStore: (store: StoreType) => void;
   controls: CameraControls | null;
   setControls: (controls: CameraControls | null) => void;
   cameraHelper: THREE.CameraHelper | null;
@@ -14,8 +11,6 @@ interface MainPanelContextProps {
 }
 
 export const MainPanelContext = React.createContext<MainPanelContextProps>({
-  store: undefined,
-  setStore: () => {},
   controls: null,
   setControls: () => {},
   cameraHelper: null,
@@ -24,13 +19,9 @@ export const MainPanelContext = React.createContext<MainPanelContextProps>({
 
 export const MainPanelContextProvider = ({
   children,
-  defaultStore,
 }: PropsWithChildren<{
   children: React.ReactNode;
-  defaultStore?: StoreType;
 }>) => {
-  const [store, setStore] = useState(defaultStore);
-
   const [controls, setControls] = useState<CameraControls | null>(null);
   const [cameraHelper, setCameraHelper] = useState<THREE.CameraHelper | null>(
     null,
@@ -39,8 +30,6 @@ export const MainPanelContextProvider = ({
   return (
     <MainPanelContext.Provider
       value={{
-        store,
-        setStore,
         controls,
         setControls,
         cameraHelper,

@@ -1,15 +1,5 @@
 import { useEntitiesStore, useEntity } from "@/store/next/entities";
-import {
-  LevaPanel,
-  LevaStoreProvider,
-  useControls,
-  useCreateStore,
-  useStoreContext,
-  button,
-} from "leva";
-import type { Schema } from "leva/plugin";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LEVA_THEME } from "@/constants/theming";
 import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
 import {
   useModel,
@@ -25,6 +15,7 @@ import {
   normalizeInPlaceAxisMode,
   type InPlaceAxisMode,
 } from "@/utils/animation-clips";
+import { InspectorPanel, type InspectorField } from "@/components/inspector";
 
 const ANIMATION_LOOP_OPTIONS: Record<string, LoopType> = {
   "Loop Once": THREE.LoopOnce,
@@ -35,7 +26,6 @@ const ANIMATION_LOOP_OPTIONS: Record<string, LoopType> = {
 const EMPTY_HIDDEN_ANIMATIONS: string[] = [];
 
 const AnimationDetails = ({ uuid }: { uuid: string }) => {
-  const store = useStoreContext();
   const entity = useEntity(uuid);
   const model = useModel(uuid);
   const setAnimation = useModelsStore((state) => state.setAnimation);
@@ -182,83 +172,99 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     uuid,
   ]);
 
-  const importInputs = useMemo(() => {
-    const i: Schema = {};
-    if (!isModelReady) return i;
+  const importFields = useMemo(() => {
+    const fields: InspectorField[] = [];
+    if (!isModelReady) return fields;
 
     if (candidateSourceModels.length > 0) {
       const sourceOptionValues = Object.values(importSourceOptions);
       const isSelectionAvailable =
         !!importSourceUuid && sourceOptionValues.includes(importSourceUuid);
 
-      i["source model"] = {
+      fields.push({
+        kind: "select",
+        label: "source model",
         options: importSourceOptions,
         value: isSelectionAvailable
           ? importSourceUuid
-          : sourceOptionValues.at(0),
-        onChange: (value: string) => {
-          setImportSourceUuid(value);
+          : (sourceOptionValues.at(0) ?? ""),
+        onChange: (value) => {
+          setImportSourceUuid(String(value));
         },
-      };
-      i["import from model"] = button(handleImportFromLoadedModel);
-    } else {
-      i["import from model"] = button(handleImportFromLoadedModel);
+      });
     }
 
-    i["import from file"] = button(async () => {
-      if (!isModelReady) {
-        toast.error("Model must be loaded before importing animations.");
-        return;
-      }
-
-      importFile(ACCEPTED_MODEL_FILE_TYPES, async (file) => {
-        try {
-          const { importedNames } = await importAnimationsFromSource(uuid, {
-            sourceFile: file,
-            forceInPlace: importForceInPlace,
-            inPlaceAxisMode: importInPlaceAxisMode,
-          });
-
-          if (importedNames.length === 0) {
-            toast.info("No animations found in source file.");
-            return;
-          }
-
-          const modeSuffix =
-            importForceInPlace && importInPlaceAxisMode === "horizontal"
-              ? " with horizontal motion frozen"
-              : importForceInPlace && importInPlaceAxisMode !== "all" && importInPlaceAxisMode !== "none"
-                ? ` with ${importInPlaceAxisMode.toUpperCase()} motion frozen`
-              : "";
-          toast.success(
-            `Imported ${importedNames.length} animation(s) from file${modeSuffix}: ${importedNames.join(", ")}`,
-          );
-        } catch (error) {
-          toast.error("Failed to import animations from file", {
-            description: (error as Error).message,
-          });
-        }
-      });
+    fields.push({
+      kind: "button",
+      label: "import from model",
+      action: handleImportFromLoadedModel,
+      disabled: candidateSourceModels.length === 0,
     });
 
-    i["force imported in place"] = {
+    fields.push({
+      kind: "button",
+      label: "import from file",
+      action: async () => {
+        if (!isModelReady) {
+          toast.error("Model must be loaded before importing animations.");
+          return;
+        }
+
+        importFile(ACCEPTED_MODEL_FILE_TYPES, async (file) => {
+          try {
+            const { importedNames } = await importAnimationsFromSource(uuid, {
+              sourceFile: file,
+              forceInPlace: importForceInPlace,
+              inPlaceAxisMode: importInPlaceAxisMode,
+            });
+
+            if (importedNames.length === 0) {
+              toast.info("No animations found in source file.");
+              return;
+            }
+
+            const modeSuffix =
+              importForceInPlace && importInPlaceAxisMode === "horizontal"
+                ? " with horizontal motion frozen"
+                : importForceInPlace &&
+                    importInPlaceAxisMode !== "all" &&
+                    importInPlaceAxisMode !== "none"
+                  ? ` with ${importInPlaceAxisMode.toUpperCase()} motion frozen`
+                  : "";
+            toast.success(
+              `Imported ${importedNames.length} animation(s) from file${modeSuffix}: ${importedNames.join(", ")}`,
+            );
+          } catch (error) {
+            toast.error("Failed to import animations from file", {
+              description: (error as Error).message,
+            });
+          }
+        });
+      },
+    });
+
+    fields.push({
+      kind: "boolean",
+      label: "force imported in place",
       value: importForceInPlace,
       onChange: (value: boolean) => {
         setImportForceInPlace(value);
       },
-    };
+    });
 
     if (importForceInPlace) {
-      i["force imported axes"] = {
+      fields.push({
+        kind: "select",
+        label: "force imported axes",
         options: IN_PLACE_AXIS_OPTIONS,
         value: importInPlaceAxisMode,
-        onChange: (value: string) => {
-          setImportInPlaceAxisMode(normalizeInPlaceAxisMode(value));
+        onChange: (value) => {
+          setImportInPlaceAxisMode(normalizeInPlaceAxisMode(String(value)));
         },
-      };
+      });
     }
 
-    return i;
+    return fields;
   }, [
     candidateSourceModels.length,
     handleImportFromLoadedModel,
@@ -344,9 +350,9 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     toast.success("Hidden animations restored.");
   }, [restoreHiddenAnimations, uuid]);
 
-  const inputs = useMemo(() => {
-    const i: Schema = {};
-    if (!uuid) return i;
+  const animationFields = useMemo(() => {
+    const fields: InspectorField[] = [];
+    if (!uuid) return fields;
 
     if (
       !entity?.uuid ||
@@ -354,92 +360,124 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
       !isModelReady ||
       !visibleAnimations
     ) {
-      return {};
+      return fields;
     }
 
     if (visibleAnimations) {
-      i["force current axes"] = {
+      fields.push({
+        kind: "select",
+        label: "force current axes",
         options: IN_PLACE_AXIS_OPTIONS,
         value: currentInPlaceAxisMode,
-        onChange: (value: string) => {
-          setCurrentInPlaceAxisMode(normalizeInPlaceAxisMode(value));
+        onChange: (value) => {
+          setCurrentInPlaceAxisMode(normalizeInPlaceAxisMode(String(value)));
         },
-      };
+      });
 
-      i["force current animation in place"] = button(
-        handleForceCurrentInPlace,
-      );
+      fields.push({
+        kind: "button",
+        label: "force current animation in place",
+        action: handleForceCurrentInPlace,
+      });
 
       const animationOptions = [
         "none",
         ...visibleAnimations.map((clip) => clip.clip.name),
       ];
 
-      i["animation"] = {
+      fields.push({
+        kind: "select",
+        label: "animation",
         options: animationOptions,
         value: animation || "none",
-        onChange: (value: string) => {
-          setAnimation(uuid, value);
+        onChange: (value) => {
+          setAnimation(uuid, String(value));
         },
-      };
-      i["hide selected animation"] = button(handleHideCurrentAnimation);
+      });
+
+      fields.push({
+        kind: "button",
+        label: "hide selected animation",
+        action: handleHideCurrentAnimation,
+        disabled: !animation || animation === "none",
+      });
 
       if (hiddenAnimations.length > 0) {
-        i["hidden animations"] = {
+        fields.push({
+          kind: "readonly",
+          label: "hidden animations",
           value: `${hiddenAnimations.length}`,
-          editable: false,
-        };
-        i["restore hidden animations"] = button(handleRestoreHiddenAnimations);
+        });
+        fields.push({
+          kind: "button",
+          label: "restore hidden animations",
+          action: handleRestoreHiddenAnimations,
+        });
       }
 
       const clip = visibleAnimations.find(
         (clip) => clip.clip.name === animation,
       );
 
-      i["length"] = {
+      fields.push({
+        kind: "readonly",
+        label: "length",
         value: `${clip?.clip.duration || 0} seconds`,
-        editable: false,
-      };
+      });
 
-      const duration = durations[uuid]?.[animation];
+      const selectedAnimation = animation || "none";
+      const duration = durations[uuid]?.[selectedAnimation];
 
-      i["duration"] = {
+      fields.push({
+        kind: "range",
+        label: "duration",
         min: 0,
         max: clip?.clip.duration ?? 0,
         step: 0.1,
         value: duration ?? [0, clip?.clip.duration || 0],
         onChange: (value: [number, number]) => {
-          setDuration(uuid, animation, value);
+          setDuration(uuid, selectedAnimation, value);
         },
-      };
+        disabled: selectedAnimation === "none",
+      });
 
-      i["speed"] = {
+      fields.push({
+        kind: "number",
+        label: "speed",
         min: -1,
         max: 3,
         step: 0.1,
-        value: speeds[uuid]?.[animation] ?? 1,
+        value: speeds[uuid]?.[selectedAnimation] ?? 1,
         onChange: (value: number) => {
-          setSpeed(uuid, animation, value);
+          setSpeed(uuid, selectedAnimation, value);
         },
-      };
+        disabled: selectedAnimation === "none",
+      });
 
-      i["loop"] = {
+      fields.push({
+        kind: "select",
+        label: "loop",
         options: ANIMATION_LOOP_OPTIONS,
-        value: loops[uuid]?.[animation] ?? THREE.LoopOnce,
-        onChange: (value: LoopType) => {
-          setLoop(uuid, animation, value);
+        value: loops[uuid]?.[selectedAnimation] ?? THREE.LoopOnce,
+        onChange: (value) => {
+          setLoop(uuid, selectedAnimation, Number(value) as LoopType);
         },
-      };
+        disabled: selectedAnimation === "none",
+      });
 
-      i["freeze"] = {
+      fields.push({
+        kind: "boolean",
+        label: "freeze",
         value: freeze ?? false,
         onChange: (value: boolean) => {
           setFreeze(uuid, value);
         },
-      };
+      });
 
       if (freeze) {
-        i["currentTime"] = {
+        fields.push({
+          kind: "number",
+          label: "currentTime",
           min: 0,
           max: clip?.clip.duration ?? 0,
           step: 0.1,
@@ -447,11 +485,11 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
           onChange: (value: number) => {
             setCurrentTime(uuid, value);
           },
-        };
+        });
       }
     }
 
-    return i;
+    return fields;
   }, [
     entity?.uuid,
     uuid,
@@ -476,66 +514,47 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     handleForceCurrentInPlace,
   ]);
 
-  useControls(
-    () =>
-      ({
-        ...(isModelReady
-          ? { "Create Pose / Motion Clip": button(() => openPoseStudio(uuid)) }
-          : {}),
-      }) satisfies Schema,
-    { store },
-    [uuid, isModelReady],
-  );
+  const fields = useMemo<InspectorField[]>(() => {
+    const items: InspectorField[] = [];
 
-  useControls(() => importInputs satisfies Schema, { store }, [
-    uuid,
-    importInputs,
-  ]);
+    if (isModelReady) {
+      items.push({
+        kind: "button",
+        label: "Create Pose / Motion Clip",
+        action: () => openPoseStudio(uuid),
+      });
+    }
 
-  // Function form + key forces Leva to remount when entity/type changes
-  const [, set] = useControls(() => inputs satisfies Schema, { store }, [
-    uuid,
-    animation,
-    currentInPlaceAxisMode,
-    hiddenAnimations.length,
-    handleForceCurrentInPlace,
-    handleHideCurrentAnimation,
-    handleRestoreHiddenAnimations,
-    visibleAnimations?.length,
-  ]);
-
-  useEffect(() => {
-    if (!visibleAnimations) return;
-
-    const clip = visibleAnimations.find((clip) => clip.clip.name === animation);
-
-    set({
-      length: `${clip?.clip.duration ?? 0} seconds`,
+    items.push({
+      kind: "group",
+      label: "Import Animations",
+      fields: importFields,
+      hidden: importFields.length === 0,
     });
-  }, [uuid, set, animation, visibleAnimations]);
 
-  return (
-    <LevaPanel
-      theme={LEVA_THEME}
-      hidden={false}
-      neverHide
-      store={store}
-      fill
-      flat
-      titleBar={false}
-    />
-  );
+    items.push({
+      kind: "group",
+      label: "Animation Settings",
+      fields: animationFields,
+      hidden: animationFields.length === 0,
+    });
+
+    return items;
+  }, [animationFields, importFields, isModelReady, uuid]);
+
+  return <InspectorPanel fields={fields} />;
 };
 
 export const AnimationContext = () => {
   const selected = useEntitiesStore((state) => state.selected);
-  const animationStore = useCreateStore();
 
   if (!selected) return null;
 
   return (
-    <LevaStoreProvider key={selected} store={animationStore}>
-      <AnimationDetails uuid={selected} />
-    </LevaStoreProvider>
+    <div className="grid min-h-0 gap-3 pb-8">
+      <section className="relative rounded-md border bg-background">
+        <AnimationDetails uuid={selected} />
+      </section>
+    </div>
   );
 };
