@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Boxes,
+  ChevronDown,
+  ChevronRight,
   CheckCircle2,
   Clock,
   Code2,
@@ -507,6 +509,7 @@ export function ExportWorkbench() {
   const [preflightOpen, setPreflightOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [recentExportsCollapsed, setRecentExportsCollapsed] = useState(true);
   const [history, setHistory] = useState<ExportHistoryEntry[]>(() =>
     loadExportHistory(),
   );
@@ -748,7 +751,23 @@ export function ExportWorkbench() {
 
         <section className="mt-3 rounded-md border">
           <div className="flex items-center justify-between border-b px-3 py-2">
-            <span className="text-sm font-medium">Recent Exports</span>
+            <button
+              type="button"
+              className="flex min-w-0 items-center gap-1.5 text-sm font-medium"
+              onClick={() => setRecentExportsCollapsed((value) => !value)}
+            >
+              {recentExportsCollapsed ? (
+                <ChevronRight size={14} className="text-muted-foreground" />
+              ) : (
+                <ChevronDown size={14} className="text-muted-foreground" />
+              )}
+              <span>Recent Exports</span>
+              {history.length > 0 && (
+                <span className="rounded-full border bg-muted px-1.5 py-0 text-[10px] text-muted-foreground">
+                  {history.length}
+                </span>
+              )}
+            </button>
             <Button
               size="icon"
               variant="ghost"
@@ -759,6 +778,7 @@ export function ExportWorkbench() {
               <Trash2Icon size={14} />
             </Button>
           </div>
+          {!recentExportsCollapsed && (
           <div className="grid gap-2 p-3">
             {history.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -783,6 +803,7 @@ export function ExportWorkbench() {
               ))
             )}
           </div>
+          )}
         </section>
       </div>
 
