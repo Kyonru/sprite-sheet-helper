@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { resolveCollisionName, useModelsStore } from "@/store/next/models";
+import { useHistoryStore } from "@/store/next/history";
 
 const createModel = (fileName: string) => ({
   fileName,
   filePath: `/${fileName}`,
   fileSize: 12,
   type: "application/octet-stream",
-  format: "fbx",
+  format: "fbx" as const,
   source: "file" as const,
   loadState: "loaded" as const,
   errorMessage: null,
@@ -19,22 +20,13 @@ function setupCurrentAnimationClip(
   name = "Jump",
 ) {
   const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
-  const targetClip = new THREE.AnimationClip(
-    name,
-    1,
-    [
-      new THREE.VectorKeyframeTrack(
-        "Root.position",
-        [0, 0.5, 1],
-        values,
-      ),
-    ],
-  );
+  const targetClip = new THREE.AnimationClip(name, 1, [
+    new THREE.VectorKeyframeTrack("Root.position", [0, 0.5, 1], values),
+  ]);
 
   useModelsStore.getState().reset();
   useModelsStore.setState({
     models: {
-      // @ts-expect-error invalid key
       [targetUuid]: createModel(`${targetUuid}.fbx`),
     },
     clips: {
@@ -84,6 +76,7 @@ describe("resolveCollisionName", () => {
 describe("useModelsStore hidden animations", () => {
   beforeEach(() => {
     useModelsStore.getState().reset();
+    useHistoryStore.getState().reset();
   });
 
   it("hides the selected animation and restores hidden animations", () => {
@@ -106,9 +99,160 @@ describe("useModelsStore hidden animations", () => {
   });
 });
 
+describe("useModelsStore renameAnimation", () => {
+  beforeEach(() => {
+    useModelsStore.getState().reset();
+    useHistoryStore.getState().reset();
+  });
+
+  function setupRenameFixture() {
+    const modelUuid = "model-rename";
+    const mixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const walkClip = new THREE.AnimationClip("Walk", 1, []);
+    const runClip = new THREE.AnimationClip("Run", 2, []);
+
+    useModelsStore.setState({
+      models: {
+        [modelUuid]: createModel(`${modelUuid}.fbx`),
+      },
+      clips: {
+        [modelUuid]: [
+          { action: mixer.clipAction(walkClip), clip: walkClip },
+          { action: mixer.clipAction(runClip), clip: runClip },
+        ],
+      },
+      mixerRef: {
+        [modelUuid]: mixer,
+      },
+      animations: {
+        [modelUuid]: "Walk",
+      },
+      durations: {
+        [modelUuid]: {
+          Walk: [0.2, 0.8],
+        },
+      },
+      speeds: {
+        [modelUuid]: {
+          Walk: 1.5,
+        },
+      },
+      loops: {
+        [modelUuid]: {
+          Walk: THREE.LoopRepeat,
+        },
+      },
+      hiddenAnimations: {
+        [modelUuid]: ["Walk"],
+      },
+      currentTime: {},
+      frameStep: {},
+      freeze: {},
+    });
+
+    return modelUuid;
+  }
+
+  it("renames a clip and moves per-animation metadata", () => {
+    const modelUuid = setupRenameFixture();
+
+    const result = useModelsStore
+      .getState()
+      .renameAnimation(modelUuid, "Walk", "Sprint");
+
+    expect(result).toEqual({ name: "Sprint" });
+
+    const state = useModelsStore.getState();
+    expect(state.clips[modelUuid]?.map((entry) => entry.clip.name)).toEqual([
+      "Sprint",
+      "Run",
+    ]);
+    expect(state.animations[modelUuid]).toBe("Sprint");
+    expect(state.durations[modelUuid]).toEqual({ Sprint: [0.2, 0.8] });
+    expect(state.speeds[modelUuid]).toEqual({ Sprint: 1.5 });
+    expect(state.loops[modelUuid]).toEqual({ Sprint: THREE.LoopRepeat });
+    expect(state.hiddenAnimations[modelUuid]).toEqual(["Sprint"]);
+    expect(useHistoryStore.getState().past).toHaveLength(1);
+    expect(useHistoryStore.getState().past[0]?.type).toBe(
+      "model/animationRename",
+    );
+  });
+
+  it("rejects duplicate and reserved animation names", () => {
+    const modelUuid = setupRenameFixture();
+
+    expect(() =>
+      useModelsStore.getState().renameAnimation(modelUuid, "Walk", "Run"),
+    ).toThrow("Animation name already exists");
+
+    expect(() =>
+      useModelsStore.getState().renameAnimation(modelUuid, "Walk", "none"),
+    ).toThrow('"none" is reserved');
+  });
+
+  it("undoes and redoes animation renames as one history step", () => {
+    const modelUuid = setupRenameFixture();
+
+    useModelsStore.getState().renameAnimation(modelUuid, "Walk", "Sprint");
+    expect(useHistoryStore.getState().past).toHaveLength(1);
+
+    useHistoryStore.getState().undo();
+    let state = useModelsStore.getState();
+    expect(state.clips[modelUuid]?.map((entry) => entry.clip.name)).toEqual([
+      "Walk",
+      "Run",
+    ]);
+    expect(state.animations[modelUuid]).toBe("Walk");
+    expect(state.durations[modelUuid]).toEqual({ Walk: [0.2, 0.8] });
+    expect(state.hiddenAnimations[modelUuid]).toEqual(["Walk"]);
+
+    useHistoryStore.getState().redo();
+    state = useModelsStore.getState();
+    expect(state.clips[modelUuid]?.map((entry) => entry.clip.name)).toEqual([
+      "Sprint",
+      "Run",
+    ]);
+    expect(state.animations[modelUuid]).toBe("Sprint");
+    expect(state.durations[modelUuid]).toEqual({ Sprint: [0.2, 0.8] });
+    expect(state.hiddenAnimations[modelUuid]).toEqual(["Sprint"]);
+  });
+
+  it("persists and reapplies animation renames when clips reload", () => {
+    const modelUuid = setupRenameFixture();
+
+    useModelsStore.getState().renameAnimation(modelUuid, "Walk", "Sprint");
+
+    const snapshot = useModelsStore.getState().getSnapshot();
+    expect(snapshot.animationRenames).toEqual({
+      [modelUuid]: {
+        Walk: "Sprint",
+      },
+    });
+
+    useModelsStore.getState().reset();
+    useModelsStore.getState().hydrate(snapshot);
+
+    const mixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const reloadedWalkClip = new THREE.AnimationClip("Walk", 1, []);
+    useModelsStore.getState().setClips(modelUuid, [
+      {
+        action: mixer.clipAction(reloadedWalkClip),
+        clip: reloadedWalkClip,
+      },
+    ]);
+
+    expect(
+      useModelsStore
+        .getState()
+        .clips[modelUuid]?.map((entry) => entry.clip.name),
+    ).toEqual(["Sprint"]);
+  });
+});
+
 describe("useModelsStore importAnimationsFromSource", () => {
   beforeEach(() => {
     useModelsStore.getState().reset();
+    useHistoryStore.getState().reset();
   });
 
   it("copies animation names with collision suffixes and metadata", async () => {
@@ -124,9 +268,7 @@ describe("useModelsStore importAnimationsFromSource", () => {
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [sourceUuid]: createModel(`${sourceUuid}.fbx`),
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {
@@ -192,9 +334,7 @@ describe("useModelsStore importAnimationsFromSource", () => {
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [sourceUuid]: createModel(`${sourceUuid}.fbx`),
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {
@@ -249,7 +389,9 @@ describe("useModelsStore importAnimationsFromSource", () => {
     expect(importedNames).toEqual(["Walk"]);
 
     const { clips, durations, speeds, loops } = useModelsStore.getState();
-    expect(clips[targetUuid].map((clipRef) => clipRef.clip.name)).toEqual(["Walk"]);
+    expect(clips[targetUuid].map((clipRef) => clipRef.clip.name)).toEqual([
+      "Walk",
+    ]);
     expect(clips[targetUuid][0]?.clip.duration).toBe(2);
     expect(durations[targetUuid]?.["Walk"]).toEqual([0, 2]);
     expect(speeds[targetUuid]?.["Walk"]).toBe(1.25);
@@ -272,9 +414,7 @@ describe("useModelsStore importAnimationsFromSource", () => {
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [sourceUuid]: createModel(`${sourceUuid}.fbx`),
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {
@@ -296,20 +436,18 @@ describe("useModelsStore importAnimationsFromSource", () => {
       freeze: {},
     });
 
-    await useModelsStore
-      .getState()
-      .importAnimationsFromSource(targetUuid, {
-        sourceModelUuid: sourceUuid,
-        forceInPlace: true,
-      });
+    await useModelsStore.getState().importAnimationsFromSource(targetUuid, {
+      sourceModelUuid: sourceUuid,
+      forceInPlace: true,
+    });
 
-    const importedTrack = useModelsStore.getState().clips[targetUuid]?.[0]?.clip.tracks.at(
-      0,
-    );
+    const importedTrack = useModelsStore
+      .getState()
+      .clips[targetUuid]?.[0]?.clip.tracks.at(0);
     expect(importedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
-    expect(Array.from((importedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
-      5, 1, 2, 5, 1, 2,
-    ]);
+    expect(
+      Array.from((importedTrack as THREE.VectorKeyframeTrack).values),
+    ).toEqual([5, 1, 2, 5, 1, 2]);
   });
 
   it("preserves imported clip vertical motion when forcing only horizontal axes in place", async () => {
@@ -328,9 +466,7 @@ describe("useModelsStore importAnimationsFromSource", () => {
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [sourceUuid]: createModel(`${sourceUuid}.fbx`),
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {
@@ -352,21 +488,19 @@ describe("useModelsStore importAnimationsFromSource", () => {
       freeze: {},
     });
 
-    await useModelsStore
-      .getState()
-      .importAnimationsFromSource(targetUuid, {
-        sourceModelUuid: sourceUuid,
-        forceInPlace: true,
-        inPlaceAxisMode: "horizontal",
-      });
+    await useModelsStore.getState().importAnimationsFromSource(targetUuid, {
+      sourceModelUuid: sourceUuid,
+      forceInPlace: true,
+      inPlaceAxisMode: "horizontal",
+    });
 
-    const importedTrack = useModelsStore.getState().clips[targetUuid]?.[0]?.clip.tracks.at(
-      0,
-    );
+    const importedTrack = useModelsStore
+      .getState()
+      .clips[targetUuid]?.[0]?.clip.tracks.at(0);
     expect(importedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
-    expect(Array.from((importedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
-      5, 1, 2, 5, 4, 2, 5, 7, 2,
-    ]);
+    expect(
+      Array.from((importedTrack as THREE.VectorKeyframeTrack).values),
+    ).toEqual([5, 1, 2, 5, 4, 2, 5, 7, 2]);
   });
 
   it("keeps imported clip root motion unchanged when in-place axis mode is none", async () => {
@@ -385,9 +519,7 @@ describe("useModelsStore importAnimationsFromSource", () => {
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [sourceUuid]: createModel(`${sourceUuid}.fbx`),
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {
@@ -409,42 +541,35 @@ describe("useModelsStore importAnimationsFromSource", () => {
       freeze: {},
     });
 
-    await useModelsStore
-      .getState()
-      .importAnimationsFromSource(targetUuid, {
-        sourceModelUuid: sourceUuid,
-        forceInPlace: true,
-        inPlaceAxisMode: "none",
-      });
+    await useModelsStore.getState().importAnimationsFromSource(targetUuid, {
+      sourceModelUuid: sourceUuid,
+      forceInPlace: true,
+      inPlaceAxisMode: "none",
+    });
 
-    const importedTrack = useModelsStore.getState().clips[targetUuid]?.[0]?.clip.tracks.at(
-      0,
-    );
+    const importedTrack = useModelsStore
+      .getState()
+      .clips[targetUuid]?.[0]?.clip.tracks.at(0);
     expect(importedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
-    expect(Array.from((importedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
-      5, 1, 2, 8, 4, 9, 12, 7, 14,
-    ]);
+    expect(
+      Array.from((importedTrack as THREE.VectorKeyframeTrack).values),
+    ).toEqual([5, 1, 2, 8, 4, 9, 12, 7, 14]);
   });
 
   it("forces the selected animation to run in place", async () => {
     const targetUuid = "target-model-force-current";
     const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
-    const targetClip = new THREE.AnimationClip(
-      "Run",
-      1,
-      [
-        new THREE.VectorKeyframeTrack(
-          "Root.position",
-          [0, 1],
-          [7, 2, 3, 11, 5, 13],
-        ),
-      ],
-    );
+    const targetClip = new THREE.AnimationClip("Run", 1, [
+      new THREE.VectorKeyframeTrack(
+        "Root.position",
+        [0, 1],
+        [7, 2, 3, 11, 5, 13],
+      ),
+    ]);
 
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {
@@ -476,30 +601,25 @@ describe("useModelsStore importAnimationsFromSource", () => {
       .getState()
       .clips[targetUuid]?.[0]?.clip.tracks.at(0);
     expect(updatedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
-    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
-      7, 2, 3, 7, 2, 3,
-    ]);
+    expect(
+      Array.from((updatedTrack as THREE.VectorKeyframeTrack).values),
+    ).toEqual([7, 2, 3, 7, 2, 3]);
   });
 
   it("preserves selected animation vertical motion when forcing only horizontal axes in place", async () => {
     const targetUuid = "target-model-force-current-horizontal";
     const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
-    const targetClip = new THREE.AnimationClip(
-      "Jump",
-      1,
-      [
-        new THREE.VectorKeyframeTrack(
-          "Root.position",
-          [0, 0.5, 1],
-          [7, 2, 3, 11, 5, 13, 17, 8, 23],
-        ),
-      ],
-    );
+    const targetClip = new THREE.AnimationClip("Jump", 1, [
+      new THREE.VectorKeyframeTrack(
+        "Root.position",
+        [0, 0.5, 1],
+        [7, 2, 3, 11, 5, 13, 17, 8, 23],
+      ),
+    ]);
 
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {
@@ -531,9 +651,9 @@ describe("useModelsStore importAnimationsFromSource", () => {
       .getState()
       .clips[targetUuid]?.[0]?.clip.tracks.at(0);
     expect(updatedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
-    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
-      7, 2, 3, 7, 5, 3, 7, 8, 3,
-    ]);
+    expect(
+      Array.from((updatedTrack as THREE.VectorKeyframeTrack).values),
+    ).toEqual([7, 2, 3, 7, 5, 3, 7, 8, 3]);
   });
 
   it.each([
@@ -544,9 +664,7 @@ describe("useModelsStore importAnimationsFromSource", () => {
     "freezes only the selected %s axis for the selected animation",
     async (mode, expectedValues) => {
       const targetUuid = `target-model-force-current-${mode}`;
-      setupCurrentAnimationClip(targetUuid, [
-        7, 2, 3, 11, 5, 13, 17, 8, 23,
-      ]);
+      setupCurrentAnimationClip(targetUuid, [7, 2, 3, 11, 5, 13, 17, 8, 23]);
 
       useModelsStore
         .getState()
@@ -559,22 +677,17 @@ describe("useModelsStore importAnimationsFromSource", () => {
   it("accepts UI axis labels when forcing the selected animation", async () => {
     const targetUuid = "target-model-force-current-labels";
     const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
-    const targetClip = new THREE.AnimationClip(
-      "Jump",
-      1,
-      [
-        new THREE.VectorKeyframeTrack(
-          "Root.position",
-          [0, 0.5, 1],
-          [7, 2, 3, 11, 5, 13, 17, 8, 23],
-        ),
-      ],
-    );
+    const targetClip = new THREE.AnimationClip("Jump", 1, [
+      new THREE.VectorKeyframeTrack(
+        "Root.position",
+        [0, 0.5, 1],
+        [7, 2, 3, 11, 5, 13, 17, 8, 23],
+      ),
+    ]);
 
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {
@@ -603,9 +716,9 @@ describe("useModelsStore importAnimationsFromSource", () => {
     let updatedTrack = useModelsStore
       .getState()
       .clips[targetUuid]?.[0]?.clip.tracks.at(0);
-    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
-      7, 2, 3, 7, 5, 3, 7, 8, 3,
-    ]);
+    expect(
+      Array.from((updatedTrack as THREE.VectorKeyframeTrack).values),
+    ).toEqual([7, 2, 3, 7, 5, 3, 7, 8, 3]);
 
     useModelsStore
       .getState()
@@ -614,31 +727,26 @@ describe("useModelsStore importAnimationsFromSource", () => {
     updatedTrack = useModelsStore
       .getState()
       .clips[targetUuid]?.[0]?.clip.tracks.at(0);
-    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual([
-      7, 2, 3, 11, 5, 13, 17, 8, 23,
-    ]);
+    expect(
+      Array.from((updatedTrack as THREE.VectorKeyframeTrack).values),
+    ).toEqual([7, 2, 3, 11, 5, 13, 17, 8, 23]);
   });
 
   it("restores selected animation root motion after forcing it in place", async () => {
     const targetUuid = "target-model-force-current-none";
     const targetMixer = new THREE.AnimationMixer(new THREE.Object3D());
     const originalValues = [7, 2, 3, 11, 5, 13, 17, 8, 23];
-    const targetClip = new THREE.AnimationClip(
-      "Jump",
-      1,
-      [
-        new THREE.VectorKeyframeTrack(
-          "Root.position",
-          [0, 0.5, 1],
-          originalValues,
-        ),
-      ],
-    );
+    const targetClip = new THREE.AnimationClip("Jump", 1, [
+      new THREE.VectorKeyframeTrack(
+        "Root.position",
+        [0, 0.5, 1],
+        originalValues,
+      ),
+    ]);
 
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {
@@ -672,9 +780,9 @@ describe("useModelsStore importAnimationsFromSource", () => {
       .getState()
       .clips[targetUuid]?.[0]?.clip.tracks.at(0);
     expect(updatedTrack).toBeInstanceOf(THREE.VectorKeyframeTrack);
-    expect(Array.from((updatedTrack as THREE.VectorKeyframeTrack).values)).toEqual(
-      originalValues,
-    );
+    expect(
+      Array.from((updatedTrack as THREE.VectorKeyframeTrack).values),
+    ).toEqual(originalValues);
   });
 
   it("does not mutate target state when file parse fails", async () => {
@@ -686,9 +794,7 @@ describe("useModelsStore importAnimationsFromSource", () => {
     useModelsStore.getState().reset();
     useModelsStore.setState({
       models: {
-        // @ts-expect-error invalid key
         [sourceUuid]: createModel(`${sourceUuid}.fbx`),
-        // @ts-expect-error invalid key
         [targetUuid]: createModel(`${targetUuid}.fbx`),
       },
       clips: {

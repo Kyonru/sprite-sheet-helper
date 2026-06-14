@@ -13,6 +13,7 @@ import {
   withHistory,
   type FieldWatcher,
 } from "@/store/common/middlewares/history";
+import { useHistoryStore } from "@/store/next/history";
 import {
   clearAllOriginalClips,
   clearOriginalClip,
@@ -20,6 +21,7 @@ import {
   makeInPlaceClip,
   normalizeInPlaceAxisMode,
   rememberOriginalClip,
+  renameOriginalClip,
   type InPlaceAxisModeInput,
 } from "@/utils/animation-clips";
 
@@ -56,6 +58,7 @@ export interface ModelsState {
   speeds: Record<string, Record<string, number>>;
   loops: Record<string, Record<string, LoopType>>;
   hiddenAnimations: Record<string, string[]>;
+  animationRenames: Record<string, Record<string, string>>;
   currentTime: Record<string, number>;
   frameStep: Record<string, number>;
   freeze: Record<string, boolean>;
@@ -111,6 +114,11 @@ interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
     hidden: boolean,
   ) => void;
   restoreHiddenAnimations: (uuid: string) => void;
+  renameAnimation: (
+    uuid: string,
+    fromName: string,
+    toName: string,
+  ) => { name: string };
   setLoadState: (
     uuid: string,
     loadState: ModelLoadState,
@@ -142,6 +150,7 @@ const initialState: ModelsState = {
   speeds: {},
   loops: {},
   hiddenAnimations: {},
+  animationRenames: {},
   currentTime: {},
   frameStep: {},
   freeze: {},
@@ -149,10 +158,244 @@ const initialState: ModelsState = {
 
 interface ModelsStore extends ModelsState, ModelsActions {}
 
+type ClipEntry = ModelsState["clips"][string][number];
+
+function normalizeAnimationRenameName(name: string) {
+  return name.trim();
+}
+
+function validateAnimationRename(
+  state: ModelsStore,
+  uuid: string,
+  fromName: string,
+  toName: string,
+) {
+  if (!fromName || fromName === "none") {
+    return "Select an animation to rename";
+  }
+
+  if (!toName) {
+    return "Animation name is required";
+  }
+
+  if (toName === "none") {
+    return '"none" is reserved for the empty animation selection';
+  }
+
+  const currentClips = state.clips[uuid] ?? [];
+  const sourceIndex = currentClips.findIndex(
+    (entry) => entry.clip.name === fromName,
+  );
+
+  if (sourceIndex < 0) {
+    return "Animation not found";
+  }
+
+  if (fromName === toName) {
+    return null;
+  }
+
+  const hasDuplicateName = currentClips.some(
+    (entry, index) => index !== sourceIndex && entry.clip.name === toName,
+  );
+
+  return hasDuplicateName ? "Animation name already exists" : null;
+}
+
+function renameNestedAnimationKey<T>(
+  records: Record<string, Record<string, T>>,
+  uuid: string,
+  fromName: string,
+  toName: string,
+) {
+  const current = records[uuid];
+  if (!current || !(fromName in current)) return records;
+
+  const { [fromName]: value, ...rest } = current;
+  return {
+    ...records,
+    [uuid]: {
+      ...rest,
+      [toName]: value,
+    },
+  };
+}
+
+function renameSelectedAnimation(
+  animations: Record<string, string>,
+  uuid: string,
+  fromName: string,
+  toName: string,
+) {
+  if (animations[uuid] !== fromName) return animations;
+  return { ...animations, [uuid]: toName };
+}
+
+function renameHiddenAnimation(
+  hiddenAnimations: Record<string, string[]>,
+  uuid: string,
+  fromName: string,
+  toName: string,
+) {
+  const current = hiddenAnimations[uuid];
+  if (!current?.includes(fromName)) return hiddenAnimations;
+
+  return {
+    ...hiddenAnimations,
+    [uuid]: Array.from(
+      new Set(current.map((name) => (name === fromName ? toName : name))),
+    ),
+  };
+}
+
+function updateAnimationRenameMap(
+  animationRenames: Record<string, Record<string, string>>,
+  uuid: string,
+  fromName: string,
+  toName: string,
+) {
+  const current = animationRenames[uuid] ?? {};
+  const originalName =
+    Object.entries(current).find(
+      ([, renamedName]) => renamedName === fromName,
+    )?.[0] ?? fromName;
+  const next = { ...current };
+
+  if (originalName === toName) {
+    delete next[originalName];
+  } else {
+    next[originalName] = toName;
+  }
+
+  if (Object.keys(next).length === 0) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { [uuid]: _, ...rest } = animationRenames;
+    return rest;
+  }
+
+  return {
+    ...animationRenames,
+    [uuid]: next,
+  };
+}
+
+function applyAnimationRenamesToClips(
+  uuid: string,
+  clips: ClipEntry[],
+  animationRenames: Record<string, Record<string, string>>,
+) {
+  const renames = animationRenames[uuid];
+  if (!renames || Object.keys(renames).length === 0) return clips;
+
+  let changed = false;
+  const renamedClips = clips.map((entry) => {
+    const renamedName = renames[entry.clip.name];
+    if (!renamedName || renamedName === entry.clip.name) return entry;
+
+    changed = true;
+    entry.clip.name = renamedName;
+    return { ...entry, clip: entry.clip };
+  });
+
+  return changed ? renamedClips : clips;
+}
+
+function renameClipEntry(
+  entry: ClipEntry,
+  mixer: THREE.AnimationMixer | null | undefined,
+  toName: string,
+): ClipEntry {
+  const nextClip = entry.clip.clone();
+  nextClip.name = toName;
+
+  if (!mixer) {
+    return {
+      action: entry.action,
+      clip: nextClip,
+    };
+  }
+
+  entry.action?.stop();
+  mixer.uncacheAction(entry.clip);
+  mixer.uncacheClip(entry.clip);
+
+  return {
+    action: mixer.clipAction(nextClip),
+    clip: nextClip,
+  };
+}
+
+function renameAnimationInState(
+  state: ModelsStore,
+  uuid: string,
+  fromName: string,
+  toName: string,
+): Partial<ModelsState> {
+  const currentClips = state.clips[uuid] ?? [];
+  const clipIndex = currentClips.findIndex(
+    (entry) => entry.clip.name === fromName,
+  );
+
+  if (clipIndex < 0) return {};
+
+  const mixer = state.mixerRef[uuid] ?? mixerCache.get(uuid) ?? null;
+  const nextClips = currentClips.map((entry, index) =>
+    index === clipIndex ? renameClipEntry(entry, mixer, toName) : entry,
+  );
+
+  clipsCache.set(uuid, nextClips);
+  renameOriginalClip(uuid, fromName, toName);
+
+  return {
+    clips: {
+      ...state.clips,
+      [uuid]: nextClips,
+    },
+    mixerRef:
+      mixer && state.mixerRef[uuid] !== mixer
+        ? {
+            ...state.mixerRef,
+            [uuid]: mixer,
+          }
+        : state.mixerRef,
+    animations: renameSelectedAnimation(
+      state.animations,
+      uuid,
+      fromName,
+      toName,
+    ),
+    durations: renameNestedAnimationKey(
+      state.durations,
+      uuid,
+      fromName,
+      toName,
+    ),
+    speeds: renameNestedAnimationKey(
+      state.speeds,
+      uuid,
+      fromName,
+      toName,
+    ),
+    loops: renameNestedAnimationKey(state.loops, uuid, fromName, toName),
+    hiddenAnimations: renameHiddenAnimation(
+      state.hiddenAnimations,
+      uuid,
+      fromName,
+      toName,
+    ),
+    animationRenames: updateAnimationRenameMap(
+      state.animationRenames,
+      uuid,
+      fromName,
+      toName,
+    ),
+  };
+}
+
 export const useModelsStore = create<ModelsStore>()(
   inspector(
     withHistory(
-      (set, get) => ({
+      (set, get, api) => ({
         ...initialState,
 
         setLoadState: (uuid, loadState, errorMessage = null) =>
@@ -294,11 +537,14 @@ export const useModelsStore = create<ModelsStore>()(
             const { [uuid]: ________, ...hiddenAnimations } =
               state.hiddenAnimations;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: _________, ...currentTime } = state.currentTime;
+            const { [uuid]: _________, ...animationRenames } =
+              state.animationRenames;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: __________, ...frameStep } = state.frameStep;
+            const { [uuid]: __________, ...currentTime } = state.currentTime;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: ___________, ...freeze } = state.freeze;
+            const { [uuid]: ___________, ...frameStep } = state.frameStep;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: ____________, ...freeze } = state.freeze;
 
             return {
               models,
@@ -309,6 +555,7 @@ export const useModelsStore = create<ModelsStore>()(
               speeds,
               loops,
               hiddenAnimations,
+              animationRenames,
               currentTime,
               frameStep,
               freeze,
@@ -317,10 +564,24 @@ export const useModelsStore = create<ModelsStore>()(
         },
 
         setClips: (uuid, clips) =>
-          set((state) => ({ clips: { ...state.clips, [uuid]: clips } })),
+          set((state) => {
+            const renamedClips = applyAnimationRenamesToClips(
+              uuid,
+              clips,
+              state.animationRenames,
+            );
+            clipsCache.set(uuid, renamedClips);
+            return { clips: { ...state.clips, [uuid]: renamedClips } };
+          }),
 
-        setMixerRef: (uuid, mixer) =>
-          set((state) => ({ mixerRef: { ...state.mixerRef, [uuid]: mixer } })),
+        setMixerRef: (uuid, mixer) => {
+          if (mixer) {
+            mixerCache.set(uuid, mixer);
+          } else {
+            mixerCache.delete(uuid);
+          }
+          set((state) => ({ mixerRef: { ...state.mixerRef, [uuid]: mixer } }));
+        },
 
         setAnimation: (uuid, animation) =>
           set((state) => ({
@@ -377,6 +638,44 @@ export const useModelsStore = create<ModelsStore>()(
               [uuid]: [],
             },
           })),
+
+        renameAnimation: (uuid, fromName, toName) => {
+          const sourceName = normalizeAnimationRenameName(fromName);
+          const targetName = normalizeAnimationRenameName(toName);
+          const validationError = validateAnimationRename(
+            get(),
+            uuid,
+            sourceName,
+            targetName,
+          );
+
+          if (validationError) {
+            throw new Error(validationError);
+          }
+
+          if (sourceName === targetName) {
+            return { name: sourceName };
+          }
+
+          api.setState((state) =>
+            renameAnimationInState(state, uuid, sourceName, targetName),
+          );
+
+          useHistoryStore.getState().push({
+            type: "model/animationRename",
+            uuid,
+            from: sourceName,
+            to: targetName,
+            apply: ({ dir, value }) => {
+              const currentName = dir === "forward" ? sourceName : targetName;
+              api.setState((state) =>
+                renameAnimationInState(state, uuid, currentName, value),
+              );
+            },
+          });
+
+          return { name: targetName };
+        },
 
         setCurrentTime: (uuid, time) =>
           set((state) => ({
@@ -725,6 +1024,7 @@ export const useModelsStore = create<ModelsStore>()(
             speeds: get().speeds,
             loops: get().loops,
             hiddenAnimations: get().hiddenAnimations,
+            animationRenames: get().animationRenames,
             currentTime: get().currentTime,
             frameStep: get().frameStep,
             freeze: get().freeze,
@@ -739,6 +1039,7 @@ export const useModelsStore = create<ModelsStore>()(
             speeds: snapshot.speeds,
             loops: snapshot.loops,
             hiddenAnimations: snapshot.hiddenAnimations ?? {},
+            animationRenames: snapshot.animationRenames ?? {},
             currentTime: snapshot.currentTime,
             frameStep: snapshot.frameStep,
             freeze: snapshot.freeze,

@@ -135,6 +135,23 @@ export function getOriginalClip(
   return originalClipCache.get(modelUuid)?.get(clipName)?.clone() ?? null;
 }
 
+export function renameOriginalClip(
+  modelUuid: string,
+  fromName: string,
+  toName: string,
+): void {
+  const clipsByName = originalClipCache.get(modelUuid);
+  if (!clipsByName || fromName === toName) return;
+
+  const clip = clipsByName.get(fromName);
+  if (!clip) return;
+
+  clipsByName.delete(fromName);
+  const renamedClip = clip.clone();
+  renamedClip.name = toName;
+  clipsByName.set(toName, renamedClip);
+}
+
 export function clearOriginalClip(modelUuid: string): void {
   originalClipCache.delete(modelUuid);
 }

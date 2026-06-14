@@ -75,6 +75,22 @@ const migrations: Record<number, (old: RawSnapshot) => RawSnapshot> = {
       compareBeforeAfter: false,
     },
   }),
+  7: (old) => ({
+    ...old,
+    version: 7,
+    models:
+      typeof old.models === "object" && old.models !== null
+        ? {
+            ...old.models,
+            animationRenames:
+              (
+                old.models as {
+                  animationRenames?: Record<string, Record<string, string>>;
+                }
+              ).animationRenames ?? {},
+          }
+        : old.models,
+  }),
 };
 
 export function migrateSnapshot(

@@ -9,6 +9,7 @@ import {
 import * as THREE from "three";
 import { openPoseStudio } from "@/components/camera-animation-capture";
 import { toast } from "sonner";
+import { z } from "zod";
 import { importFile } from "@/utils/assets";
 import {
   IN_PLACE_AXIS_OPTIONS,
@@ -16,6 +17,7 @@ import {
   type InPlaceAxisMode,
 } from "@/utils/animation-clips";
 import { InspectorPanel, type InspectorField } from "@/components/inspector";
+import { confirm } from "@/components/confirm";
 
 const ANIMATION_LOOP_OPTIONS: Record<string, LoopType> = {
   "Loop Once": THREE.LoopOnce,
@@ -45,6 +47,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
   const restoreHiddenAnimations = useModelsStore(
     (state) => state.restoreHiddenAnimations,
   );
+  const renameAnimation = useModelsStore((state) => state.renameAnimation);
 
   const freeze = useModelsStore((state) => state.freeze[uuid]);
   const setFreeze = useModelsStore((state) => state.setFreeze);
@@ -349,6 +352,52 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     toast.success(`Animation "${animation}" hidden from this model.`);
   }, [animation, setAnimationHidden, uuid]);
 
+  const handleRenameCurrentAnimation = useCallback(() => {
+    if (!animation || animation === "none") {
+      toast.error("Select an animation to rename.");
+      return;
+    }
+
+    const currentAnimation = animation.trim();
+    const takenNames = new Set(
+      (animations ?? []).map((entry) => entry.clip.name),
+    );
+
+    confirm.withInput("Rename animation", {
+      confirmLabel: "Rename",
+      input: {
+        label: "Animation name",
+        placeholder: "Animation name...",
+        defaultValue: currentAnimation,
+        schema: z
+          .string()
+          .trim()
+          .min(1, "Animation name is required.")
+          .refine(
+            (name) => name !== "none",
+            '"none" is reserved for the empty animation selection.',
+          )
+          .refine(
+            (name) => name === currentAnimation || !takenNames.has(name),
+            "Animation name already exists.",
+          ),
+      },
+      onConfirm: (value) => {
+        const nextName = typeof value === "string" ? value : currentAnimation;
+        if (nextName === currentAnimation) return;
+
+        try {
+          const { name } = renameAnimation(uuid, currentAnimation, nextName);
+          toast.success(`Animation renamed to "${name}".`);
+        } catch (error) {
+          toast.error("Failed to rename animation", {
+            description: (error as Error).message,
+          });
+        }
+      },
+    });
+  }, [animation, animations, renameAnimation, uuid]);
+
   const handleRestoreHiddenAnimations = useCallback(() => {
     restoreHiddenAnimations(uuid);
     toast.success("Hidden animations restored.");
@@ -407,6 +456,12 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
       fields.push({
         kind: "button-row",
         actions: [
+          {
+            label: "Rename",
+            action: handleRenameCurrentAnimation,
+            disabled: !animation || animation === "none",
+            tone: "secondary",
+          },
           {
             label: "Hide",
             action: handleHideCurrentAnimation,
@@ -517,6 +572,7 @@ const AnimationDetails = ({ uuid }: { uuid: string }) => {
     setAnimation,
     hiddenAnimations.length,
     handleHideCurrentAnimation,
+    handleRenameCurrentAnimation,
     handleRestoreHiddenAnimations,
     durations,
     setDuration,

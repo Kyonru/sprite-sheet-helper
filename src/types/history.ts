@@ -128,8 +128,13 @@ type ModelHiddenAnimationsAction = Action<
   string[],
   string[]
 >;
+type ModelAnimationRenameAction = Action<
+  "model/animationRename",
+  string,
+  string
+>;
 
-type ModelAction = ModelHiddenAnimationsAction;
+type ModelAction = ModelHiddenAnimationsAction | ModelAnimationRenameAction;
 
 export type HistoryAction =
   | TransformAction
