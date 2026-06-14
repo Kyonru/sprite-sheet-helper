@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.7.0]
+
+### Added
+
+- Improve animation listing on workflow modal
+- Add reset camera button
+
 ## [0.6.0]
 
 ### Added
