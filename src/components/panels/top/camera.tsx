@@ -11,18 +11,33 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 import { EventType, PubSub, ShortCutEventType } from "@/lib/events";
-import { useCamerasStore } from "@/store/next/cameras";
+import {
+  DEFAULT_PERSPECTIVE_CAMERA,
+  useCamerasStore,
+} from "@/store/next/cameras";
 import { useSettingsStore } from "@/store/next/settings";
-import { useTarget } from "@/store/next/targets";
+import { useTarget, useTargetsStore } from "@/store/next/targets";
+import { useTransformsStore } from "@/store/next/transforms";
 import { CameraIcon } from "lucide-react";
 import * as THREE from "three";
 import { MenubarItemAction } from "./components/MenubarItemAction";
 
+const DEFAULT_CAMERA_POSITION: [number, number, number] = [0, 2.5, 3];
+const DEFAULT_CAMERA_TARGET: [number, number, number] = [0, 2.5, 0];
+const DEFAULT_CAMERA_DISTANCE = 5;
+
 export const CameraMenu = () => {
   const cameraDistance = useSettingsStore((state) => state.cameraDistance);
+  const setCameraDistance = useSettingsStore(
+    (state) => state.setCameraDistance,
+  );
+  const setCameraAngle = useSettingsStore((state) => state.setCameraAngle);
   const cameraUUID = useCamerasStore((state) => state.mainCamera);
   const camera = useCamerasStore((state) => state.cameras[cameraUUID || ""]);
   const updateType = useCamerasStore((state) => state.setCameraType);
+  const setCamera = useCamerasStore((state) => state.setCamera);
+  const setTarget = useTargetsStore((state) => state.setTarget);
+  const setTransform = useTransformsStore((state) => state.setTransform);
   const target = useTarget(cameraUUID) ?? [0, 0, 0];
 
   function spherical(phi: number, theta: number): [number, number, number] {
@@ -124,6 +139,21 @@ export const CameraMenu = () => {
     PubSub.emit(EventType.SET_CAMERA_ANGLE, { position, target });
   };
 
+  const resetCamera = () => {
+    if (!cameraUUID) return;
+
+    setCamera(cameraUUID, { ...DEFAULT_PERSPECTIVE_CAMERA });
+    setTransform(cameraUUID, {
+      position: [...DEFAULT_CAMERA_POSITION],
+      rotation: [0, 0, 0],
+      scale: [1, 1, 1],
+    });
+    setTarget(cameraUUID, [...DEFAULT_CAMERA_TARGET]);
+    setCameraDistance(DEFAULT_CAMERA_DISTANCE);
+    setCameraAngle(undefined);
+    emitAngle([...DEFAULT_CAMERA_POSITION], [...DEFAULT_CAMERA_TARGET]);
+  };
+
   return (
     <MenubarMenu>
       <MenubarTrigger>
@@ -143,6 +173,12 @@ export const CameraMenu = () => {
           >
             Orthographic
           </MenubarCheckboxItem>
+        </MenubarGroup>
+        <MenubarSeparator />
+        <MenubarGroup>
+          <MenubarItem disabled={!cameraUUID} onClick={resetCamera}>
+            Reset Camera
+          </MenubarItem>
         </MenubarGroup>
         <MenubarSeparator />
         <MenubarSub>

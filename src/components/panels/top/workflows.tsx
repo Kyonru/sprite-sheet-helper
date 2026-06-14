@@ -88,6 +88,16 @@ type WorkflowCameraDraft = {
   captureNormalMaps: boolean;
 };
 
+type WorkflowCameraSnapshot = Pick<
+  WorkflowCameraDraft,
+  | "distance"
+  | "elevationAngle"
+  | "cameraType"
+  | "directionRotationOffset"
+  | "target"
+  | "directionOverrides"
+>;
+
 type StartWorkflowPayload =
   | WorkflowId
   | {
@@ -97,6 +107,33 @@ type StartWorkflowPayload =
 
 function cloneTarget(target: WorkflowCameraTarget): WorkflowCameraTarget {
   return [target[0], target[1], target[2]];
+}
+
+function cloneDirectionOverrides(
+  overrides: WorkflowCameraDraft["directionOverrides"],
+): WorkflowCameraDraft["directionOverrides"] {
+  return Object.fromEntries(
+    Object.entries(overrides).map(([label, override]) => [
+      label,
+      {
+        ...override,
+        ...(override.target ? { target: cloneTarget(override.target) } : {}),
+      },
+    ]),
+  );
+}
+
+function createCameraSnapshot(
+  draft: WorkflowCameraDraft,
+): WorkflowCameraSnapshot {
+  return {
+    distance: draft.distance,
+    elevationAngle: draft.elevationAngle,
+    cameraType: draft.cameraType,
+    directionRotationOffset: draft.directionRotationOffset,
+    target: cloneTarget(draft.target),
+    directionOverrides: cloneDirectionOverrides(draft.directionOverrides),
+  };
 }
 
 function createCameraDraft({
@@ -162,6 +199,8 @@ export const WorkflowsMenu = () => {
   const [collapsedAnimationKeys, setCollapsedAnimationKeys] = useState<
     Set<string>
   >(new Set());
+  const [originalCameraSnapshot, setOriginalCameraSnapshot] =
+    useState<WorkflowCameraSnapshot | null>(null);
 
   const {
     workflowState,
@@ -506,21 +545,21 @@ export const WorkflowsMenu = () => {
         workflowSteps,
         hiddenAnimations,
       );
+      const cameraDraft = createCameraDraft({
+        workflow,
+        cameraDistance,
+        cameraAngle,
+        cameraType: mainCameraType ?? "perspective",
+        target: defaultTarget,
+        captureNormalMaps: exportNormalMap,
+        skippedStepLabels,
+      });
 
       setSelectedWorkflow(workflow);
       setSelectedStepLabel(undefined);
       setCollapsedAnimationKeys(new Set());
-      setCameraDraft(
-        createCameraDraft({
-          workflow,
-          cameraDistance,
-          cameraAngle,
-          cameraType: mainCameraType ?? "perspective",
-          target: defaultTarget,
-          captureNormalMaps: exportNormalMap,
-          skippedStepLabels,
-        }),
-      );
+      setOriginalCameraSnapshot(createCameraSnapshot(cameraDraft));
+      setCameraDraft(cameraDraft);
       resetWorkflow();
       setDialogOpen(true);
     },
@@ -553,44 +592,30 @@ export const WorkflowsMenu = () => {
     setSelectedWorkflow(null);
     setSelectedStepLabel(undefined);
     setCollapsedAnimationKeys(new Set());
+    setOriginalCameraSnapshot(null);
     setCameraDraft(null);
   };
 
-  const resetDraft = useCallback(() => {
-    if (!selectedWorkflow) return;
-    const workflowSteps = buildWorkflowSteps(selectedWorkflow, {
-      clips: workflowClips,
-      hiddenAnimations,
-      includeHiddenAnimations: true,
-      modelUuids: Object.keys(workflowModels),
-    });
-    const skippedStepLabels = getHiddenWorkflowStepLabels(
-      workflowSteps,
-      hiddenAnimations,
-    );
+  const resetCameraDraft = useCallback(() => {
+    if (!originalCameraSnapshot) return;
 
-    setCameraDraft(
-      createCameraDraft({
-        workflow: selectedWorkflow,
-        cameraDistance,
-        cameraAngle,
-        cameraType: mainCameraType ?? "perspective",
-        target: defaultTarget,
-        captureNormalMaps: exportNormalMap,
-        skippedStepLabels,
-      }),
+    setCameraDraft((prev) =>
+      prev
+        ? {
+            ...prev,
+            distance: originalCameraSnapshot.distance,
+            elevationAngle: originalCameraSnapshot.elevationAngle,
+            cameraType: originalCameraSnapshot.cameraType,
+            directionRotationOffset:
+              originalCameraSnapshot.directionRotationOffset,
+            target: cloneTarget(originalCameraSnapshot.target),
+            directionOverrides: cloneDirectionOverrides(
+              originalCameraSnapshot.directionOverrides,
+            ),
+          }
+        : prev,
     );
-  }, [
-    cameraAngle,
-    cameraDistance,
-    defaultTarget,
-    hiddenAnimations,
-    mainCameraType,
-    selectedWorkflow,
-    exportNormalMap,
-    workflowClips,
-    workflowModels,
-  ]);
+  }, [originalCameraSnapshot]);
 
   const updateSelectedCamera = useCallback(
     (
@@ -1640,11 +1665,11 @@ export const WorkflowsMenu = () => {
                         variant="outline"
                         size="sm"
                         data-testid="workflow-camera-reset-button"
-                        disabled={isRunning}
-                        onClick={resetDraft}
+                        disabled={isRunning || !originalCameraSnapshot}
+                        onClick={resetCameraDraft}
                       >
                         <RotateCcwIcon className="size-4" />
-                        Reset
+                        Reset Camera
                       </Button>
                       <Button
                         type="button"
