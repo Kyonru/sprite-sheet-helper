@@ -19,6 +19,19 @@ export function setOriginalRuntimeModel(uuid: string, runtime: RuntimeModel) {
   originals.set(uuid, runtime);
 }
 
+export function setOriginalRuntimeClips(
+  uuid: string,
+  clips: RuntimeClip[],
+  mixer?: THREE.AnimationMixer | null,
+) {
+  const runtime = originals.get(uuid);
+  if (!runtime) return;
+  runtime.clips = clips;
+  if (mixer !== undefined) {
+    runtime.mixer = mixer;
+  }
+}
+
 export function setDowngradedRuntimeModel(uuid: string, runtime: RuntimeModel) {
   downgraded.set(uuid, runtime);
 }

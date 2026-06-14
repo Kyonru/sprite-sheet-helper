@@ -91,6 +91,22 @@ const migrations: Record<number, (old: RawSnapshot) => RawSnapshot> = {
           }
         : old.models,
   }),
+  8: (old) => ({
+    ...old,
+    version: 8,
+    models:
+      typeof old.models === "object" && old.models !== null
+        ? {
+            ...old.models,
+            importedClips:
+              (
+                old.models as {
+                  importedClips?: Record<string, Record<string, unknown>>;
+                }
+              ).importedClips ?? {},
+          }
+        : old.models,
+  }),
 };
 
 export function migrateSnapshot(

@@ -19,7 +19,7 @@ describe("project migrations", () => {
       effects: {},
     });
 
-    expect(migrated.version).toBe(7);
+    expect(migrated.version).toBe(8);
     expect("materials" in migrated).toBe(true);
     expect(migrated.materials).toEqual({
       materials: {},
@@ -40,6 +40,7 @@ describe("project migrations", () => {
       models: {},
       hiddenAnimations: {},
       animationRenames: {},
+      importedClips: {},
     });
     expect(migrated.spritePostprocess).toEqual({
       enabled: false,

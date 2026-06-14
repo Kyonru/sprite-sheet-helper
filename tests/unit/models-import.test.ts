@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { resolveCollisionName, useModelsStore } from "@/store/next/models";
 import { useHistoryStore } from "@/store/next/history";
+import {
+  clearRuntimeModel,
+  getOriginalRuntimeModel,
+  setOriginalRuntimeModel,
+} from "@/utils/model-downgrade-runtime";
 
 const createModel = (fileName: string) => ({
   fileName,
@@ -264,8 +269,10 @@ describe("useModelsStore importAnimationsFromSource", () => {
     const sourceClipA = new THREE.AnimationClip("Walk", 1, []);
     const sourceClipB = new THREE.AnimationClip("Walk", 1, []);
     const targetClip = new THREE.AnimationClip("Walk", 1, []);
+    const targetObject = new THREE.Object3D();
 
     useModelsStore.getState().reset();
+    clearRuntimeModel(targetUuid);
     useModelsStore.setState({
       models: {
         [sourceUuid]: createModel(`${sourceUuid}.fbx`),
@@ -304,6 +311,16 @@ describe("useModelsStore importAnimationsFromSource", () => {
       frameStep: {},
       freeze: {},
     });
+    setOriginalRuntimeModel(targetUuid, {
+      object: targetObject,
+      mixer: targetMixer,
+      clips: [
+        {
+          action: targetMixer.clipAction(targetClip),
+          clip: targetClip,
+        },
+      ],
+    });
 
     const { importedNames } = await useModelsStore
       .getState()
@@ -320,6 +337,28 @@ describe("useModelsStore importAnimationsFromSource", () => {
     expect(durations[targetUuid]?.["Walk_1"]).toEqual([0, 1]);
     expect(speeds[targetUuid]?.["Walk_1"]).toBe(1.75);
     expect(loops[targetUuid]?.["Walk_1"]).toBe(THREE.LoopRepeat);
+    expect(Object.keys(useModelsStore.getState().importedClips[targetUuid])).toEqual(
+      ["Walk_1", "Walk_2"],
+    );
+    expect(
+      getOriginalRuntimeModel(targetUuid)?.clips.map((entry) => entry.clip.name),
+    ).toEqual(["Walk", "Walk_1", "Walk_2"]);
+
+    const snapshot = useModelsStore.getState().getSnapshot();
+    useModelsStore.getState().reset();
+    useModelsStore.getState().hydrate(snapshot);
+    const reloadedMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const reloadedTargetClip = new THREE.AnimationClip("Walk", 1, []);
+    useModelsStore.getState().setClips(targetUuid, [
+      {
+        action: reloadedMixer.clipAction(reloadedTargetClip),
+        clip: reloadedTargetClip,
+      },
+    ]);
+
+    expect(
+      useModelsStore.getState().clips[targetUuid].map((clipRef) => clipRef.clip.name),
+    ).toEqual(["Walk", "Walk_1", "Walk_2"]);
   });
 
   it("replaces matching clip names when forceInPlace is enabled", async () => {
@@ -396,6 +435,25 @@ describe("useModelsStore importAnimationsFromSource", () => {
     expect(durations[targetUuid]?.["Walk"]).toEqual([0, 2]);
     expect(speeds[targetUuid]?.["Walk"]).toBe(1.25);
     expect(loops[targetUuid]?.["Walk"]).toBe(THREE.LoopOnce);
+    expect(Object.keys(useModelsStore.getState().importedClips[targetUuid])).toEqual(
+      ["Walk"],
+    );
+
+    const snapshot = useModelsStore.getState().getSnapshot();
+    useModelsStore.getState().reset();
+    useModelsStore.getState().hydrate(snapshot);
+    const reloadedMixer = new THREE.AnimationMixer(new THREE.Object3D());
+    const reloadedTargetClip = new THREE.AnimationClip("Walk", 1, []);
+    useModelsStore.getState().setClips(targetUuid, [
+      {
+        action: reloadedMixer.clipAction(reloadedTargetClip),
+        clip: reloadedTargetClip,
+      },
+    ]);
+
+    expect(useModelsStore.getState().clips[targetUuid][0]?.clip.duration).toBe(
+      2,
+    );
   });
 
   it("forces imported clip positions to remain in place", async () => {

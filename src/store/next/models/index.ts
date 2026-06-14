@@ -8,7 +8,11 @@ import type {
 import * as THREE from "three";
 import { saveFileToFS } from "@/utils/file-system/fs.web";
 import { disposeParsedModel, parseModel } from "@/utils/model";
-import { getRuntimeModel } from "@/utils/model-downgrade-runtime";
+import {
+  clearDowngradedRuntimeModel,
+  getRuntimeModel,
+  setOriginalRuntimeClips,
+} from "@/utils/model-downgrade-runtime";
 import {
   withHistory,
   type FieldWatcher,
@@ -42,6 +46,9 @@ export type SerializableModel = Omit<
 >;
 
 export type LoopType = THREE.AnimationActionLoopStyles;
+export type SerializableAnimationClip = ReturnType<
+  typeof THREE.AnimationClip.toJSON
+>;
 
 export interface ModelsState {
   models: Record<string, ModelComponent>;
@@ -59,6 +66,7 @@ export interface ModelsState {
   loops: Record<string, Record<string, LoopType>>;
   hiddenAnimations: Record<string, string[]>;
   animationRenames: Record<string, Record<string, string>>;
+  importedClips: Record<string, Record<string, SerializableAnimationClip>>;
   currentTime: Record<string, number>;
   frameStep: Record<string, number>;
   freeze: Record<string, boolean>;
@@ -98,6 +106,7 @@ interface ModelsActions extends SnapshotEnabledStore<ModelsState> {
       action: THREE.AnimationAction;
       clip: THREE.AnimationClip;
     }[],
+    options?: { applyPersistedImports?: boolean },
   ) => void;
   setMixerRef: (uuid: string, mixer: THREE.AnimationMixer | null) => void;
   setAnimation: (uuid: string, animation: string) => void;
@@ -151,6 +160,7 @@ const initialState: ModelsState = {
   loops: {},
   hiddenAnimations: {},
   animationRenames: {},
+  importedClips: {},
   currentTime: {},
   frameStep: {},
   freeze: {},
@@ -300,6 +310,124 @@ function applyAnimationRenamesToClips(
   return changed ? renamedClips : clips;
 }
 
+function serializeAnimationClip(
+  clip: THREE.AnimationClip,
+): SerializableAnimationClip {
+  return THREE.AnimationClip.toJSON(clip) as SerializableAnimationClip;
+}
+
+function deserializeAnimationClip(
+  clipSnapshot: SerializableAnimationClip,
+): THREE.AnimationClip | null {
+  try {
+    return THREE.AnimationClip.parse(clipSnapshot);
+  } catch {
+    return null;
+  }
+}
+
+function getClipEntryMixer(
+  uuid: string,
+  state: ModelsStore,
+  clips: ClipEntry[],
+) {
+  const currentMixer = state.mixerRef[uuid] ?? mixerCache.get(uuid);
+  if (currentMixer) return currentMixer;
+
+  const actionMixer = (
+    clips[0]?.action as { getMixer?: () => THREE.AnimationMixer }
+  )?.getMixer?.();
+  if (actionMixer) return actionMixer;
+
+  const runtime = getRuntimeModel(uuid);
+  return runtime?.object ? new THREE.AnimationMixer(runtime.object) : null;
+}
+
+function mergePersistedImportedClips(
+  uuid: string,
+  clips: ClipEntry[],
+  state: ModelsStore,
+) {
+  const importedClips = state.importedClips[uuid] ?? {};
+  if (Object.keys(importedClips).length === 0) {
+    return {
+      clips: applyAnimationRenamesToClips(uuid, clips, state.animationRenames),
+      mixer: state.mixerRef[uuid] ?? mixerCache.get(uuid) ?? null,
+    };
+  }
+
+  const mixer = getClipEntryMixer(uuid, state, clips);
+  const nextClips = [
+    ...applyAnimationRenamesToClips(uuid, clips, state.animationRenames),
+  ];
+  const renames = state.animationRenames[uuid] ?? {};
+
+  for (const clipSnapshot of Object.values(importedClips)) {
+    const importedClip = deserializeAnimationClip(clipSnapshot);
+    if (!importedClip) continue;
+
+    importedClip.name = renames[importedClip.name] ?? importedClip.name;
+    const action = mixer
+      ? mixer.clipAction(importedClip)
+      : ({} as THREE.AnimationAction);
+    const index = nextClips.findIndex(
+      (entry) => entry.clip.name === importedClip.name,
+    );
+
+    if (index >= 0) {
+      nextClips[index] = { action, clip: importedClip };
+      continue;
+    }
+
+    nextClips.push({ action, clip: importedClip });
+  }
+
+  return { clips: nextClips, mixer };
+}
+
+function upsertImportedClipSnapshots(
+  importedClips: ModelsState["importedClips"],
+  uuid: string,
+  clips: THREE.AnimationClip[],
+) {
+  if (clips.length === 0) return importedClips;
+
+  return {
+    ...importedClips,
+    [uuid]: {
+      ...(importedClips[uuid] ?? {}),
+      ...Object.fromEntries(
+        clips.map((clip) => [clip.name, serializeAnimationClip(clip)]),
+      ),
+    },
+  };
+}
+
+function renameImportedClipSnapshot(
+  importedClips: ModelsState["importedClips"],
+  uuid: string,
+  fromName: string,
+  toName: string,
+) {
+  const current = importedClips[uuid];
+  const snapshot = current?.[fromName];
+  if (!current || !snapshot) return importedClips;
+
+  const clip = deserializeAnimationClip(snapshot);
+  if (!clip) return importedClips;
+
+  clip.name = toName;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { [fromName]: _removed, ...rest } = current;
+  return {
+    ...importedClips,
+    [uuid]: {
+      ...rest,
+      [toName]: serializeAnimationClip(clip),
+    },
+  };
+}
+
 function renameClipEntry(
   entry: ClipEntry,
   mixer: THREE.AnimationMixer | null | undefined,
@@ -385,6 +513,12 @@ function renameAnimationInState(
     ),
     animationRenames: updateAnimationRenameMap(
       state.animationRenames,
+      uuid,
+      fromName,
+      toName,
+    ),
+    importedClips: renameImportedClipSnapshot(
+      state.importedClips,
       uuid,
       fromName,
       toName,
@@ -540,11 +674,14 @@ export const useModelsStore = create<ModelsStore>()(
             const { [uuid]: _________, ...animationRenames } =
               state.animationRenames;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: __________, ...currentTime } = state.currentTime;
+            const { [uuid]: __________, ...importedClips } =
+              state.importedClips;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: ___________, ...frameStep } = state.frameStep;
+            const { [uuid]: ___________, ...currentTime } = state.currentTime;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { [uuid]: ____________, ...freeze } = state.freeze;
+            const { [uuid]: ____________, ...frameStep } = state.frameStep;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [uuid]: _____________, ...freeze } = state.freeze;
 
             return {
               models,
@@ -556,6 +693,7 @@ export const useModelsStore = create<ModelsStore>()(
               loops,
               hiddenAnimations,
               animationRenames,
+              importedClips,
               currentTime,
               frameStep,
               freeze,
@@ -563,15 +701,36 @@ export const useModelsStore = create<ModelsStore>()(
           });
         },
 
-        setClips: (uuid, clips) =>
+        setClips: (uuid, clips, options = {}) =>
           set((state) => {
-            const renamedClips = applyAnimationRenamesToClips(
-              uuid,
-              clips,
-              state.animationRenames,
-            );
-            clipsCache.set(uuid, renamedClips);
-            return { clips: { ...state.clips, [uuid]: renamedClips } };
+            const shouldApplyImports = options.applyPersistedImports ?? true;
+            const result = shouldApplyImports
+              ? mergePersistedImportedClips(uuid, clips, state)
+              : {
+                  clips: applyAnimationRenamesToClips(
+                    uuid,
+                    clips,
+                    state.animationRenames,
+                  ),
+                  mixer: state.mixerRef[uuid] ?? mixerCache.get(uuid) ?? null,
+                };
+
+            if (result.mixer) {
+              mixerCache.set(uuid, result.mixer);
+            }
+            clipsCache.set(uuid, result.clips);
+
+            return {
+              clips: { ...state.clips, [uuid]: result.clips },
+              ...(result.mixer && state.mixerRef[uuid] !== result.mixer
+                ? {
+                    mixerRef: {
+                      ...state.mixerRef,
+                      [uuid]: result.mixer,
+                    },
+                  }
+                : {}),
+            };
           }),
 
         setMixerRef: (uuid, mixer) => {
@@ -697,8 +856,19 @@ export const useModelsStore = create<ModelsStore>()(
           const existing = get().clips[uuid] ?? [];
           const updated = [...existing, { action, clip }];
           clipsCache.set(uuid, updated);
-          console.log("addClip", uuid, clip);
-          get().setClips(uuid, updated);
+          setOriginalRuntimeClips(uuid, updated, mixer);
+          clearDowngradedRuntimeModel(uuid);
+          set((state) => ({
+            clips: {
+              ...state.clips,
+              [uuid]: updated,
+            },
+            importedClips: upsertImportedClipSnapshots(
+              state.importedClips,
+              uuid,
+              [clip],
+            ),
+          }));
         },
 
         importAnimationsFromSource: async (targetUuid, source) => {
@@ -876,6 +1046,8 @@ export const useModelsStore = create<ModelsStore>()(
             }
 
             clipsCache.set(targetUuid, nextClips);
+            setOriginalRuntimeClips(targetUuid, nextClips, targetMixer);
+            clearDowngradedRuntimeModel(targetUuid);
 
             return {
               mixerRef: {
@@ -898,6 +1070,11 @@ export const useModelsStore = create<ModelsStore>()(
                 ...state.loops,
                 [targetUuid]: loopMap,
               },
+              importedClips: upsertImportedClipSnapshots(
+                state.importedClips,
+                targetUuid,
+                preparedClips.map((entry) => entry.clip),
+              ),
             };
           });
 
@@ -975,6 +1152,8 @@ export const useModelsStore = create<ModelsStore>()(
             clip: nextClip,
           };
           clipsCache.set(targetUuid, nextClips);
+          setOriginalRuntimeClips(targetUuid, nextClips, targetMixer);
+          clearDowngradedRuntimeModel(targetUuid);
 
           set((state) => ({
             mixerRef: {
@@ -985,6 +1164,15 @@ export const useModelsStore = create<ModelsStore>()(
               ...state.clips,
               [targetUuid]: nextClips,
             },
+            ...(state.importedClips[targetUuid]?.[clipName]
+              ? {
+                  importedClips: upsertImportedClipSnapshots(
+                    state.importedClips,
+                    targetUuid,
+                    [nextClip],
+                  ),
+                }
+              : {}),
           }));
 
           return { name: nextClip.name };
@@ -1025,6 +1213,7 @@ export const useModelsStore = create<ModelsStore>()(
             loops: get().loops,
             hiddenAnimations: get().hiddenAnimations,
             animationRenames: get().animationRenames,
+            importedClips: get().importedClips,
             currentTime: get().currentTime,
             frameStep: get().frameStep,
             freeze: get().freeze,
@@ -1040,6 +1229,7 @@ export const useModelsStore = create<ModelsStore>()(
             loops: snapshot.loops,
             hiddenAnimations: snapshot.hiddenAnimations ?? {},
             animationRenames: snapshot.animationRenames ?? {},
+            importedClips: snapshot.importedClips ?? {},
             currentTime: snapshot.currentTime,
             frameStep: snapshot.frameStep,
             freeze: snapshot.freeze,

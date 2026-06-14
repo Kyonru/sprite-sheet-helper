@@ -94,7 +94,7 @@ export function Based({ uuid, ...props }: { uuid: string }) {
       clearRuntimeModel(uuid);
       setObject(null);
       setModelInventory(uuid, EMPTY_MATERIAL_INVENTORY);
-      setClips(uuid, []);
+      setClips(uuid, [], { applyPersistedImports: false });
       setMixerRef(uuid, null);
       mixerRef.current = null;
       setLoadState(uuid, "loading");
@@ -123,8 +123,14 @@ export function Based({ uuid, ...props }: { uuid: string }) {
           mixer: parsed.mixer,
           clips: parsed.clips,
         });
-        setClips(uuid, parsed.clips);
         setMixerRef(uuid, parsed.mixer);
+        setClips(uuid, parsed.clips);
+        const loadedState = useModelsStore.getState();
+        setOriginalRuntimeModel(uuid, {
+          object: parsed.object,
+          mixer: loadedState.mixerRef[uuid] ?? parsed.mixer,
+          clips: loadedState.clips[uuid] ?? parsed.clips,
+        });
         setLoadState(uuid, "loaded");
         PubSub.emit(EventType.MODEL_READY, { uuid });
 
@@ -140,7 +146,7 @@ export function Based({ uuid, ...props }: { uuid: string }) {
           err instanceof Error ? err.message : "Unknown model parse error";
         setObject(null);
         setModelInventory(uuid, EMPTY_MATERIAL_INVENTORY);
-        setClips(uuid, []);
+        setClips(uuid, [], { applyPersistedImports: false });
         setMixerRef(uuid, null);
         setLoadState(uuid, "error", message);
         clearRuntimeModel(uuid);
@@ -197,7 +203,13 @@ export function Based({ uuid, ...props }: { uuid: string }) {
       clips: [],
     });
     setClips(uuid, []);
-    setMixerRef(uuid, null);
+    const loadedState = useModelsStore.getState();
+    setMixerRef(uuid, loadedState.mixerRef[uuid] ?? null);
+    setOriginalRuntimeModel(uuid, {
+      object: built.object,
+      mixer: loadedState.mixerRef[uuid] ?? null,
+      clips: loadedState.clips[uuid] ?? [],
+    });
     setLoadState(uuid, "loaded");
     PubSub.emit(EventType.MODEL_READY, { uuid });
   }, [
@@ -215,7 +227,7 @@ export function Based({ uuid, ...props }: { uuid: string }) {
     if (!runtime) return;
     setObject(runtime.object);
     mixerRef.current = runtime.mixer;
-    setClips(uuid, runtime.clips);
+    setClips(uuid, runtime.clips, { applyPersistedImports: false });
     setMixerRef(uuid, runtime.mixer);
   }, [activeVariant, downgradeRevision, setClips, setMixerRef, uuid]);
 

@@ -57,7 +57,11 @@ export interface ProjectSnapshot_v7 extends Omit<ProjectSnapshot_v6, "version"> 
   version: 7;
 }
 
-export type ProjectSnapshot = ProjectSnapshot_v7;
+export interface ProjectSnapshot_v8 extends Omit<ProjectSnapshot_v7, "version"> {
+  version: 8;
+}
+
+export type ProjectSnapshot = ProjectSnapshot_v8;
 
 // Union type — extend as you add versions
 export type ProjectSnapshotVersion =
@@ -67,9 +71,10 @@ export type ProjectSnapshotVersion =
   | ProjectSnapshot_v4
   | ProjectSnapshot_v5
   | ProjectSnapshot_v6
-  | ProjectSnapshot_v7;
+  | ProjectSnapshot_v7
+  | ProjectSnapshot_v8;
 
-export const CURRENT_VERSION = 7;
+export const CURRENT_VERSION = 8;
 
 export const RECOVERY_SNAPSHOT_VERSION = 1;
 
