@@ -55,6 +55,13 @@ import { useTarget } from "@/store/next/targets";
 import { useModelsStore, type LoopType } from "@/store/next/models";
 import { cn } from "@/lib/utils";
 import type { CameraType } from "@/types/camera";
+import {
+  buildWorkflowSteps,
+  getHiddenWorkflowStepLabels,
+  groupWorkflowStepsByAnimation,
+  isWorkflowStepHidden,
+  type WorkflowStep,
+} from "@/utils/workflows";
 
 const WORKFLOW_LOOP_OPTIONS = {
   "Loop Once": THREE.LoopOnce,
@@ -99,6 +106,7 @@ function createCameraDraft({
   cameraType,
   target,
   captureNormalMaps,
+  skippedStepLabels = [],
 }: {
   workflow: WorkflowDefinition;
   cameraDistance: number;
@@ -106,6 +114,7 @@ function createCameraDraft({
   cameraType: CameraType;
   target: WorkflowCameraTarget;
   captureNormalMaps: boolean;
+  skippedStepLabels?: string[];
 }): WorkflowCameraDraft {
   const firstDirection = workflow.directions[0];
   return {
@@ -118,7 +127,7 @@ function createCameraDraft({
     previewAppliesTo: "all",
     directionOverrides: {},
     forceAnimationsInPlace: false,
-    skippedStepLabels: [],
+    skippedStepLabels: [...skippedStepLabels],
     captureNormalMaps,
   };
 }
@@ -133,6 +142,7 @@ function createRunOptions(draft: WorkflowCameraDraft): WorkflowRunOptions {
     directionOverrides: draft.directionOverrides,
     forceAnimationsInPlace: draft.forceAnimationsInPlace,
     skipStepLabels: draft.skippedStepLabels,
+    includeHiddenAnimations: true,
     captureNormalMaps: draft.captureNormalMaps,
   };
 }
@@ -149,12 +159,14 @@ export const WorkflowsMenu = () => {
   >(undefined);
   const [animationSettingsExpanded, setAnimationSettingsExpanded] =
     useState(true);
+  const [collapsedAnimationKeys, setCollapsedAnimationKeys] = useState<
+    Set<string>
+  >(new Set());
 
   const {
     workflowState,
     runWorkflow,
     abortWorkflow,
-    buildSteps,
     resetWorkflow,
     presets,
     canRunWorkflow,
@@ -181,8 +193,26 @@ export const WorkflowsMenu = () => {
     const target: WorkflowCameraTarget = storedTarget ?? [0, 0, 0];
     return cloneTarget(target);
   }, [storedTarget]);
+  const workflowClips = useModelsStore((state) => state.clips);
+  const workflowModels = useModelsStore((state) => state.models);
+  const hiddenAnimations = useModelsStore((state) => state.hiddenAnimations);
 
-  const steps = selectedWorkflow ? buildSteps(selectedWorkflow) : [];
+  const steps = useMemo(
+    () =>
+      selectedWorkflow
+        ? buildWorkflowSteps(selectedWorkflow, {
+            clips: workflowClips,
+            hiddenAnimations,
+            includeHiddenAnimations: true,
+            modelUuids: Object.keys(workflowModels),
+          })
+        : [],
+    [hiddenAnimations, selectedWorkflow, workflowClips, workflowModels],
+  );
+  const stepGroups = useMemo(
+    () => groupWorkflowStepsByAnimation(steps),
+    [steps],
+  );
   const enabledSteps = useMemo(
     () =>
       steps.filter(
@@ -224,6 +254,12 @@ export const WorkflowsMenu = () => {
   const selectedStep = useMemo(
     () => steps.find((step) => step.rowLabel === selectedStepLabel) ?? steps[0],
     [selectedStepLabel, steps],
+  );
+  const firstEnabledStepLabel = useMemo(
+    () =>
+      enabledSteps.find((step) => step.rowLabel)?.rowLabel ??
+      steps[0]?.rowLabel,
+    [enabledSteps, steps],
   );
   const selectedStepModelUuid = selectedStep?.modelUuid;
   const selectedStepAnimationName = selectedStep?.animationName;
@@ -353,9 +389,9 @@ export const WorkflowsMenu = () => {
         return current;
       }
 
-      return steps[0].rowLabel;
+      return firstEnabledStepLabel;
     });
-  }, [steps]);
+  }, [firstEnabledStepLabel, steps]);
 
   const shouldShowStepControls = Boolean(
     selectedStep &&
@@ -365,20 +401,34 @@ export const WorkflowsMenu = () => {
     selectedStepClip,
   );
 
-  const setAllStepsEnabled = useCallback(
-    (enabled: boolean) => {
+  const setStepLabelsEnabled = useCallback(
+    (labels: string[], enabled: boolean) => {
+      const uniqueLabels = Array.from(new Set(labels));
+      const labelSet = new Set(uniqueLabels);
+
       setCameraDraft((prev) =>
         prev
           ? {
               ...prev,
               skippedStepLabels: enabled
-                ? []
-                : Array.from(new Set(availableStepLabels)),
+                ? prev.skippedStepLabels.filter(
+                    (label) => !labelSet.has(label),
+                  )
+                : Array.from(
+                    new Set([...prev.skippedStepLabels, ...uniqueLabels]),
+                  ),
             }
           : prev,
       );
     },
-    [availableStepLabels],
+    [],
+  );
+
+  const setAllStepsEnabled = useCallback(
+    (enabled: boolean) => {
+      setStepLabelsEnabled(availableStepLabels, enabled);
+    },
+    [availableStepLabels, setStepLabelsEnabled],
   );
 
   const disableAllSteps = useCallback(() => {
@@ -388,6 +438,44 @@ export const WorkflowsMenu = () => {
   const enableAllSteps = useCallback(() => {
     setAllStepsEnabled(true);
   }, [setAllStepsEnabled]);
+
+  const selectWorkflowStep = useCallback((step: WorkflowStep) => {
+    setSelectedStepLabel(step.rowLabel);
+    setCameraDraft((prev) =>
+      prev
+        ? {
+            ...prev,
+            selectedDirectionLabel: step.directionLabel,
+          }
+        : prev,
+    );
+  }, []);
+
+  const toggleAnimationCollapsed = useCallback((animationKey: string) => {
+    setCollapsedAnimationKeys((current) => {
+      const next = new Set(current);
+
+      if (next.has(animationKey)) {
+        next.delete(animationKey);
+      } else {
+        next.add(animationKey);
+      }
+
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const groupKeys = new Set(stepGroups.map((group) => group.key));
+
+    setCollapsedAnimationKeys((current) => {
+      const next = new Set(
+        Array.from(current).filter((key) => groupKeys.has(key)),
+      );
+
+      return next.size === current.size ? current : next;
+    });
+  }, [stepGroups]);
 
   const selectedPreviewCamera = useMemo(() => {
     if (!previewDirection) return undefined;
@@ -408,8 +496,20 @@ export const WorkflowsMenu = () => {
 
   const onSelectWorkflow = useCallback(
     (workflow: WorkflowDefinition) => {
+      const workflowSteps = buildWorkflowSteps(workflow, {
+        clips: workflowClips,
+        hiddenAnimations,
+        includeHiddenAnimations: true,
+        modelUuids: Object.keys(workflowModels),
+      });
+      const skippedStepLabels = getHiddenWorkflowStepLabels(
+        workflowSteps,
+        hiddenAnimations,
+      );
+
       setSelectedWorkflow(workflow);
       setSelectedStepLabel(undefined);
+      setCollapsedAnimationKeys(new Set());
       setCameraDraft(
         createCameraDraft({
           workflow,
@@ -418,6 +518,7 @@ export const WorkflowsMenu = () => {
           cameraType: mainCameraType ?? "perspective",
           target: defaultTarget,
           captureNormalMaps: exportNormalMap,
+          skippedStepLabels,
         }),
       );
       resetWorkflow();
@@ -428,10 +529,13 @@ export const WorkflowsMenu = () => {
       cameraDistance,
       defaultTarget,
       exportNormalMap,
+      hiddenAnimations,
       mainCameraType,
       setSelectedWorkflow,
       resetWorkflow,
       setDialogOpen,
+      workflowClips,
+      workflowModels,
     ],
   );
 
@@ -448,11 +552,23 @@ export const WorkflowsMenu = () => {
     setDialogOpen(false);
     setSelectedWorkflow(null);
     setSelectedStepLabel(undefined);
+    setCollapsedAnimationKeys(new Set());
     setCameraDraft(null);
   };
 
   const resetDraft = useCallback(() => {
     if (!selectedWorkflow) return;
+    const workflowSteps = buildWorkflowSteps(selectedWorkflow, {
+      clips: workflowClips,
+      hiddenAnimations,
+      includeHiddenAnimations: true,
+      modelUuids: Object.keys(workflowModels),
+    });
+    const skippedStepLabels = getHiddenWorkflowStepLabels(
+      workflowSteps,
+      hiddenAnimations,
+    );
+
     setCameraDraft(
       createCameraDraft({
         workflow: selectedWorkflow,
@@ -461,15 +577,19 @@ export const WorkflowsMenu = () => {
         cameraType: mainCameraType ?? "perspective",
         target: defaultTarget,
         captureNormalMaps: exportNormalMap,
+        skippedStepLabels,
       }),
     );
   }, [
     cameraAngle,
     cameraDistance,
     defaultTarget,
+    hiddenAnimations,
     mainCameraType,
     selectedWorkflow,
     exportNormalMap,
+    workflowClips,
+    workflowModels,
   ]);
 
   const updateSelectedCamera = useCallback(
@@ -734,16 +854,24 @@ export const WorkflowsMenu = () => {
                       size="xs"
                       disabled={isRunning}
                       onClick={() => {
+                        const directionStep =
+                          steps.find(
+                            (step) =>
+                              step.directionLabel === dir.label &&
+                              !cameraDraft?.skippedStepLabels.includes(
+                                step.rowLabel,
+                              ),
+                          ) ??
+                          steps.find(
+                            (step) => step.directionLabel === dir.label,
+                          );
+
                         setCameraDraft((prev) =>
                           prev
                             ? { ...prev, selectedDirectionLabel: dir.label }
                             : prev,
                         );
-                        setSelectedStepLabel(
-                          steps.find(
-                            (step) => step.directionLabel === dir.label,
-                          )?.rowLabel,
-                        );
+                        setSelectedStepLabel(directionStep?.rowLabel);
                       }}
                       className={cn(
                         hasOverride && !isSelected && "border-primary/60",
@@ -933,94 +1061,183 @@ export const WorkflowsMenu = () => {
                 </div>
               )}
 
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-md border p-2">
-                <div className="flex flex-col gap-1">
-                  {steps.map((step) => {
-                    const stepRunIndex = enabledStepOrder.get(step.rowLabel);
-                    const isCurrentStep =
-                      isRunning && step.rowLabel === workflowState.currentLabel;
-                    const isPast = isRunning
-                      ? Boolean(
-                          stepRunIndex &&
-                            stepRunIndex < workflowState.currentStep,
-                        )
-                      : isDone && Boolean(stepRunIndex);
-                    const isSelectedDirection =
-                      step.directionLabel ===
-                      cameraDraft?.selectedDirectionLabel;
-                    const isStepEnabled = step.rowLabel
-                      ? !cameraDraft?.skippedStepLabels.includes(step.rowLabel)
-                      : true;
-                    const isSelectedStep = step.rowLabel === selectedStepLabel;
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
+                <div className="flex flex-col">
+                  {stepGroups.map((group) => {
+                    const groupLabels = group.steps.map(
+                      (step) => step.rowLabel,
+                    );
+                    const enabledGroupCount = group.steps.filter(
+                      (step) =>
+                        !cameraDraft?.skippedStepLabels.includes(
+                          step.rowLabel,
+                        ),
+                    ).length;
+                    const hiddenGroupCount = group.steps.filter((step) =>
+                      isWorkflowStepHidden(step, hiddenAnimations),
+                    ).length;
+                    const groupChecked =
+                      enabledGroupCount === group.steps.length
+                        ? true
+                        : enabledGroupCount === 0
+                          ? false
+                          : "indeterminate";
+                    const selectedGroupStep =
+                      group.steps.find(
+                        (step) =>
+                          !cameraDraft?.skippedStepLabels.includes(
+                            step.rowLabel,
+                          ),
+                      ) ?? group.steps[0];
+                    const isGroupCollapsed = collapsedAnimationKeys.has(
+                      group.key,
+                    );
 
                     return (
-                      <div
-                        key={step.rowLabel}
-                        className={cn(
-                          "flex cursor-pointer items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors",
-                          !isStepEnabled && "text-muted-foreground opacity-60",
-                          isCurrentStep &&
-                            "border border-primary/30 bg-primary/10",
-                          isPast && "opacity-40",
-                          isSelectedStep &&
-                            "ring-1 ring-primary/40 bg-primary/10",
-                          isSelectedDirection && !isCurrentStep && "bg-muted",
-                        )}
+                      <section
+                        key={group.key}
+                        className="border-b last:border-b-0"
                       >
-                        <Checkbox
-                          checked={isStepEnabled}
-                          onCheckedChange={(checked) =>
-                            setCameraDraft((prev) => {
-                              if (!prev || !step.rowLabel) return prev;
-                              const isChecked = Boolean(checked);
-                              return {
-                                ...prev,
-                                skippedStepLabels: isChecked
-                                  ? prev.skippedStepLabels.filter(
-                                      (label) => label !== step.rowLabel,
-                                    )
-                                  : [
-                                      ...new Set([
-                                        ...prev.skippedStepLabels,
-                                        step.rowLabel,
-                                      ]),
-                                    ],
-                              };
-                            })
-                          }
-                          onClick={(event) => event.stopPropagation()}
-                          disabled={isRunning}
-                        />
-                        <button
-                          type="button"
-                          disabled={isRunning}
-                          onClick={() => {
-                            setSelectedStepLabel(step.rowLabel);
-                            setCameraDraft((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    selectedDirectionLabel: step.directionLabel,
-                                  }
-                                : prev,
-                            );
-                          }}
-                          className="min-w-0 flex-1 truncate text-left"
-                        >
-                          <span className="min-w-0 truncate font-mono">
-                            {step.rowLabel}
-                          </span>
-                        </button>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {step.animationName} · {step.directionLabel}
-                        </span>
-                        {isPast && (
-                          <CircleCheckIcon className="size-3 shrink-0 text-green-500" />
+                        <div className="flex items-center gap-2 border-b bg-muted/40 px-2 py-1.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label={
+                              isGroupCollapsed
+                                ? `Expand ${group.animationName} animation`
+                                : `Collapse ${group.animationName} animation`
+                            }
+                            aria-expanded={!isGroupCollapsed}
+                            onClick={() => toggleAnimationCollapsed(group.key)}
+                            className="-ml-1"
+                          >
+                            {isGroupCollapsed ? (
+                              <ChevronRightIcon className="size-3" />
+                            ) : (
+                              <ChevronDownIcon className="size-3" />
+                            )}
+                          </Button>
+                          <Checkbox
+                            aria-label={`Toggle ${group.animationName} animation`}
+                            checked={groupChecked}
+                            onCheckedChange={(checked) =>
+                              setStepLabelsEnabled(
+                                groupLabels,
+                                Boolean(checked),
+                              )
+                            }
+                            disabled={isRunning || groupLabels.length === 0}
+                          />
+                          <button
+                            type="button"
+                            disabled={isRunning || !selectedGroupStep}
+                            onClick={() =>
+                              selectedGroupStep &&
+                              selectWorkflowStep(selectedGroupStep)
+                            }
+                            className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left text-sm"
+                          >
+                            <span className="min-w-0 truncate font-medium">
+                              {group.animationName}
+                            </span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {enabledGroupCount}/{group.steps.length}
+                              {hiddenGroupCount > 0
+                                ? ` · ${hiddenGroupCount} hidden`
+                                : ""}
+                            </span>
+                          </button>
+                        </div>
+
+                        {!isGroupCollapsed && (
+                          <div className="flex flex-col gap-1 px-2 py-1.5">
+                            {group.steps.map((step) => {
+                              const stepRunIndex = enabledStepOrder.get(
+                                step.rowLabel,
+                              );
+                              const isCurrentStep =
+                                isRunning &&
+                                step.rowLabel === workflowState.currentLabel;
+                              const isPast = isRunning
+                                ? Boolean(
+                                    stepRunIndex &&
+                                      stepRunIndex <
+                                        workflowState.currentStep,
+                                  )
+                                : isDone && Boolean(stepRunIndex);
+                              const isSelectedDirection =
+                                step.directionLabel ===
+                                cameraDraft?.selectedDirectionLabel;
+                              const isStepEnabled =
+                                !cameraDraft?.skippedStepLabels.includes(
+                                  step.rowLabel,
+                                );
+                              const isSelectedStep =
+                                step.rowLabel === selectedStepLabel;
+                              const isHiddenStep = isWorkflowStepHidden(
+                                step,
+                                hiddenAnimations,
+                              );
+
+                              return (
+                                <div
+                                  key={step.rowLabel}
+                                  className={cn(
+                                    "flex cursor-pointer items-center justify-between gap-2 rounded px-2 py-1 text-left text-sm transition-colors",
+                                    !isStepEnabled &&
+                                      "text-muted-foreground opacity-60",
+                                    isCurrentStep &&
+                                      "border border-primary/30 bg-primary/10",
+                                    isPast && "opacity-40",
+                                    isSelectedStep &&
+                                      "ring-1 ring-primary/40 bg-primary/10",
+                                    isSelectedDirection &&
+                                      !isCurrentStep &&
+                                      "bg-muted",
+                                    isHiddenStep &&
+                                      !isStepEnabled &&
+                                      "bg-muted/20",
+                                  )}
+                                >
+                                  <Checkbox
+                                    aria-label={`Toggle ${step.rowLabel}`}
+                                    checked={isStepEnabled}
+                                    onCheckedChange={(checked) =>
+                                      setStepLabelsEnabled(
+                                        [step.rowLabel],
+                                        Boolean(checked),
+                                      )
+                                    }
+                                    onClick={(event) => event.stopPropagation()}
+                                    disabled={isRunning}
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={isRunning}
+                                    onClick={() => selectWorkflowStep(step)}
+                                    className="min-w-0 flex-1 truncate text-left"
+                                  >
+                                    <span className="min-w-0 truncate font-mono">
+                                      {step.rowLabel}
+                                    </span>
+                                  </button>
+                                  <span className="shrink-0 text-xs text-muted-foreground">
+                                    {step.directionLabel}
+                                    {isHiddenStep ? " · hidden" : ""}
+                                  </span>
+                                  {isPast && (
+                                    <CircleCheckIcon className="size-3 shrink-0 text-green-500" />
+                                  )}
+                                  {isCurrentStep && (
+                                    <LoaderCircleIcon className="size-3 shrink-0 animate-spin" />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
-                        {isCurrentStep && (
-                          <LoaderCircleIcon className="size-3 shrink-0 animate-spin" />
-                        )}
-                      </div>
+                      </section>
                     );
                   })}
                 </div>

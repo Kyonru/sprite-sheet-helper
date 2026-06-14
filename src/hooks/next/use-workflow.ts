@@ -18,6 +18,7 @@ import {
 import { useEntitiesStore } from "@/store/next/entities";
 import {
   buildWorkflowSteps,
+  type BuildWorkflowStepsInput,
   type WorkflowStep,
 } from "@/utils/workflows";
 import {
@@ -142,12 +143,21 @@ const waitForAnimationReady = (
     PubSub.on(EventType.ANIMATION_READY, handler);
   });
 
-function buildStepsFromStore(workflow: WorkflowDefinition): WorkflowStep[] {
+type BuildStepsFromStoreOptions = Pick<
+  BuildWorkflowStepsInput,
+  "includeHiddenAnimations"
+>;
+
+function buildStepsFromStore(
+  workflow: WorkflowDefinition,
+  options: BuildStepsFromStoreOptions = {},
+): WorkflowStep[] {
   const { clips, hiddenAnimations, models } = useModelsStore.getState();
   return buildWorkflowSteps(workflow, {
     clips,
     hiddenAnimations,
     modelUuids: Object.keys(models),
+    includeHiddenAnimations: options.includeHiddenAnimations,
   });
 }
 
@@ -254,7 +264,10 @@ export const useWorkflow = () => {
   }, []);
 
   const buildSteps = useCallback(
-    (workflow: WorkflowDefinition): WorkflowStep[] => buildStepsFromStore(workflow),
+    (
+      workflow: WorkflowDefinition,
+      options?: BuildStepsFromStoreOptions,
+    ): WorkflowStep[] => buildStepsFromStore(workflow, options),
     [],
   );
 
@@ -272,9 +285,9 @@ export const useWorkflow = () => {
       useSettingsStore.getState().setExportNormalMap(captureNormalMaps);
     }
 
-    const steps = buildStepsFromStore(workflow).filter(
-      (step) => !shouldSkipStep(step, options),
-    );
+    const steps = buildStepsFromStore(workflow, {
+      includeHiddenAnimations: options?.includeHiddenAnimations,
+    }).filter((step) => !shouldSkipStep(step, options));
     const workflowRunId = Date.now().toString();
     workflowRunIdRef.current = workflowRunId;
 

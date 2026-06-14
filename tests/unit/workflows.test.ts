@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { computePosition, WORKFLOW_PRESETS } from "@/constants/workflows";
-import { buildWorkflowSteps, type WorkflowClipEntry } from "@/utils/workflows";
+import {
+  buildWorkflowSteps,
+  getHiddenWorkflowStepLabels,
+  groupWorkflowStepsByAnimation,
+  isWorkflowStepHidden,
+  type WorkflowClipEntry,
+} from "@/utils/workflows";
 
 const workflow = WORKFLOW_PRESETS.find((preset) => preset.id === "topdown-4dir")!;
 
@@ -46,6 +52,54 @@ describe("workflow utilities", () => {
 
     expect(steps).toHaveLength(4);
     expect(steps.map((step) => step.rowLabel)).toEqual([
+      "walk_N",
+      "walk_E",
+      "walk_S",
+      "walk_W",
+    ]);
+  });
+
+  it("can include hidden animation names as disabled workflow candidates", () => {
+    const hiddenAnimations = { modelA: ["idle"] };
+    const steps = buildWorkflowSteps(workflow, {
+      clips: { modelA: [clip("walk"), clip("idle")] },
+      hiddenAnimations,
+      includeHiddenAnimations: true,
+      modelUuids: ["modelA"],
+    });
+
+    expect(steps.map((step) => step.rowLabel)).toEqual([
+      "walk_N",
+      "walk_E",
+      "walk_S",
+      "walk_W",
+      "idle_N",
+      "idle_E",
+      "idle_S",
+      "idle_W",
+    ]);
+    expect(getHiddenWorkflowStepLabels(steps, hiddenAnimations)).toEqual([
+      "idle_N",
+      "idle_E",
+      "idle_S",
+      "idle_W",
+    ]);
+    expect(isWorkflowStepHidden(steps[4], hiddenAnimations)).toBe(true);
+  });
+
+  it("groups workflow steps by animation name", () => {
+    const steps = buildWorkflowSteps(workflow, {
+      clips: { modelA: [clip("walk"), clip("idle")] },
+      modelUuids: ["modelA"],
+    });
+
+    const groups = groupWorkflowStepsByAnimation(steps);
+
+    expect(groups.map((group) => group.animationName)).toEqual([
+      "walk",
+      "idle",
+    ]);
+    expect(groups[0].steps.map((step) => step.rowLabel)).toEqual([
       "walk_N",
       "walk_E",
       "walk_S",

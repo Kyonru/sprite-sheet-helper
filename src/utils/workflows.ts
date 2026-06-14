@@ -17,16 +17,24 @@ export type BuildWorkflowStepsInput = {
   clips: Record<string, WorkflowClipEntry[]>;
   modelUuids: string[];
   hiddenAnimations?: Record<string, string[]>;
+  includeHiddenAnimations?: boolean;
 };
 
 export function buildWorkflowSteps(
   workflow: WorkflowDefinition,
-  { clips, modelUuids, hiddenAnimations = {} }: BuildWorkflowStepsInput,
+  {
+    clips,
+    modelUuids,
+    hiddenAnimations = {},
+    includeHiddenAnimations = false,
+  }: BuildWorkflowStepsInput,
 ): WorkflowStep[] {
   const clipEntries = Object.entries(clips).filter(
     ([modelUuid, modelClips]) =>
       modelClips.some(
-        (entry) => !hiddenAnimations[modelUuid]?.includes(entry.clip.name),
+        (entry) =>
+          includeHiddenAnimations ||
+          !hiddenAnimations[modelUuid]?.includes(entry.clip.name),
       ),
   );
 
@@ -44,7 +52,9 @@ export function buildWorkflowSteps(
       ...new Set(
         modelClips
           .map((c) => c.clip.name)
-          .filter((name) => !hiddenNames.includes(name)),
+          .filter(
+            (name) => includeHiddenAnimations || !hiddenNames.includes(name),
+          ),
       ),
     ];
     return animationNames.flatMap((animationName) =>
@@ -74,4 +84,54 @@ export function buildWorkflowSteps(
       rowLabel: `${modelPrefix}${baseLabel}`,
     };
   });
+}
+
+export type WorkflowStepGroup = {
+  key: string;
+  animationName: string;
+  steps: WorkflowStep[];
+};
+
+export function isWorkflowStepHidden(
+  step: WorkflowStep,
+  hiddenAnimations: Record<string, string[]>,
+): boolean {
+  return Boolean(
+    step.modelUuid &&
+      step.animationName !== "none" &&
+      hiddenAnimations[step.modelUuid]?.includes(step.animationName),
+  );
+}
+
+export function getHiddenWorkflowStepLabels(
+  steps: WorkflowStep[],
+  hiddenAnimations: Record<string, string[]>,
+): string[] {
+  return steps
+    .filter((step) => isWorkflowStepHidden(step, hiddenAnimations))
+    .map((step) => step.rowLabel);
+}
+
+export function groupWorkflowStepsByAnimation(
+  steps: WorkflowStep[],
+): WorkflowStepGroup[] {
+  const groups = new Map<string, WorkflowStepGroup>();
+
+  for (const step of steps) {
+    const key = step.animationName;
+    const group = groups.get(key);
+
+    if (group) {
+      group.steps.push(step);
+      continue;
+    }
+
+    groups.set(key, {
+      key,
+      animationName: step.animationName,
+      steps: [step],
+    });
+  }
+
+  return Array.from(groups.values());
 }

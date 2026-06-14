@@ -19,6 +19,7 @@ export type WorkflowRunOptions = {
   directionOverrides?: Record<string, WorkflowCameraDirectionOverride>;
   forceAnimationsInPlace?: boolean;
   skipStepLabels?: string[];
+  includeHiddenAnimations?: boolean;
   captureNormalMaps?: boolean;
 };
 
