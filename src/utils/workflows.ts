@@ -112,6 +112,21 @@ export function getHiddenWorkflowStepLabels(
     .map((step) => step.rowLabel);
 }
 
+export function getDisabledWorkflowAnimationGroupKeys(
+  groups: WorkflowStepGroup[],
+  skippedStepLabels: string[],
+): string[] {
+  const skippedLabels = new Set(skippedStepLabels);
+
+  return groups
+    .filter(
+      (group) =>
+        group.steps.length > 0 &&
+        group.steps.every((step) => skippedLabels.has(step.rowLabel)),
+    )
+    .map((group) => group.key);
+}
+
 export function groupWorkflowStepsByAnimation(
   steps: WorkflowStep[],
 ): WorkflowStepGroup[] {

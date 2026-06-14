@@ -57,6 +57,7 @@ import { cn } from "@/lib/utils";
 import type { CameraType } from "@/types/camera";
 import {
   buildWorkflowSteps,
+  getDisabledWorkflowAnimationGroupKeys,
   getHiddenWorkflowStepLabels,
   groupWorkflowStepsByAnimation,
   isWorkflowStepHidden,
@@ -473,7 +474,8 @@ export const WorkflowsMenu = () => {
 
   const disableAllSteps = useCallback(() => {
     setAllStepsEnabled(false);
-  }, [setAllStepsEnabled]);
+    setCollapsedAnimationKeys(new Set(stepGroups.map((group) => group.key)));
+  }, [setAllStepsEnabled, stepGroups]);
 
   const enableAllSteps = useCallback(() => {
     setAllStepsEnabled(true);
@@ -548,6 +550,10 @@ export const WorkflowsMenu = () => {
         workflowSteps,
         hiddenAnimations,
       );
+      const collapsedAnimationKeys = getDisabledWorkflowAnimationGroupKeys(
+        groupWorkflowStepsByAnimation(workflowSteps),
+        skippedStepLabels,
+      );
       const cameraDraft = createCameraDraft({
         workflow,
         cameraDistance,
@@ -560,7 +566,7 @@ export const WorkflowsMenu = () => {
 
       setSelectedWorkflow(workflow);
       setSelectedStepLabel(undefined);
-      setCollapsedAnimationKeys(new Set());
+      setCollapsedAnimationKeys(new Set(collapsedAnimationKeys));
       setOriginalCameraSnapshot(createCameraSnapshot(cameraDraft));
       setCameraDraft(cameraDraft);
       resetWorkflow();
@@ -1155,12 +1161,20 @@ export const WorkflowsMenu = () => {
                           <Checkbox
                             aria-label={`Toggle ${group.animationName} animation`}
                             checked={groupChecked}
-                            onCheckedChange={(checked) =>
+                            onCheckedChange={(checked) => {
+                              const enabled = Boolean(checked);
                               setStepLabelsEnabled(
                                 groupLabels,
-                                Boolean(checked),
-                              )
-                            }
+                                enabled,
+                              );
+                              if (!enabled) {
+                                setCollapsedAnimationKeys((current) => {
+                                  const next = new Set(current);
+                                  next.add(group.key);
+                                  return next;
+                                });
+                              }
+                            }}
                             disabled={isRunning || groupLabels.length === 0}
                           />
                           <button

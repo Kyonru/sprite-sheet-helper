@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computePosition, WORKFLOW_PRESETS } from "@/constants/workflows";
 import {
   buildWorkflowSteps,
+  getDisabledWorkflowAnimationGroupKeys,
   getHiddenWorkflowStepLabels,
   groupWorkflowStepsByAnimation,
   isWorkflowStepHidden,
@@ -105,6 +106,32 @@ describe("workflow utilities", () => {
       "walk_S",
       "walk_W",
     ]);
+  });
+
+  it("finds fully disabled animation groups", () => {
+    const steps = buildWorkflowSteps(workflow, {
+      clips: { modelA: [clip("walk"), clip("idle")] },
+      modelUuids: ["modelA"],
+    });
+    const groups = groupWorkflowStepsByAnimation(steps);
+
+    expect(
+      getDisabledWorkflowAnimationGroupKeys(groups, [
+        "idle_N",
+        "idle_E",
+        "idle_S",
+        "idle_W",
+      ]),
+    ).toEqual(["idle"]);
+    expect(
+      getDisabledWorkflowAnimationGroupKeys(groups, [
+        "walk_N",
+        "idle_N",
+        "idle_E",
+        "idle_S",
+        "idle_W",
+      ]),
+    ).toEqual(["idle"]);
   });
 
   it("prefixes row labels when multiple models can collide", () => {
