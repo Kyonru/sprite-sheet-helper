@@ -353,6 +353,12 @@ export const useWorkflow = () => {
           currentCamera: camera,
         }));
 
+        if (cameraUUID && camera.cameraType === "orthographic") {
+          useCamerasStore.getState().setCamera(cameraUUID, {
+            zoom: camera.zoom ?? camera.distance,
+          });
+        }
+
         PubSub.emit(EventType.SET_CAMERA_ANGLE, {
           position: camera.position,
           target: camera.target,

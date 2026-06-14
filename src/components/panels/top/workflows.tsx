@@ -223,6 +223,7 @@ export const WorkflowsMenu = () => {
     (state) => state.cameras[cameraUUID || ""]?.type,
   );
   const setCameraType = useCamerasStore((state) => state.setCameraType);
+  const setCamera = useCamerasStore((state) => state.setCamera);
   const intervals = useImagesStore((state) => state.intervals);
   const iterations = useImagesStore((state) => state.iterations);
   const setIntervals = useImagesStore((state) => state.setIntervals);
@@ -532,6 +533,8 @@ export const WorkflowsMenu = () => {
     previewDirection,
     defaultTarget,
   ]);
+  const workflowDistanceLabel =
+    selectedPreviewCamera?.cameraType === "orthographic" ? "Zoom" : "Distance";
 
   const onSelectWorkflow = useCallback(
     (workflow: WorkflowDefinition) => {
@@ -735,10 +738,16 @@ export const WorkflowsMenu = () => {
     setCameraAngle(selectedPreviewCamera.phi);
     if (cameraUUID) {
       setCameraType(cameraUUID, selectedPreviewCamera.cameraType);
+      if (selectedPreviewCamera.cameraType === "orthographic") {
+        setCamera(cameraUUID, {
+          zoom: selectedPreviewCamera.zoom ?? selectedPreviewCamera.distance,
+        });
+      }
     }
   }, [
     selectedPreviewCamera,
     cameraUUID,
+    setCamera,
     setCameraType,
     setCameraAngle,
     setCameraDistance,
@@ -1298,8 +1307,15 @@ export const WorkflowsMenu = () => {
                     <div className="text-xs text-muted-foreground">
                       Camera {workflowState.currentCamera.cameraType} · φ{" "}
                       {workflowState.currentCamera.phi.toFixed(1)}° · θ{" "}
-                      {workflowState.currentCamera.theta.toFixed(1)}° · d{" "}
-                      {workflowState.currentCamera.distance.toFixed(2)}
+                      {workflowState.currentCamera.theta.toFixed(1)}° ·{" "}
+                      {workflowState.currentCamera.cameraType ===
+                      "orthographic"
+                        ? "z"
+                        : "d"}{" "}
+                      {(
+                        workflowState.currentCamera.zoom ??
+                        workflowState.currentCamera.distance
+                      ).toFixed(2)}
                     </div>
                   )}
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -1531,7 +1547,7 @@ export const WorkflowsMenu = () => {
                       <div className="grid gap-2">
                         <div className="flex items-center justify-between gap-2">
                           <Label htmlFor="workflow-camera-distance">
-                            Distance
+                            {workflowDistanceLabel}
                           </Label>
                           <Input
                             id="workflow-camera-distance"

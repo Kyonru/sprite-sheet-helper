@@ -27,6 +27,7 @@ export type ResolvedWorkflowCamera = {
   phi: number;
   theta: number;
   distance: number;
+  zoom?: number;
   cameraType: CameraType;
   target: WorkflowCameraTarget;
   position: WorkflowCameraTarget;
@@ -57,7 +58,8 @@ export function resolveWorkflowCamera({
   const rotationOffset = options?.directionRotationOffset ?? 0;
   const distance =
     override?.distance ?? options?.cameraDistance ?? defaultDistance;
-  const phi = override?.phi ?? options?.cameraAngle ?? defaultCameraAngle ?? direction.phi;
+  const phi =
+    override?.phi ?? options?.cameraAngle ?? defaultCameraAngle ?? direction.phi;
   const theta = normalizeWorkflowDegrees(
     override?.theta ?? direction.theta + rotationOffset,
   );
@@ -65,13 +67,16 @@ export function resolveWorkflowCamera({
   const target = [
     ...(override?.target ?? options?.target ?? defaultTarget),
   ] as WorkflowCameraTarget;
+  const positionDistance =
+    cameraType === "orthographic" ? defaultDistance : distance;
 
   return {
     phi,
     theta,
     distance,
+    ...(cameraType === "orthographic" ? { zoom: distance } : {}),
     cameraType,
     target,
-    position: computePosition(phi, theta, distance, target),
+    position: computePosition(phi, theta, positionDistance, target),
   };
 }

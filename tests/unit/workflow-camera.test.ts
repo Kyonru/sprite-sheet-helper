@@ -59,6 +59,25 @@ describe("workflow camera utilities", () => {
     expect(camera.target).toEqual([2, 0, -1]);
   });
 
+  it("uses workflow distance as zoom for orthographic cameras", () => {
+    const camera = resolveWorkflowCamera({
+      direction,
+      defaultDistance: 4,
+      defaultTarget: [1, 2, 3],
+      options: {
+        cameraDistance: 2.5,
+        cameraType: "orthographic",
+      },
+    });
+
+    expect(camera.cameraType).toBe("orthographic");
+    expect(camera.distance).toBe(2.5);
+    expect(camera.zoom).toBe(2.5);
+    expect(camera.position[0]).toBeCloseTo(1 + Math.SQRT2 * 2);
+    expect(camera.position[1]).toBeCloseTo(2 + Math.SQRT2 * 2);
+    expect(camera.position[2]).toBeCloseTo(3);
+  });
+
   it("lets per-direction overrides beat global draft values", () => {
     const camera = resolveWorkflowCamera({
       direction,

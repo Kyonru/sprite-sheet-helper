@@ -334,12 +334,17 @@ function PreviewCameraControls({
       threeCamera.right = (ORTHOGRAPHIC_SIZE * aspect) / 2;
       threeCamera.top = ORTHOGRAPHIC_SIZE / 2;
       threeCamera.bottom = -ORTHOGRAPHIC_SIZE / 2;
+      const zoom = camera.zoom ?? 1;
+      threeCamera.zoom = zoom;
       threeCamera.updateProjectionMatrix();
+      threeCamera.updateMatrixWorld();
+      controls.zoomTo(zoom, false);
     }
 
     controls.update(0);
   }, [
     camera.cameraType,
+    camera.zoom,
     viewportWidth,
     viewportHeight,
     threeCamera,
@@ -358,8 +363,13 @@ function PreviewCameraControls({
         const controlledCamera = controls.camera;
         const offset = controlledCamera.position.clone().sub(target);
         const spherical = new THREE.Spherical().setFromVector3(offset);
+        const distance =
+          controlledCamera instanceof THREE.OrthographicCamera
+            ? controlledCamera.zoom
+            : spherical.radius;
+
         onCameraChange({
-          distance: Number(spherical.radius.toFixed(3)),
+          distance: Number(distance.toFixed(3)),
           phi: Number(THREE.MathUtils.radToDeg(spherical.phi).toFixed(2)),
           theta: normalizeWorkflowDegrees(
             Number(THREE.MathUtils.radToDeg(spherical.theta).toFixed(2)),
@@ -443,7 +453,7 @@ function CameraFromMode({ camera }: { camera: ResolvedWorkflowCamera }) {
         right={(ORTHOGRAPHIC_SIZE * aspect) / 2}
         top={ORTHOGRAPHIC_SIZE / 2}
         bottom={-ORTHOGRAPHIC_SIZE / 2}
-        zoom={1}
+        zoom={camera.zoom ?? 1}
       />
     );
   }
