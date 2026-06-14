@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { WorkflowDirection } from "@/constants/workflows";
 import {
+  getWorkflowCameraTransform,
   normalizeWorkflowDegrees,
   resolveWorkflowCamera,
 } from "@/utils/workflow-camera";
+import * as THREE from "three";
 
 const direction: WorkflowDirection = {
   label: "E",
@@ -76,6 +78,30 @@ describe("workflow camera utilities", () => {
     expect(camera.position[0]).toBeCloseTo(1 + Math.SQRT2 * 2);
     expect(camera.position[1]).toBeCloseTo(2 + Math.SQRT2 * 2);
     expect(camera.position[2]).toBeCloseTo(3);
+  });
+
+  it("builds a persisted transform that looks at the workflow target", () => {
+    const camera = resolveWorkflowCamera({
+      direction,
+      defaultDistance: 4,
+      defaultTarget: [1, 2, 3],
+      options: {
+        cameraType: "orthographic",
+      },
+    });
+    const transform = getWorkflowCameraTransform(camera);
+    const object = new THREE.Object3D();
+    object.position.set(...transform.position);
+    object.rotation.set(...transform.rotation);
+
+    const forward = new THREE.Vector3(0, 0, -1)
+      .applyQuaternion(object.quaternion)
+      .normalize();
+    const expectedForward = new THREE.Vector3(...camera.target)
+      .sub(new THREE.Vector3(...camera.position))
+      .normalize();
+
+    expect(forward.angleTo(expectedForward)).toBeLessThan(0.000001);
   });
 
   it("lets per-direction overrides beat global draft values", () => {

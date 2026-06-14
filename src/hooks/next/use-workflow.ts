@@ -10,6 +10,7 @@ import { useImagesStore } from "@/store/next/images";
 import { useSettingsStore } from "@/store/next/settings";
 import { useCamerasStore } from "@/store/next/cameras";
 import { useTargetsStore } from "@/store/next/targets";
+import { useTransformsStore } from "@/store/next/transforms";
 import {
   WORKFLOW_PRESETS,
   type WorkflowDefinition,
@@ -22,6 +23,7 @@ import {
   type WorkflowStep,
 } from "@/utils/workflows";
 import {
+  getWorkflowCameraTransform,
   resolveWorkflowCamera,
   type ResolvedWorkflowCamera,
   type WorkflowRunOptions,
@@ -353,10 +355,17 @@ export const useWorkflow = () => {
           currentCamera: camera,
         }));
 
-        if (cameraUUID && camera.cameraType === "orthographic") {
-          useCamerasStore.getState().setCamera(cameraUUID, {
-            zoom: camera.zoom ?? camera.distance,
-          });
+        if (cameraUUID) {
+          useTransformsStore
+            .getState()
+            .setTransform(cameraUUID, getWorkflowCameraTransform(camera));
+          useTargetsStore.getState().setTarget(cameraUUID, [...camera.target]);
+
+          if (camera.cameraType === "orthographic") {
+            useCamerasStore.getState().setCamera(cameraUUID, {
+              zoom: camera.zoom ?? camera.distance,
+            });
+          }
         }
 
         PubSub.emit(EventType.SET_CAMERA_ANGLE, {
