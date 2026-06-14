@@ -1,8 +1,10 @@
 import type {
   AtlasOptions,
+  DirectionalAnimationGroup,
   ExportFile,
   ExportFormat,
   ExportRow,
+  ExportRowWorkflowMetadata,
 } from "@/types/file";
 import type { SpritePostprocessSnapshot } from "@/types/sprite-postprocess";
 import JSZip from "jszip";
@@ -15,6 +17,10 @@ import {
 } from "../atlas";
 import { renderAtlasPages } from "../atlas-renderer";
 import { applySpritePostprocessRows } from "../sprite-postprocess";
+import {
+  buildDirectionalAnimationGroups,
+  getRowWorkflowMetadata,
+} from "../export-row-metadata";
 
 type BuildSpritesheetAssetsOptions = {
   includeNormalMap?: boolean;
@@ -73,6 +79,7 @@ export type SpritesheetManifest = {
     fps: number;
     frameWidth: number;
     frameHeight: number;
+    workflow?: ExportRowWorkflowMetadata;
     frames: Array<{
       index: number;
       page: number;
@@ -96,6 +103,7 @@ export type SpritesheetManifest = {
       };
     }>;
   }>;
+  directionalAnimations?: DirectionalAnimationGroup[];
 };
 
 export type NormalCoverageStatus = "ready" | "partial" | "missing";
@@ -182,6 +190,8 @@ export function createSpritesheetManifest({
     ]),
   );
 
+  const directionalAnimations = buildDirectionalAnimationGroups(rows);
+
   return {
     version: "1.0",
     generatedBy: "sprite-sheet-helper",
@@ -201,53 +211,62 @@ export function createSpritesheetManifest({
         height: page.height,
       })),
     },
-    animations: rows.map((row, rowIndex) => ({
-      name: row.label,
-      fps: row.fps ?? 12,
-      frameWidth: Math.max(1, Math.round(row.frameWidth * plan.options.scale)),
-      frameHeight: Math.max(
-        1,
-        Math.round(row.frameHeight * plan.options.scale),
-      ),
-      frames: row.images.map((_, frameIndex) => {
-        const placement = placements.get(placementKey(rowIndex, frameIndex));
-        if (!placement) {
-          throw new Error(
-            `Missing atlas placement for ${row.label}:${frameIndex}`,
-          );
-        }
+    animations: rows.map((row, rowIndex) => {
+      const workflow = getRowWorkflowMetadata(row);
 
-        return {
-          index: frameIndex,
-          page: placement.page,
-          image: atlasPageFileName(imageName, placement.page),
-          ...(normalImageName
-            ? {
-                normalImage: atlasPageFileName(
-                  normalImageName,
-                  placement.page,
-                ),
-              }
-            : {}),
-          rect: {
-            x: placement.x,
-            y: placement.y,
-            w: placement.w,
-            h: placement.h,
-          },
-          slot: {
-            x: placement.slotX,
-            y: placement.slotY,
-            w: placement.slotW,
-            h: placement.slotH,
-          },
-          source: {
-            width: row.frameWidth,
-            height: row.frameHeight,
-          },
-        };
-      }),
-    })),
+      return {
+        name: row.label,
+        fps: row.fps ?? 12,
+        frameWidth: Math.max(
+          1,
+          Math.round(row.frameWidth * plan.options.scale),
+        ),
+        frameHeight: Math.max(
+          1,
+          Math.round(row.frameHeight * plan.options.scale),
+        ),
+        ...(workflow ? { workflow } : {}),
+        frames: row.images.map((_, frameIndex) => {
+          const placement = placements.get(placementKey(rowIndex, frameIndex));
+          if (!placement) {
+            throw new Error(
+              `Missing atlas placement for ${row.label}:${frameIndex}`,
+            );
+          }
+
+          return {
+            index: frameIndex,
+            page: placement.page,
+            image: atlasPageFileName(imageName, placement.page),
+            ...(normalImageName
+              ? {
+                  normalImage: atlasPageFileName(
+                    normalImageName,
+                    placement.page,
+                  ),
+                }
+              : {}),
+            rect: {
+              x: placement.x,
+              y: placement.y,
+              w: placement.w,
+              h: placement.h,
+            },
+            slot: {
+              x: placement.slotX,
+              y: placement.slotY,
+              w: placement.slotW,
+              h: placement.slotH,
+            },
+            source: {
+              width: row.frameWidth,
+              height: row.frameHeight,
+            },
+          };
+        }),
+      };
+    }),
+    ...(directionalAnimations.length > 0 ? { directionalAnimations } : {}),
   };
 }
 

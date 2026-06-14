@@ -385,6 +385,15 @@ export const useWorkflow = () => {
           workflowRunId,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          rowMetadata: {
+            workflow: {
+              workflowId: workflow.id,
+              workflowLabel: workflow.label,
+              ...(step.modelUuid ? { modelUuid: step.modelUuid } : {}),
+              animationName: step.animationName,
+              directionLabel: step.directionLabel,
+            },
+          },
         });
 
         const result = await captureDone;

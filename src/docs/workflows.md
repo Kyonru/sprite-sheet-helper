@@ -67,7 +67,7 @@ walk_NE
 ...
 ```
 
-These labeled sequences are embedded in the exported JSON/metadata file so your game engine can look them up by name.
+These labeled sequences are embedded in the exported JSON/metadata file so your game engine can look them up by name. Workflow exports also include structured direction metadata: each sequence records its base animation and direction, and `directionalAnimations` groups rows like `walk_N`, `walk_E`, `walk_S`, and `walk_W` under the shared `walk` animation.
 
 ## Tips
 

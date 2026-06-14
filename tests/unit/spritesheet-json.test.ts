@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { createSpritesheetJSON } from "@/utils/assets";
 import { exportRow, frame } from "../helpers/export-fixtures";
+import type { ExportRowMetadata } from "@/types/file";
+
+const workflowMetadata = (
+  directionLabel: string,
+): ExportRowMetadata => ({
+  workflow: {
+    workflowId: "topdown-4dir",
+    workflowLabel: "Top Down 4-directional",
+    modelUuid: "model-a",
+    animationName: "walk",
+    directionLabel,
+  },
+});
 
 describe("createSpritesheetJSON", () => {
   it("creates atlas metadata and quads matching row order", () => {
@@ -46,6 +59,39 @@ describe("createSpritesheetJSON", () => {
         frameWidth: 10,
         frameHeight: 6,
         quads: [{ x: 1, y: 15, w: 10, h: 6 }],
+      },
+    ]);
+  });
+
+  it("groups workflow rows that are directions of the same animation", () => {
+    const rows = [
+      exportRow("walk_N", [frame("walk-n")], undefined, {
+        metadata: workflowMetadata("N"),
+      }),
+      exportRow("walk_E", [frame("walk-e")], undefined, {
+        metadata: workflowMetadata("E"),
+      }),
+    ];
+
+    const json = createSpritesheetJSON(rows);
+
+    expect(json.animations[0].workflow).toEqual({
+      workflowId: "topdown-4dir",
+      workflowLabel: "Top Down 4-directional",
+      modelUuid: "model-a",
+      animationName: "walk",
+      directionLabel: "N",
+    });
+    expect(json.directionalAnimations).toEqual([
+      {
+        name: "walk",
+        workflowId: "topdown-4dir",
+        workflowLabel: "Top Down 4-directional",
+        modelUuid: "model-a",
+        directions: [
+          { label: "N", animation: "walk_N" },
+          { label: "E", animation: "walk_E" },
+        ],
       },
     ]);
   });

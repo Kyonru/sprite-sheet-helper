@@ -36,6 +36,30 @@ export interface ExportRow {
   frameWidth: number;
   frameHeight: number;
   fps: number;
+  metadata?: ExportRowMetadata;
+}
+
+export interface ExportRowMetadata {
+  workflow?: ExportRowWorkflowMetadata;
+}
+
+export interface ExportRowWorkflowMetadata {
+  workflowId: string;
+  workflowLabel: string;
+  modelUuid?: string;
+  animationName: string;
+  directionLabel: string;
+}
+
+export interface DirectionalAnimationGroup {
+  name: string;
+  workflowId: string;
+  workflowLabel: string;
+  modelUuid?: string;
+  directions: {
+    label: string;
+    animation: string;
+  }[];
 }
 
 export type ExportContext = {

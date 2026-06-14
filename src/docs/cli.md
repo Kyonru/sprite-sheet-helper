@@ -257,7 +257,7 @@ The JSON `animations` array contains one entry per direction per clip:
 ```json
 {
   "animations": [
-    { "name": "idle_N", "fps": 10, "frames": 8, "frameWidth": 64, "frameHeight": 64, "quads": [...] },
+    { "name": "idle_N", "fps": 10, "frames": 8, "frameWidth": 64, "frameHeight": 64, "workflow": { "workflowId": "topdown-4dir", "workflowLabel": "Top Down 4-directional", "animationName": "idle", "directionLabel": "N" }, "quads": [...] },
     { "name": "idle_E", ... },
     { "name": "idle_S", ... },
     { "name": "idle_W", ... },
@@ -265,6 +265,19 @@ The JSON `animations` array contains one entry per direction per clip:
     { "name": "walk_E", ... },
     { "name": "walk_S", ... },
     { "name": "walk_W", ... }
+  ],
+  "directionalAnimations": [
+    {
+      "name": "idle",
+      "workflowId": "topdown-4dir",
+      "workflowLabel": "Top Down 4-directional",
+      "directions": [
+        { "label": "N", "animation": "idle_N" },
+        { "label": "E", "animation": "idle_E" },
+        { "label": "S", "animation": "idle_S" },
+        { "label": "W", "animation": "idle_W" }
+      ]
+    }
   ]
 }
 ```

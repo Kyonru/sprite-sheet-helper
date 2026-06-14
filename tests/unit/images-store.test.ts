@@ -23,6 +23,33 @@ describe("images store normal frame alignment", () => {
     });
   });
 
+  it("stores workflow metadata for captured rows", () => {
+    const metadata = {
+      workflow: {
+        workflowId: "topdown-4dir",
+        workflowLabel: "Top Down 4-directional",
+        modelUuid: "model-a",
+        animationName: "walk",
+        directionLabel: "N",
+      },
+    };
+
+    useImagesStore
+      .getState()
+      .addImagesRow(
+        "walk-n-id",
+        "walk_N",
+        [frame("c0")],
+        undefined,
+        16,
+        12,
+        8,
+        metadata,
+      );
+
+    expect(useImagesStore.getState().images[0].metadata).toEqual(metadata);
+  });
+
   it("keeps later normal captures at their matching frame index", () => {
     const store = useImagesStore.getState();
     store.addImagesRow("walk-id", "walk", [frame("c0")], [frame("n0")], 16, 12, 8);

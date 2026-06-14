@@ -12,6 +12,8 @@ import { useSceneStore } from "@/components/panels/scene/store";
 import { useSettingsStore } from "@/store/next/settings";
 import { useImagesStore } from "@/store/next/images";
 import { useSpritePostprocessStore } from "@/store/next/sprite-postprocess";
+import { useModelsStore } from "@/store/next/models";
+import { useEntitiesStore } from "@/store/next/entities";
 import type { ExportFormat } from "@/types/file";
 import { exporters } from "@/utils/exports";
 import { buildZip, getNormalCoverage } from "@/utils/exports/helpers";
@@ -23,6 +25,7 @@ import {
   validateExportRequest,
 } from "@/utils/export-validation";
 import { addExportHistoryEntry } from "@/utils/export-history";
+import { getActiveAnimationSequenceLabel } from "@/utils/animation-sequence-label";
 
 const NORMAL_MAP_EXPORT_FORMATS = new Set<ExportFormat>([
   "spritesheet",
@@ -250,9 +253,20 @@ export const useExport = () => {
       if (!gl) return;
       if (intervalRef.current) clearInterval(intervalRef.current);
 
+      const modelState = useModelsStore.getState();
+      const sequenceLabel =
+        payload?.label ??
+        getActiveAnimationSequenceLabel({
+          animations: modelState.animations,
+          clips: modelState.clips,
+          selectedUuid: useEntitiesStore.getState().selected,
+        }) ??
+        `animation_${lastIndex.current + 1}`;
+      const capturePayload = { ...(payload ?? {}), label: sequenceLabel };
+
       images.current = [];
       normalImages.current = [];
-      activeCaptureRef.current = payload ?? {};
+      activeCaptureRef.current = capturePayload;
 
       intervalRef.current = scheduleInterval(
         captureScreenshotData,
@@ -260,8 +274,8 @@ export const useExport = () => {
         iterations,
         () => {
           PubSub.emit(EventType.ASSETS_CREATION_PROGRESS, {
-            label: payload?.label,
-            workflowRunId: payload?.workflowRunId,
+            label: capturePayload.label,
+            workflowRunId: capturePayload.workflowRunId,
             capturedFrames: images.current.length,
             expectedFrames: iterations,
           });
@@ -269,8 +283,8 @@ export const useExport = () => {
         async () => {
           intervalRef.current = null;
           PubSub.emit(EventType.STOP_ASSETS_CREATION, {
-            label: payload?.label,
-            workflowRunId: payload?.workflowRunId,
+            label: capturePayload.label,
+            workflowRunId: capturePayload.workflowRunId,
             capturedFrames: images.current.length,
             expectedFrames: iterations,
             status: "done",
@@ -279,7 +293,7 @@ export const useExport = () => {
 
           addImages(
             Date.now().toString(),
-            payload?.label ?? `animation_${lastIndex.current + 1}`,
+            capturePayload.label,
             images.current.map((img) => img.dataURL),
             exportNormalMap
               ? normalImages.current.map((img) => img.dataURL)
@@ -287,6 +301,7 @@ export const useExport = () => {
             exportWidth,
             exportHeight,
             Math.round(1000 / intervals),
+            capturePayload.rowMetadata,
           );
           lastIndex.current += 1;
         },

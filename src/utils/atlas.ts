@@ -1,5 +1,9 @@
 import type { AtlasOptions, ExportFormat, ExportRow } from "@/types/file";
 import type { SpritesheetJSON } from "./assets";
+import {
+  buildDirectionalAnimationGroups,
+  getRowWorkflowMetadata,
+} from "./export-row-metadata";
 
 export const DEFAULT_ATLAS_OPTIONS: AtlasOptions = {
   layout: "rows",
@@ -596,28 +600,41 @@ export function createSpritesheetJSONFromAtlasPlan(
     });
   }
 
+  const directionalAnimations = buildDirectionalAnimationGroups(rows);
+
   return {
     meta,
-    animations: rows.map((row, rowIndex) => ({
-      name: row.label,
-      frames: row.images.length,
-      fps: row.fps ?? 12,
-      frameWidth: Math.max(1, Math.round(row.frameWidth * plan.options.scale)),
-      frameHeight: Math.max(1, Math.round(row.frameHeight * plan.options.scale)),
-      quads: row.images.map((_, frameIndex) => {
-        const placement = placements.get(placementKey(rowIndex, frameIndex));
-        if (!placement) {
-          throw new Error(`Missing atlas placement for ${row.label}:${frameIndex}`);
-        }
+    animations: rows.map((row, rowIndex) => {
+      const workflow = getRowWorkflowMetadata(row);
 
-        const quad = {
-          x: placement.x,
-          y: placement.y,
-          w: placement.w,
-          h: placement.h,
-        };
-        return multiPage ? { ...quad, page: placement.page } : quad;
-      }),
-    })),
+      return {
+        name: row.label,
+        frames: row.images.length,
+        fps: row.fps ?? 12,
+        frameWidth: Math.max(1, Math.round(row.frameWidth * plan.options.scale)),
+        frameHeight: Math.max(
+          1,
+          Math.round(row.frameHeight * plan.options.scale),
+        ),
+        ...(workflow ? { workflow } : {}),
+        quads: row.images.map((_, frameIndex) => {
+          const placement = placements.get(placementKey(rowIndex, frameIndex));
+          if (!placement) {
+            throw new Error(
+              `Missing atlas placement for ${row.label}:${frameIndex}`,
+            );
+          }
+
+          const quad = {
+            x: placement.x,
+            y: placement.y,
+            w: placement.w,
+            h: placement.h,
+          };
+          return multiPage ? { ...quad, page: placement.page } : quad;
+        }),
+      };
+    }),
+    ...(directionalAnimations.length > 0 ? { directionalAnimations } : {}),
   };
 }

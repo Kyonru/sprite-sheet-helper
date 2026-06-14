@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { inspector } from "@kyonru/zustand-inspector";
 import type { SnapshotEnabledStore } from "@/types/ecs";
-import type { ExportRow } from "@/types/file";
+import type { ExportRow, ExportRowMetadata } from "@/types/file";
 
 export interface ImagesState {
   intervals: number;
@@ -26,6 +26,7 @@ interface ImagesActions extends SnapshotEnabledStore<ImagesState> {
     frameWidth: number,
     frameHeight: number,
     fps: number,
+    metadata?: ExportRowMetadata,
   ) => void;
   removeImagesRow: (index: number) => void;
   removeImageFromRow: (index: number, imageIndex: number) => void;
@@ -89,6 +90,7 @@ export const useImagesStore = create<ImagesStore>()(
         frameWidth,
         frameHeight,
         fps,
+        metadata,
       ) =>
         set((state) => ({
           images: [
@@ -101,6 +103,7 @@ export const useImagesStore = create<ImagesStore>()(
               frameWidth,
               frameHeight,
               fps,
+              ...(metadata ? { metadata } : {}),
             },
           ],
         })),

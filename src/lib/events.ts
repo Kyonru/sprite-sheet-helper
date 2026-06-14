@@ -3,6 +3,7 @@ import { pubSubEventClient } from "../../devtools/pubsub-event-client";
 import {
   ExportFormats,
   type AtlasOptions,
+  type ExportRowMetadata,
   type ExportFormat,
 } from "@/types/file";
 import type { SpritePostprocessSnapshot } from "@/types/sprite-postprocess";
@@ -80,6 +81,7 @@ export type CaptureStartPayload = {
   workflowRunId?: string;
   stepIndex?: number;
   totalSteps?: number;
+  rowMetadata?: ExportRowMetadata;
 };
 
 export type CaptureStopPayload = {

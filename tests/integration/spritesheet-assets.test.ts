@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ExportRow } from "@/types/file";
+import type { ExportRow, ExportRowMetadata } from "@/types/file";
 import { renderAtlasPages } from "@/utils/atlas-renderer";
 import { buildSpritesheetAssets } from "@/utils/exports/helpers";
 import { applySpritePostprocessRows } from "@/utils/sprite-postprocess";
@@ -19,6 +19,18 @@ const applySpritePostprocessRowsMock = vi.mocked(applySpritePostprocessRows);
 
 const encodeRows = (rows: ExportRow[]) =>
   Buffer.from(JSON.stringify(rows.map((row) => row.images))).toString("base64");
+
+const workflowMetadata = (
+  directionLabel: string,
+): ExportRowMetadata => ({
+  workflow: {
+    workflowId: "topdown-4dir",
+    workflowLabel: "Top Down 4-directional",
+    modelUuid: "model-a",
+    animationName: "walk",
+    directionLabel,
+  },
+});
 
 describe("buildSpritesheetAssets", () => {
   beforeEach(() => {
@@ -145,6 +157,41 @@ describe("buildSpritesheetAssets", () => {
       slot: { w: 22, h: 18 },
       source: { width: 8, height: 6 },
     });
+  });
+
+  it("emits workflow direction metadata in json and manifest files", async () => {
+    const rows = [
+      exportRow("walk_N", [frame("n0")], undefined, {
+        metadata: workflowMetadata("N"),
+      }),
+      exportRow("walk_E", [frame("e0")], undefined, {
+        metadata: workflowMetadata("E"),
+      }),
+    ];
+
+    const result = await buildSpritesheetAssets(rows);
+    const manifest = JSON.parse(result.manifestFile.content);
+    const expectedGroup = [
+      {
+        name: "walk",
+        workflowId: "topdown-4dir",
+        workflowLabel: "Top Down 4-directional",
+        modelUuid: "model-a",
+        directions: [
+          { label: "N", animation: "walk_N" },
+          { label: "E", animation: "walk_E" },
+        ],
+      },
+    ];
+
+    expect(result.json.animations[0].workflow).toEqual(
+      workflowMetadata("N").workflow,
+    );
+    expect(result.json.directionalAnimations).toEqual(expectedGroup);
+    expect(manifest.animations[1].workflow).toEqual(
+      workflowMetadata("E").workflow,
+    );
+    expect(manifest.directionalAnimations).toEqual(expectedGroup);
   });
 
   it("emits a matching normal atlas when all frames have normals", async () => {

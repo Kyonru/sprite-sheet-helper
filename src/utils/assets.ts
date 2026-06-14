@@ -1,7 +1,15 @@
 import GIF from "gif.js.optimized";
 import openFile from "../lib/file/opener.web";
 import { toast } from "sonner";
-import type { ExportRow } from "@/types/file";
+import type {
+  DirectionalAnimationGroup,
+  ExportRow,
+  ExportRowWorkflowMetadata,
+} from "@/types/file";
+import {
+  buildDirectionalAnimationGroups,
+  getRowWorkflowMetadata,
+} from "@/utils/export-row-metadata";
 
 export interface SpritesheetOptions {
   spacing: number; // px between frames
@@ -173,8 +181,10 @@ export interface SpritesheetJSON {
     fps: number;
     frameWidth: number;
     frameHeight: number;
+    workflow?: ExportRowWorkflowMetadata;
     quads: { x: number; y: number; w: number; h: number; page?: number }[];
   }[];
+  directionalAnimations?: DirectionalAnimationGroup[];
 }
 
 export const createSpritesheetJSON = (
@@ -200,6 +210,8 @@ export const createSpritesheetJSON = (
 
   let yOffset = margin;
 
+  const directionalAnimations = buildDirectionalAnimationGroups(rows);
+
   return {
     meta: {
       version: "1.0",
@@ -212,12 +224,14 @@ export const createSpritesheetJSON = (
       margin,
     },
     animations: rows.map((row) => {
+      const workflow = getRowWorkflowMetadata(row);
       const animation = {
         name: row.label,
         frames: row.images.length,
         fps: row.fps ?? 12,
         frameWidth: row.frameWidth,
         frameHeight: row.frameHeight,
+        ...(workflow ? { workflow } : {}),
         quads: row.images.map((_, frameIndex) => ({
           x: margin + frameIndex * (row.frameWidth + spacing),
           y: yOffset,
@@ -230,6 +244,7 @@ export const createSpritesheetJSON = (
 
       return animation;
     }),
+    ...(directionalAnimations.length > 0 ? { directionalAnimations } : {}),
   };
 };
 
