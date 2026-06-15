@@ -49,7 +49,12 @@ import {
   type WorkflowCameraTarget,
   type WorkflowRunOptions,
 } from "@/utils/workflow-camera";
-import { getAnimationClipFps } from "@/utils/animation-clips";
+import {
+  getAnimationClipFps,
+  IN_PLACE_AXIS_OPTIONS,
+  normalizeInPlaceAxisMode,
+  type InPlaceAxisMode,
+} from "@/utils/animation-clips";
 import { useCamerasStore } from "@/store/next/cameras";
 import { useTarget } from "@/store/next/targets";
 import { useModelsStore, type LoopType } from "@/store/next/models";
@@ -59,9 +64,13 @@ import {
   buildWorkflowSteps,
   getDisabledWorkflowAnimationGroupKeys,
   getHiddenWorkflowStepLabels,
+  getWorkflowAnimationGroupKey,
   groupWorkflowStepsByAnimation,
   isWorkflowStepHidden,
+  type WorkflowCaptureSettingsByAnimation,
+  type WorkflowCaptureSettingsInput,
   type WorkflowStep,
+  type WorkflowStepGroup,
 } from "@/utils/workflows";
 
 const WORKFLOW_LOOP_OPTIONS = {
@@ -85,8 +94,10 @@ type WorkflowCameraDraft = {
   previewAppliesTo: PreviewAppliesTo;
   directionOverrides: NonNullable<WorkflowRunOptions["directionOverrides"]>;
   forceAnimationsInPlace: boolean;
+  forceAnimationsInPlaceMode: InPlaceAxisMode;
   skippedStepLabels: string[];
   captureNormalMaps: boolean;
+  captureSettingsByAnimation: WorkflowCaptureSettingsByAnimation;
 };
 
 type WorkflowCameraSnapshot = Pick<
@@ -165,8 +176,10 @@ function createCameraDraft({
     previewAppliesTo: "all",
     directionOverrides: {},
     forceAnimationsInPlace: false,
+    forceAnimationsInPlaceMode: "all",
     skippedStepLabels: [...skippedStepLabels],
     captureNormalMaps,
+    captureSettingsByAnimation: {},
   };
 }
 
@@ -179,10 +192,17 @@ function createRunOptions(draft: WorkflowCameraDraft): WorkflowRunOptions {
     target: cloneTarget(draft.target),
     directionOverrides: draft.directionOverrides,
     forceAnimationsInPlace: draft.forceAnimationsInPlace,
+    forceAnimationsInPlaceMode: draft.forceAnimationsInPlaceMode,
     skipStepLabels: draft.skippedStepLabels,
     includeHiddenAnimations: true,
     captureNormalMaps: draft.captureNormalMaps,
+    captureSettingsByAnimation: draft.captureSettingsByAnimation,
   };
+}
+
+function positiveIntegerInput(value: number, fallback: number, max: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(1, Math.round(value)));
 }
 
 export const WorkflowsMenu = () => {
@@ -193,6 +213,9 @@ export const WorkflowsMenu = () => {
     null,
   );
   const [selectedStepLabel, setSelectedStepLabel] = useState<
+    string | undefined
+  >(undefined);
+  const [selectedAnimationKey, setSelectedAnimationKey] = useState<
     string | undefined
   >(undefined);
   const [animationSettingsExpanded, setAnimationSettingsExpanded] =
@@ -254,6 +277,10 @@ export const WorkflowsMenu = () => {
     () => groupWorkflowStepsByAnimation(steps),
     [steps],
   );
+  const stepGroupByKey = useMemo(
+    () => new Map(stepGroups.map((group) => [group.key, group] as const)),
+    [stepGroups],
+  );
   const enabledSteps = useMemo(
     () =>
       steps.filter(
@@ -296,6 +323,21 @@ export const WorkflowsMenu = () => {
     () => steps.find((step) => step.rowLabel === selectedStepLabel) ?? steps[0],
     [selectedStepLabel, steps],
   );
+  const selectedAnimationGroup = useMemo(() => {
+    if (selectedAnimationKey) {
+      const group = stepGroupByKey.get(selectedAnimationKey);
+      if (group) return group;
+    }
+
+    if (selectedStep) {
+      const group = stepGroupByKey.get(
+        getWorkflowAnimationGroupKey(selectedStep),
+      );
+      if (group) return group;
+    }
+
+    return stepGroups[0];
+  }, [selectedAnimationKey, selectedStep, stepGroupByKey, stepGroups]);
   const firstEnabledStepLabel = useMemo(
     () =>
       enabledSteps.find((step) => step.rowLabel)?.rowLabel ??
@@ -371,6 +413,18 @@ export const WorkflowsMenu = () => {
         : THREE.LoopOnce,
     [selectedStepAnimationName, selectedStepLoops, selectedStepModelUuid],
   );
+  const selectedAnimationCaptureSettings =
+    selectedAnimationGroup && cameraDraft
+      ? cameraDraft.captureSettingsByAnimation[selectedAnimationGroup.key]
+      : undefined;
+  const selectedFrameIntervalMs =
+    selectedAnimationCaptureSettings?.frameIntervalMs ?? intervals;
+  const selectedFrameCount =
+    selectedAnimationCaptureSettings?.frameCount ?? iterations;
+  const hasSelectedCaptureOverride = Boolean(
+    selectedAnimationCaptureSettings?.frameIntervalMs ||
+    selectedAnimationCaptureSettings?.frameCount,
+  );
   const updateStepAnimationRange = useCallback(
     (startFrame: number, durationFrames: number) => {
       if (
@@ -422,6 +476,7 @@ export const WorkflowsMenu = () => {
   useEffect(() => {
     if (steps.length === 0) {
       setSelectedStepLabel(undefined);
+      setSelectedAnimationKey(undefined);
       return;
     }
 
@@ -433,6 +488,14 @@ export const WorkflowsMenu = () => {
       return firstEnabledStepLabel;
     });
   }, [firstEnabledStepLabel, steps]);
+
+  useEffect(() => {
+    setSelectedAnimationKey((current) => {
+      if (current && stepGroupByKey.has(current)) return current;
+      if (selectedStep) return getWorkflowAnimationGroupKey(selectedStep);
+      return stepGroups[0]?.key;
+    });
+  }, [selectedStep, stepGroupByKey, stepGroups]);
 
   const shouldShowStepControls = Boolean(
     selectedStep &&
@@ -452,9 +515,7 @@ export const WorkflowsMenu = () => {
           ? {
               ...prev,
               skippedStepLabels: enabled
-                ? prev.skippedStepLabels.filter(
-                    (label) => !labelSet.has(label),
-                  )
+                ? prev.skippedStepLabels.filter((label) => !labelSet.has(label))
                 : Array.from(
                     new Set([...prev.skippedStepLabels, ...uniqueLabels]),
                   ),
@@ -483,6 +544,7 @@ export const WorkflowsMenu = () => {
 
   const selectWorkflowStep = useCallback((step: WorkflowStep) => {
     setSelectedStepLabel(step.rowLabel);
+    setSelectedAnimationKey(getWorkflowAnimationGroupKey(step));
     setCameraDraft((prev) =>
       prev
         ? {
@@ -491,6 +553,58 @@ export const WorkflowsMenu = () => {
           }
         : prev,
     );
+  }, []);
+
+  const selectWorkflowAnimationGroup = useCallback(
+    (group: WorkflowStepGroup) => {
+      setSelectedAnimationKey(group.key);
+
+      const selectedGroupStep =
+        group.steps.find(
+          (step) => !cameraDraft?.skippedStepLabels.includes(step.rowLabel),
+        ) ?? group.steps[0];
+
+      if (selectedGroupStep) {
+        selectWorkflowStep(selectedGroupStep);
+      }
+    },
+    [cameraDraft?.skippedStepLabels, selectWorkflowStep],
+  );
+
+  const updateAnimationCaptureSettings = useCallback(
+    (animationKey: string, settings: WorkflowCaptureSettingsInput) => {
+      setCameraDraft((prev) => {
+        if (!prev) return prev;
+
+        const current = prev.captureSettingsByAnimation[animationKey] ?? {};
+        const next = {
+          ...current,
+          ...settings,
+        };
+
+        return {
+          ...prev,
+          captureSettingsByAnimation: {
+            ...prev.captureSettingsByAnimation,
+            [animationKey]: next,
+          },
+        };
+      });
+    },
+    [],
+  );
+
+  const resetAnimationCaptureSettings = useCallback((animationKey: string) => {
+    setCameraDraft((prev) => {
+      if (!prev) return prev;
+      const remaining = { ...prev.captureSettingsByAnimation };
+      delete remaining[animationKey];
+
+      return {
+        ...prev,
+        captureSettingsByAnimation: remaining,
+      };
+    });
   }, []);
 
   const toggleAnimationCollapsed = useCallback((animationKey: string) => {
@@ -566,6 +680,7 @@ export const WorkflowsMenu = () => {
 
       setSelectedWorkflow(workflow);
       setSelectedStepLabel(undefined);
+      setSelectedAnimationKey(undefined);
       setCollapsedAnimationKeys(new Set(collapsedAnimationKeys));
       setOriginalCameraSnapshot(createCameraSnapshot(cameraDraft));
       setCameraDraft(cameraDraft);
@@ -600,6 +715,7 @@ export const WorkflowsMenu = () => {
     setDialogOpen(false);
     setSelectedWorkflow(null);
     setSelectedStepLabel(undefined);
+    setSelectedAnimationKey(undefined);
     setCollapsedAnimationKeys(new Set());
     setOriginalCameraSnapshot(null);
     setCameraDraft(null);
@@ -912,6 +1028,11 @@ export const WorkflowsMenu = () => {
                             : prev,
                         );
                         setSelectedStepLabel(directionStep?.rowLabel);
+                        setSelectedAnimationKey(
+                          directionStep
+                            ? getWorkflowAnimationGroupKey(directionStep)
+                            : undefined,
+                        );
                       }}
                       className={cn(
                         hasOverride && !isSelected && "border-primary/60",
@@ -945,7 +1066,7 @@ export const WorkflowsMenu = () => {
               </div>
 
               {selectedPreviewCamera && previewDirection && (
-                <div className="grid gap-3 rounded-md border p-3">
+                <div className="grid gap-2 rounded-md border p-2">
                   <button
                     type="button"
                     className="flex items-center justify-between gap-2 text-sm font-medium"
@@ -962,7 +1083,7 @@ export const WorkflowsMenu = () => {
                   </button>
 
                   {animationSettingsExpanded && (
-                    <div className="grid gap-3">
+                    <div className="grid gap-2">
                       {shouldShowStepControls ? (
                         <>
                           <div className="flex min-w-0 items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -1009,7 +1130,7 @@ export const WorkflowsMenu = () => {
                                 htmlFor="workflow-animation-duration-frames"
                                 className="text-xs text-muted-foreground"
                               >
-                                Duration
+                                Duration frames
                               </Label>
                               <Input
                                 id="workflow-animation-duration-frames"
@@ -1077,25 +1198,241 @@ export const WorkflowsMenu = () => {
                         </p>
                       )}
 
-                      <label className="flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2 text-sm">
-                        <span className="text-muted-foreground">
-                          Force animations in place
-                        </span>
-                        <Switch
-                          checked={cameraDraft?.forceAnimationsInPlace}
-                          onCheckedChange={(checked) =>
-                            setCameraDraft((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    forceAnimationsInPlace: Boolean(checked),
+                      <div className="grid gap-2 rounded-md bg-muted/30 p-2">
+                        <div
+                          className={cn(
+                            "grid gap-2",
+                            selectedAnimationGroup && "sm:grid-cols-2",
+                          )}
+                        >
+                          <div className="grid gap-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-medium">
+                                Default capture
+                              </div>
+                              <div className="truncate text-[11px] text-muted-foreground">
+                                Used when a section has no override
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="grid gap-1">
+                                <Label
+                                  htmlFor="workflow-default-frame-interval"
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  Interval
+                                </Label>
+                                <Input
+                                  id="workflow-default-frame-interval"
+                                  type="number"
+                                  min={1}
+                                  max={5000}
+                                  step={1}
+                                  value={intervals}
+                                  disabled={isRunning}
+                                  onChange={(event) => {
+                                    const value = Number(event.target.value);
+                                    setIntervals(
+                                      positiveIntegerInput(
+                                        value,
+                                        intervals,
+                                        5000,
+                                      ),
+                                    );
+                                  }}
+                                  className="h-8"
+                                />
+                              </div>
+                              <div className="grid gap-1">
+                                <Label
+                                  htmlFor="workflow-default-frame-count"
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  Frames
+                                </Label>
+                                <Input
+                                  id="workflow-default-frame-count"
+                                  type="number"
+                                  min={1}
+                                  max={1000}
+                                  step={1}
+                                  value={iterations}
+                                  disabled={isRunning}
+                                  onChange={(event) => {
+                                    const value = Number(event.target.value);
+                                    setIterations(
+                                      positiveIntegerInput(
+                                        value,
+                                        iterations,
+                                        1000,
+                                      ),
+                                    );
+                                  }}
+                                  className="h-8"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {selectedAnimationGroup && (
+                            <div className="grid gap-2 border-t pt-2 sm:border-l sm:border-t-0 sm:pl-2 sm:pt-0">
+                              <div className="flex min-w-0 items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-xs font-medium">
+                                    {selectedAnimationGroup.animationName}
+                                  </div>
+                                  <div className="truncate text-[11px] text-muted-foreground">
+                                    Selected animation section
+                                  </div>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="xs"
+                                  disabled={
+                                    isRunning || !hasSelectedCaptureOverride
                                   }
-                                : prev,
-                            )
-                          }
-                          disabled={isRunning}
-                        />
-                      </label>
+                                  onClick={() =>
+                                    resetAnimationCaptureSettings(
+                                      selectedAnimationGroup.key,
+                                    )
+                                  }
+                                  className="h-7 shrink-0"
+                                >
+                                  <RotateCcwIcon className="size-3" />
+                                  Reset
+                                </Button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="grid gap-1">
+                                  <Label
+                                    htmlFor="workflow-animation-frame-interval"
+                                    className="text-xs text-muted-foreground"
+                                  >
+                                    Interval
+                                  </Label>
+                                  <Input
+                                    id="workflow-animation-frame-interval"
+                                    type="number"
+                                    min={1}
+                                    max={5000}
+                                    step={1}
+                                    value={selectedFrameIntervalMs}
+                                    disabled={isRunning}
+                                    onChange={(event) => {
+                                      const value = Number(event.target.value);
+                                      updateAnimationCaptureSettings(
+                                        selectedAnimationGroup.key,
+                                        {
+                                          frameIntervalMs: positiveIntegerInput(
+                                            value,
+                                            selectedFrameIntervalMs,
+                                            5000,
+                                          ),
+                                        },
+                                      );
+                                    }}
+                                    className="h-8"
+                                  />
+                                </div>
+                                <div className="grid gap-1">
+                                  <Label
+                                    htmlFor="workflow-animation-frame-count"
+                                    className="text-xs text-muted-foreground"
+                                  >
+                                    Frames
+                                  </Label>
+                                  <Input
+                                    id="workflow-animation-frame-count"
+                                    type="number"
+                                    min={1}
+                                    max={1000}
+                                    step={1}
+                                    value={selectedFrameCount}
+                                    disabled={isRunning}
+                                    onChange={(event) => {
+                                      const value = Number(event.target.value);
+                                      updateAnimationCaptureSettings(
+                                        selectedAnimationGroup.key,
+                                        {
+                                          frameCount: positiveIntegerInput(
+                                            value,
+                                            selectedFrameCount,
+                                            1000,
+                                          ),
+                                        },
+                                      );
+                                    }}
+                                    className="h-8"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="grid gap-2 border-t pt-2 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-center">
+                          <label className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-muted-foreground">
+                              Force in place
+                            </span>
+                            <Switch
+                              checked={cameraDraft?.forceAnimationsInPlace}
+                              onCheckedChange={(checked) =>
+                                setCameraDraft((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        forceAnimationsInPlace:
+                                          Boolean(checked),
+                                      }
+                                    : prev,
+                                )
+                              }
+                              disabled={isRunning}
+                            />
+                          </label>
+                          <div className="grid gap-1">
+                            <Label
+                              htmlFor="workflow-force-in-place-mode"
+                              className="text-xs text-muted-foreground"
+                            >
+                              Freeze axes
+                            </Label>
+                            <select
+                              id="workflow-force-in-place-mode"
+                              value={
+                                cameraDraft?.forceAnimationsInPlaceMode ?? "all"
+                              }
+                              onChange={(event) =>
+                                setCameraDraft((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        forceAnimationsInPlaceMode:
+                                          normalizeInPlaceAxisMode(
+                                            event.target.value,
+                                          ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                              disabled={
+                                isRunning ||
+                                !cameraDraft?.forceAnimationsInPlace
+                              }
+                              className="h-8 w-full rounded border border-input bg-background px-2 text-sm disabled:opacity-50"
+                            >
+                              {Object.entries(IN_PLACE_AXIS_OPTIONS).map(
+                                ([label, value]) => (
+                                  <option key={label} value={value}>
+                                    {label}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1109,9 +1446,7 @@ export const WorkflowsMenu = () => {
                     );
                     const enabledGroupCount = group.steps.filter(
                       (step) =>
-                        !cameraDraft?.skippedStepLabels.includes(
-                          step.rowLabel,
-                        ),
+                        !cameraDraft?.skippedStepLabels.includes(step.rowLabel),
                     ).length;
                     const hiddenGroupCount = group.steps.filter((step) =>
                       isWorkflowStepHidden(step, hiddenAnimations),
@@ -1132,13 +1467,21 @@ export const WorkflowsMenu = () => {
                     const isGroupCollapsed = collapsedAnimationKeys.has(
                       group.key,
                     );
+                    const isSelectedAnimationGroup =
+                      selectedAnimationGroup?.key === group.key;
 
                     return (
                       <section
                         key={group.key}
                         className="border-b last:border-b-0"
                       >
-                        <div className="flex items-center gap-2 border-b bg-muted/40 px-2 py-1.5">
+                        <div
+                          className={cn(
+                            "flex items-center gap-2 border-b bg-muted/40 px-2 py-1.5",
+                            isSelectedAnimationGroup &&
+                              "bg-primary/10 ring-1 ring-inset ring-primary/30",
+                          )}
+                        >
                           <Button
                             type="button"
                             variant="ghost"
@@ -1163,10 +1506,7 @@ export const WorkflowsMenu = () => {
                             checked={groupChecked}
                             onCheckedChange={(checked) => {
                               const enabled = Boolean(checked);
-                              setStepLabelsEnabled(
-                                groupLabels,
-                                enabled,
-                              );
+                              setStepLabelsEnabled(groupLabels, enabled);
                               if (!enabled) {
                                 setCollapsedAnimationKeys((current) => {
                                   const next = new Set(current);
@@ -1180,10 +1520,8 @@ export const WorkflowsMenu = () => {
                           <button
                             type="button"
                             disabled={isRunning || !selectedGroupStep}
-                            onClick={() =>
-                              selectedGroupStep &&
-                              selectWorkflowStep(selectedGroupStep)
-                            }
+                            onClick={() => selectWorkflowAnimationGroup(group)}
+                            aria-pressed={isSelectedAnimationGroup}
                             className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left text-sm"
                           >
                             <span className="min-w-0 truncate font-medium">
@@ -1210,8 +1548,7 @@ export const WorkflowsMenu = () => {
                               const isPast = isRunning
                                 ? Boolean(
                                     stepRunIndex &&
-                                      stepRunIndex <
-                                        workflowState.currentStep,
+                                    stepRunIndex < workflowState.currentStep,
                                   )
                                 : isDone && Boolean(stepRunIndex);
                               const isSelectedDirection =
@@ -1322,8 +1659,7 @@ export const WorkflowsMenu = () => {
                       Camera {workflowState.currentCamera.cameraType} · φ{" "}
                       {workflowState.currentCamera.phi.toFixed(1)}° · θ{" "}
                       {workflowState.currentCamera.theta.toFixed(1)}° ·{" "}
-                      {workflowState.currentCamera.cameraType ===
-                      "orthographic"
+                      {workflowState.currentCamera.cameraType === "orthographic"
                         ? "z"
                         : "d"}{" "}
                       {(
@@ -1384,6 +1720,8 @@ export const WorkflowsMenu = () => {
                       animationName: selectedStep?.animationName,
                       forceAnimationsInPlace:
                         cameraDraft?.forceAnimationsInPlace,
+                      forceAnimationsInPlaceMode:
+                        cameraDraft?.forceAnimationsInPlaceMode,
                     }}
                     onCameraChange={setPreviewCamera}
                     onTargetChange={setPreviewTarget}
@@ -1506,56 +1844,6 @@ export const WorkflowsMenu = () => {
                           disabled={isRunning}
                         />
                       </label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-md border px-3 py-2">
-                        <Label
-                          htmlFor="workflow-capture-intervals"
-                          className="mb-2 block text-xs text-muted-foreground"
-                        >
-                          Frame interval (ms)
-                        </Label>
-                        <Input
-                          id="workflow-capture-intervals"
-                          type="number"
-                          min={1}
-                          max={5000}
-                          step={1}
-                          value={intervals}
-                          disabled={isRunning}
-                          onChange={(e) => {
-                            const value = Number(e.target.value);
-                            if (Number.isFinite(value)) {
-                              setIntervals(Math.max(1, Math.round(value)));
-                            }
-                          }}
-                          className="h-8"
-                        />
-                      </div>
-                      <div className="rounded-md border px-3 py-2">
-                        <Label
-                          htmlFor="workflow-capture-iterations"
-                          className="mb-2 block text-xs text-muted-foreground"
-                        >
-                          Frames captured
-                        </Label>
-                        <Input
-                          id="workflow-capture-iterations"
-                          type="number"
-                          min={1}
-                          max={1000}
-                          step={1}
-                          value={iterations}
-                          disabled={isRunning}
-                          onChange={(e) => {
-                            const value = Number(e.target.value);
-                            if (Number.isFinite(value)) {
-                              setIterations(Math.max(1, Math.round(value)));
-                            }
-                          }}
-                          className="h-8"
-                        />
-                      </div>
                     </div>
                     <div className="grid gap-3">
                       <div className="grid gap-2">

@@ -7,6 +7,18 @@ export interface WorkflowStep {
   rowLabel: string;
 }
 
+export type WorkflowCaptureSettings = {
+  frameIntervalMs: number;
+  frameCount: number;
+};
+
+export type WorkflowCaptureSettingsInput = Partial<WorkflowCaptureSettings>;
+
+export type WorkflowCaptureSettingsByAnimation = Record<
+  string,
+  WorkflowCaptureSettingsInput
+>;
+
 export type WorkflowClipEntry = {
   clip: {
     name: string;
@@ -127,13 +139,47 @@ export function getDisabledWorkflowAnimationGroupKeys(
     .map((group) => group.key);
 }
 
+export function getWorkflowAnimationGroupKey(
+  step: Pick<WorkflowStep, "animationName">,
+): string {
+  return step.animationName;
+}
+
+export function normalizeWorkflowCaptureSettings(
+  settings: WorkflowCaptureSettingsInput | undefined,
+  defaults: WorkflowCaptureSettings,
+): WorkflowCaptureSettings {
+  const interval = Number.isFinite(settings?.frameIntervalMs)
+    ? settings?.frameIntervalMs
+    : defaults.frameIntervalMs;
+  const count = Number.isFinite(settings?.frameCount)
+    ? settings?.frameCount
+    : defaults.frameCount;
+
+  return {
+    frameIntervalMs: Math.max(1, Math.round(interval ?? 1)),
+    frameCount: Math.max(1, Math.round(count ?? 1)),
+  };
+}
+
+export function getWorkflowStepCaptureSettings(
+  step: WorkflowStep,
+  settingsByAnimation: WorkflowCaptureSettingsByAnimation | undefined,
+  defaults: WorkflowCaptureSettings,
+): WorkflowCaptureSettings {
+  return normalizeWorkflowCaptureSettings(
+    settingsByAnimation?.[getWorkflowAnimationGroupKey(step)],
+    defaults,
+  );
+}
+
 export function groupWorkflowStepsByAnimation(
   steps: WorkflowStep[],
 ): WorkflowStepGroup[] {
   const groups = new Map<string, WorkflowStepGroup>();
 
   for (const step of steps) {
-    const key = step.animationName;
+    const key = getWorkflowAnimationGroupKey(step);
     const group = groups.get(key);
 
     if (group) {

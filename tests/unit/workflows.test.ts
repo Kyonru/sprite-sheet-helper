@@ -4,6 +4,7 @@ import {
   buildWorkflowSteps,
   getDisabledWorkflowAnimationGroupKeys,
   getHiddenWorkflowStepLabels,
+  getWorkflowStepCaptureSettings,
   groupWorkflowStepsByAnimation,
   isWorkflowStepHidden,
   type WorkflowClipEntry,
@@ -145,5 +146,50 @@ describe("workflow utilities", () => {
 
     expect(steps.map((step) => step.rowLabel)).toContain("model-a-_walk_N");
     expect(steps.map((step) => step.rowLabel)).toContain("model-b-_walk_N");
+  });
+
+  it("resolves capture timing overrides by animation group", () => {
+    const timingSteps = buildWorkflowSteps(workflow, {
+      clips: { modelA: [clip("walk"), clip("idle")] },
+      modelUuids: ["modelA"],
+    });
+    const walkStep = timingSteps.find((step) => step.animationName === "walk")!;
+    const idleStep = timingSteps.find((step) => step.animationName === "idle")!;
+    const defaults = { frameIntervalMs: 100, frameCount: 10 };
+
+    expect(
+      getWorkflowStepCaptureSettings(
+        walkStep,
+        { walk: { frameIntervalMs: 50, frameCount: 24 } },
+        defaults,
+      ),
+    ).toEqual({ frameIntervalMs: 50, frameCount: 24 });
+    expect(
+      getWorkflowStepCaptureSettings(
+        idleStep,
+        { walk: { frameIntervalMs: 50, frameCount: 24 } },
+        defaults,
+      ),
+    ).toEqual(defaults);
+  });
+
+  it("normalizes partial and invalid capture timing overrides", () => {
+    const walkStep = buildWorkflowSteps(workflow, {
+      clips: { modelA: [clip("walk")] },
+      modelUuids: ["modelA"],
+    })[0];
+
+    expect(
+      getWorkflowStepCaptureSettings(
+        walkStep,
+        {
+          walk: {
+            frameIntervalMs: Number.NaN,
+            frameCount: 4.6,
+          },
+        },
+        { frameIntervalMs: 100, frameCount: 10 },
+      ),
+    ).toEqual({ frameIntervalMs: 100, frameCount: 5 });
   });
 });

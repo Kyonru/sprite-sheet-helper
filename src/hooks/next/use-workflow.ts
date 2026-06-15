@@ -19,7 +19,9 @@ import {
 import { useEntitiesStore } from "@/store/next/entities";
 import {
   buildWorkflowSteps,
+  getWorkflowStepCaptureSettings,
   type BuildWorkflowStepsInput,
+  type WorkflowCaptureSettings,
   type WorkflowStep,
 } from "@/utils/workflows";
 import {
@@ -198,7 +200,11 @@ async function setStepAnimation(
   if (!clip) return;
 
   if (options?.forceAnimationsInPlace) {
-    modelState.forceCurrentAnimationInPlace(step.modelUuid, step.animationName);
+    modelState.forceCurrentAnimationInPlace(
+      step.modelUuid,
+      step.animationName,
+      options.forceAnimationsInPlaceMode,
+    );
   }
 
   const currentAnimation = modelState.animations[step.modelUuid];
@@ -208,10 +214,6 @@ async function setStepAnimation(
     : Promise.resolve();
 
   modelState.setAnimation(step.modelUuid, step.animationName);
-  modelState.setDuration(step.modelUuid, step.animationName, [
-    0,
-    clip.clip.duration,
-  ]);
   modelState.mixerRef[step.modelUuid]?.setTime(0);
 
   await waiter;
@@ -295,8 +297,10 @@ export const useWorkflow = () => {
 
     const cameraDistance = useSettingsStore.getState().cameraDistance;
     const cameraAngle = useSettingsStore.getState().cameraAngle;
-    const intervals = useImagesStore.getState().intervals;
-    const iterations = useImagesStore.getState().iterations;
+    const defaultCaptureSettings: WorkflowCaptureSettings = {
+      frameIntervalMs: useImagesStore.getState().intervals,
+      frameCount: useImagesStore.getState().iterations,
+    };
     const cameraUUID = useCamerasStore.getState().mainCamera;
     const mainCameraType = cameraUUID
       ? useCamerasStore.getState().cameras[cameraUUID]?.type
@@ -314,7 +318,7 @@ export const useWorkflow = () => {
       currentStep: 0,
       totalSteps: steps.length,
       currentFrame: 0,
-      expectedFrames: iterations,
+      expectedFrames: defaultCaptureSettings.frameCount,
       currentLabel: "",
       currentAnimation: "",
       currentDirection: "",
@@ -327,12 +331,17 @@ export const useWorkflow = () => {
 
         const step = steps[index];
         const dir = getDirectionForStep(workflow, step);
+        const captureSettings = getWorkflowStepCaptureSettings(
+          step,
+          options?.captureSettingsByAnimation,
+          defaultCaptureSettings,
+        );
 
         setWorkflowState((prev) => ({
           ...prev,
           currentStep: index + 1,
           currentFrame: 0,
-          expectedFrames: iterations,
+          expectedFrames: captureSettings.frameCount,
           currentLabel: step.rowLabel,
           currentAnimation: step.animationName,
           currentDirection: step.directionLabel,
@@ -377,7 +386,9 @@ export const useWorkflow = () => {
         const captureDone = waitForCaptureDone({
           label: step.rowLabel,
           workflowRunId,
-          timeoutMs: intervals * iterations + CAPTURE_TIMEOUT_BUFFER_MS,
+          timeoutMs:
+            captureSettings.frameIntervalMs * captureSettings.frameCount +
+            CAPTURE_TIMEOUT_BUFFER_MS,
         });
 
         PubSub.emit(EventType.START_ASSETS_CREATION, {
@@ -385,6 +396,8 @@ export const useWorkflow = () => {
           workflowRunId,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          frameIntervalMs: captureSettings.frameIntervalMs,
+          frameCount: captureSettings.frameCount,
           rowMetadata: {
             workflow: {
               workflowId: workflow.id,

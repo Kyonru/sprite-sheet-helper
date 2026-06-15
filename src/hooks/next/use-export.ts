@@ -40,6 +40,33 @@ const NORMAL_MAP_EXPORT_FORMATS = new Set<ExportFormat>([
   "unity",
 ]);
 
+function getCaptureTiming(
+  payload: CaptureStartPayload | null | undefined,
+  defaults: {
+    intervalMs: number;
+    frameCount: number;
+  },
+) {
+  return {
+    intervalMs: Math.max(
+      1,
+      Math.round(
+        Number.isFinite(payload?.frameIntervalMs)
+          ? (payload?.frameIntervalMs ?? defaults.intervalMs)
+          : defaults.intervalMs,
+      ),
+    ),
+    frameCount: Math.max(
+      1,
+      Math.round(
+        Number.isFinite(payload?.frameCount)
+          ? (payload?.frameCount ?? defaults.frameCount)
+          : defaults.frameCount,
+      ),
+    ),
+  };
+}
+
 export const useExport = () => {
   const images = useRef<{ name: string; dataURL: string }[]>([]);
   const normalImages = useRef<{ name: string; dataURL: string }[]>([]);
@@ -263,6 +290,10 @@ export const useExport = () => {
         }) ??
         `animation_${lastIndex.current + 1}`;
       const capturePayload = { ...(payload ?? {}), label: sequenceLabel };
+      const captureTiming = getCaptureTiming(capturePayload, {
+        intervalMs: intervals,
+        frameCount: iterations,
+      });
 
       images.current = [];
       normalImages.current = [];
@@ -270,14 +301,14 @@ export const useExport = () => {
 
       intervalRef.current = scheduleInterval(
         captureScreenshotData,
-        intervals,
-        iterations,
+        captureTiming.intervalMs,
+        captureTiming.frameCount,
         () => {
           PubSub.emit(EventType.ASSETS_CREATION_PROGRESS, {
             label: capturePayload.label,
             workflowRunId: capturePayload.workflowRunId,
             capturedFrames: images.current.length,
-            expectedFrames: iterations,
+            expectedFrames: captureTiming.frameCount,
           });
         },
         async () => {
@@ -286,7 +317,7 @@ export const useExport = () => {
             label: capturePayload.label,
             workflowRunId: capturePayload.workflowRunId,
             capturedFrames: images.current.length,
-            expectedFrames: iterations,
+            expectedFrames: captureTiming.frameCount,
             status: "done",
           });
           activeCaptureRef.current = null;
@@ -300,7 +331,7 @@ export const useExport = () => {
               : undefined,
             exportWidth,
             exportHeight,
-            Math.round(1000 / intervals),
+            Math.round(1000 / captureTiming.intervalMs),
             capturePayload.rowMetadata,
           );
           lastIndex.current += 1;
@@ -328,18 +359,22 @@ export const useExport = () => {
     }
 
     const payload = activeCaptureRef.current;
+    const captureTiming = getCaptureTiming(payload, {
+      intervalMs: intervals,
+      frameCount: iterations,
+    });
     PubSub.emit(EventType.STOP_ASSETS_CREATION, {
       label: payload?.label,
       workflowRunId: payload?.workflowRunId,
       capturedFrames: images.current.length,
-      expectedFrames: iterations,
+      expectedFrames: captureTiming.frameCount,
       status: "cancelled",
     });
 
     activeCaptureRef.current = null;
     images.current = [];
     normalImages.current = [];
-  }, [iterations]);
+  }, [intervals, iterations]);
 
   const addScreenshot = useCallback(() => {
     if (!gl) return;

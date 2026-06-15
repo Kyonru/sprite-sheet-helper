@@ -81,6 +81,8 @@ export type CaptureStartPayload = {
   workflowRunId?: string;
   stepIndex?: number;
   totalSteps?: number;
+  frameIntervalMs?: number;
+  frameCount?: number;
   rowMetadata?: ExportRowMetadata;
 };
 

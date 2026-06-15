@@ -1,5 +1,7 @@
 import { computePosition, type WorkflowDirection } from "@/constants/workflows";
 import type { CameraType } from "@/types/camera";
+import type { WorkflowCaptureSettingsByAnimation } from "./workflows";
+import type { InPlaceAxisModeInput } from "./animation-clips";
 import * as THREE from "three";
 
 export type WorkflowCameraTarget = [number, number, number];
@@ -19,9 +21,11 @@ export type WorkflowRunOptions = {
   target?: WorkflowCameraTarget;
   directionOverrides?: Record<string, WorkflowCameraDirectionOverride>;
   forceAnimationsInPlace?: boolean;
+  forceAnimationsInPlaceMode?: InPlaceAxisModeInput;
   skipStepLabels?: string[];
   includeHiddenAnimations?: boolean;
   captureNormalMaps?: boolean;
+  captureSettingsByAnimation?: WorkflowCaptureSettingsByAnimation;
 };
 
 export type ResolvedWorkflowCamera = {

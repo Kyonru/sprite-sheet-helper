@@ -22,6 +22,7 @@ import {
   buildPlaybackClip,
   getAnimationClipFps,
   makeInPlaceClip,
+  type InPlaceAxisModeInput,
 } from "@/utils/animation-clips";
 import type { ResolvedWorkflowCamera } from "@/utils/workflow-camera";
 import type {
@@ -40,6 +41,7 @@ type WorkflowCameraPreviewProps = {
     modelUuid?: string;
     animationName?: string;
     forceAnimationsInPlace?: boolean;
+    forceAnimationsInPlaceMode?: InPlaceAxisModeInput;
   };
   onCameraChange: (camera: {
     distance: number;
@@ -66,6 +68,7 @@ function PreviewModel({
     modelUuid?: string;
     animationName?: string;
     forceAnimationsInPlace?: boolean;
+    forceAnimationsInPlaceMode?: InPlaceAxisModeInput;
   };
 }) {
   const clips = useModelsStore((state) => state.clips);
@@ -144,7 +147,10 @@ function PreviewModel({
     if (!clipRef) return;
 
     const playbackClip = previewAnimation.forceAnimationsInPlace
-      ? makeInPlaceClip(clipRef.clip)
+      ? makeInPlaceClip(
+          clipRef.clip,
+          previewAnimation.forceAnimationsInPlaceMode,
+        )
       : clipRef.clip;
 
     const [trimStart, trimEnd] = modelDurations[animationName] ?? [
@@ -182,6 +188,7 @@ function PreviewModel({
     previewAnimation?.animationName,
     previewAnimation?.modelUuid,
     previewAnimation?.forceAnimationsInPlace,
+    previewAnimation?.forceAnimationsInPlaceMode,
   ]);
 
   if (!object) return null;
