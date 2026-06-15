@@ -31,7 +31,13 @@
           "x": 96,
           "y": 0
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "Front",
+        "workflowId": "front-back-2dir",
+        "workflowLabel": "Front & Back - RPG Style"
+      }
     },
     {
       "fps": 10,
@@ -64,7 +70,30 @@
           "x": 96,
           "y": 32
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "Back",
+        "workflowId": "front-back-2dir",
+        "workflowLabel": "Front & Back - RPG Style"
+      }
+    }
+  ],
+  "directionalAnimations": [
+    {
+      "directions": [
+        {
+          "animation": "none_Front",
+          "label": "Front"
+        },
+        {
+          "animation": "none_Back",
+          "label": "Back"
+        }
+      ],
+      "name": "none",
+      "workflowId": "front-back-2dir",
+      "workflowLabel": "Front & Back - RPG Style"
     }
   ],
   "meta": {

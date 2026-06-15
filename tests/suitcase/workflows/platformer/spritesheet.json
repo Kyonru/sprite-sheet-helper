@@ -31,7 +31,13 @@
           "x": 96,
           "y": 0
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "Right",
+        "workflowId": "platformer",
+        "workflowLabel": "Platformer / Side View"
+      }
     },
     {
       "fps": 10,
@@ -64,7 +70,30 @@
           "x": 96,
           "y": 32
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "Left",
+        "workflowId": "platformer",
+        "workflowLabel": "Platformer / Side View"
+      }
+    }
+  ],
+  "directionalAnimations": [
+    {
+      "directions": [
+        {
+          "animation": "none_Right",
+          "label": "Right"
+        },
+        {
+          "animation": "none_Left",
+          "label": "Left"
+        }
+      ],
+      "name": "none",
+      "workflowId": "platformer",
+      "workflowLabel": "Platformer / Side View"
     }
   ],
   "meta": {

@@ -31,7 +31,13 @@
           "x": 96,
           "y": 0
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "N",
+        "workflowId": "three-quarter-4dir",
+        "workflowLabel": "3/4 View 4-directional - Diablo Style"
+      }
     },
     {
       "fps": 10,
@@ -64,7 +70,13 @@
           "x": 96,
           "y": 32
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "E",
+        "workflowId": "three-quarter-4dir",
+        "workflowLabel": "3/4 View 4-directional - Diablo Style"
+      }
     },
     {
       "fps": 10,
@@ -97,7 +109,13 @@
           "x": 96,
           "y": 64
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "S",
+        "workflowId": "three-quarter-4dir",
+        "workflowLabel": "3/4 View 4-directional - Diablo Style"
+      }
     },
     {
       "fps": 10,
@@ -130,7 +148,38 @@
           "x": 96,
           "y": 96
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "W",
+        "workflowId": "three-quarter-4dir",
+        "workflowLabel": "3/4 View 4-directional - Diablo Style"
+      }
+    }
+  ],
+  "directionalAnimations": [
+    {
+      "directions": [
+        {
+          "animation": "none_N",
+          "label": "N"
+        },
+        {
+          "animation": "none_E",
+          "label": "E"
+        },
+        {
+          "animation": "none_S",
+          "label": "S"
+        },
+        {
+          "animation": "none_W",
+          "label": "W"
+        }
+      ],
+      "name": "none",
+      "workflowId": "three-quarter-4dir",
+      "workflowLabel": "3/4 View 4-directional - Diablo Style"
     }
   ],
   "meta": {

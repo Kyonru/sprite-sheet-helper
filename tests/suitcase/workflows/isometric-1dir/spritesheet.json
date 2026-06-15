@@ -31,7 +31,13 @@
           "x": 96,
           "y": 0
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "SE",
+        "workflowId": "isometric-1dir",
+        "workflowLabel": "Isometric Single Direction"
+      }
     }
   ],
   "meta": {

@@ -31,7 +31,13 @@
           "x": 96,
           "y": 0
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "N",
+        "workflowId": "topdown-8dir",
+        "workflowLabel": "Top Down 8-directional"
+      }
     },
     {
       "fps": 10,
@@ -64,7 +70,13 @@
           "x": 96,
           "y": 32
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "NE",
+        "workflowId": "topdown-8dir",
+        "workflowLabel": "Top Down 8-directional"
+      }
     },
     {
       "fps": 10,
@@ -97,7 +109,13 @@
           "x": 96,
           "y": 64
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "E",
+        "workflowId": "topdown-8dir",
+        "workflowLabel": "Top Down 8-directional"
+      }
     },
     {
       "fps": 10,
@@ -130,7 +148,13 @@
           "x": 96,
           "y": 96
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "SE",
+        "workflowId": "topdown-8dir",
+        "workflowLabel": "Top Down 8-directional"
+      }
     },
     {
       "fps": 10,
@@ -163,7 +187,13 @@
           "x": 96,
           "y": 128
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "S",
+        "workflowId": "topdown-8dir",
+        "workflowLabel": "Top Down 8-directional"
+      }
     },
     {
       "fps": 10,
@@ -196,7 +226,13 @@
           "x": 96,
           "y": 160
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "SW",
+        "workflowId": "topdown-8dir",
+        "workflowLabel": "Top Down 8-directional"
+      }
     },
     {
       "fps": 10,
@@ -229,7 +265,13 @@
           "x": 96,
           "y": 192
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "W",
+        "workflowId": "topdown-8dir",
+        "workflowLabel": "Top Down 8-directional"
+      }
     },
     {
       "fps": 10,
@@ -262,7 +304,54 @@
           "x": 96,
           "y": 224
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "NW",
+        "workflowId": "topdown-8dir",
+        "workflowLabel": "Top Down 8-directional"
+      }
+    }
+  ],
+  "directionalAnimations": [
+    {
+      "directions": [
+        {
+          "animation": "none_N",
+          "label": "N"
+        },
+        {
+          "animation": "none_NE",
+          "label": "NE"
+        },
+        {
+          "animation": "none_E",
+          "label": "E"
+        },
+        {
+          "animation": "none_SE",
+          "label": "SE"
+        },
+        {
+          "animation": "none_S",
+          "label": "S"
+        },
+        {
+          "animation": "none_SW",
+          "label": "SW"
+        },
+        {
+          "animation": "none_W",
+          "label": "W"
+        },
+        {
+          "animation": "none_NW",
+          "label": "NW"
+        }
+      ],
+      "name": "none",
+      "workflowId": "topdown-8dir",
+      "workflowLabel": "Top Down 8-directional"
     }
   ],
   "meta": {

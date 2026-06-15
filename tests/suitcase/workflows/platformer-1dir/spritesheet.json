@@ -31,7 +31,13 @@
           "x": 96,
           "y": 0
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "Right",
+        "workflowId": "platformer-1dir",
+        "workflowLabel": "Platformer Single Side"
+      }
     }
   ],
   "meta": {

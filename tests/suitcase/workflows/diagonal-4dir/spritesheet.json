@@ -31,7 +31,13 @@
           "x": 96,
           "y": 0
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "NE",
+        "workflowId": "diagonal-4dir",
+        "workflowLabel": "Diagonal Only 4-direction"
+      }
     },
     {
       "fps": 10,
@@ -64,7 +70,13 @@
           "x": 96,
           "y": 32
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "SE",
+        "workflowId": "diagonal-4dir",
+        "workflowLabel": "Diagonal Only 4-direction"
+      }
     },
     {
       "fps": 10,
@@ -97,7 +109,13 @@
           "x": 96,
           "y": 64
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "SW",
+        "workflowId": "diagonal-4dir",
+        "workflowLabel": "Diagonal Only 4-direction"
+      }
     },
     {
       "fps": 10,
@@ -130,7 +148,38 @@
           "x": 96,
           "y": 96
         }
-      ]
+      ],
+      "workflow": {
+        "animationName": "none",
+        "directionLabel": "NW",
+        "workflowId": "diagonal-4dir",
+        "workflowLabel": "Diagonal Only 4-direction"
+      }
+    }
+  ],
+  "directionalAnimations": [
+    {
+      "directions": [
+        {
+          "animation": "none_NE",
+          "label": "NE"
+        },
+        {
+          "animation": "none_SE",
+          "label": "SE"
+        },
+        {
+          "animation": "none_SW",
+          "label": "SW"
+        },
+        {
+          "animation": "none_NW",
+          "label": "NW"
+        }
+      ],
+      "name": "none",
+      "workflowId": "diagonal-4dir",
+      "workflowLabel": "Diagonal Only 4-direction"
     }
   ],
   "meta": {
