@@ -9,8 +9,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Improve animation listing on workflow modal
-- Add reset camera button
+- Workflow animation sections with group toggles, collapse/expand controls, selected-section editing, and disabled animations collapsed by default.
+- Per-animation workflow capture timing overrides for frame interval and captured frame count.
+- Workflow force-in-place axis modes, including all axes, horizontal XZ, individual X/Y/Z axes, and none.
+- Reset Camera actions in the workflow camera draft and top camera panel context menu.
+- Animation renaming from the animation inspector.
+- Structured workflow direction metadata in exported spritesheet JSON and manifest files, including `directionalAnimations` groups.
+
+### Improved
+
+- Workflow animation settings are more compact and keep capture timing controls with animation-specific settings.
+- Manual animation recording names new sequence rows from the active animation instead of a generic `animation_#` label.
+- Orthographic workflow camera controls now treat distance as zoom in the UI, preview, and capture path.
+- Workflow preview and capture now preserve orthographic zoom and rotation consistently.
+- Hidden animations are skipped by default when generating workflow rows.
+
+### Fixed
+
+- Imported/copied animations now persist when saving/reloading projects and when exporting models.
+- Workflow capture now respects configured animation start/duration trimming instead of resetting clips to the full range.
+- Multiple workflow rows with the same animation name remain distinguishable in exports through model-aware direction grouping.
 
 ## [0.6.0]
 
