@@ -110,10 +110,12 @@ export const useExport = () => {
     const originalOverrideMaterial = scene.overrideMaterial;
 
     try {
-      if (exportWidth && exportHeight) {
-        gl.setSize(exportWidth, exportHeight, true);
-      }
       gl.setPixelRatio(1);
+      composer.setSize(
+        exportWidth || originalSize.x,
+        exportHeight || originalSize.y,
+        true,
+      );
       gl.setRenderTarget(null);
 
       composer.render();
@@ -152,7 +154,7 @@ export const useExport = () => {
       scene.overrideMaterial = originalOverrideMaterial;
       gl.setClearColor(originalClearColor, originalClearAlpha);
       gl.setPixelRatio(originalPixelRatio);
-      gl.setSize(originalSize.x, originalSize.y);
+      composer.setSize(originalSize.x, originalSize.y, true);
       gl.setRenderTarget(originalTarget);
 
       composer.render();

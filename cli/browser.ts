@@ -59,8 +59,8 @@ export async function openPage(
     );
   }
 
-  await page.goto(`http://localhost:${port}`, {
-    waitUntil: "networkidle0",
+  await page.goto(`http://127.0.0.1:${port}`, {
+    waitUntil: "domcontentloaded",
     timeout: timeoutMs,
   });
 
