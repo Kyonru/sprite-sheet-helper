@@ -6,6 +6,7 @@ import { APP_SHORTCUTS } from "@/constants/shortcuts";
 interface MenubarItemActionProps {
   action: () => void;
   shortcut?: ShortCutEventName;
+  testId?: string;
   title: string;
 }
 
@@ -13,11 +14,12 @@ export const MenubarItemAction = ({
   title,
   action,
   shortcut,
+  testId,
 }: React.PropsWithChildren<MenubarItemActionProps>) => {
   const shortcutType = shortcut ? APP_SHORTCUTS[shortcut] : undefined;
 
   return (
-    <MenubarItem onClick={action}>
+    <MenubarItem data-testid={testId} onClick={action}>
       {title}
       {shortcutType && (
         <MenubarShortcut>{shortcutType.shortcut.join("")}</MenubarShortcut>

@@ -29,7 +29,7 @@ export const FileMenu = () => {
 
   return (
     <MenubarMenu>
-      <MenubarTrigger>
+      <MenubarTrigger aria-label="File" data-testid="file-menu-trigger">
         <MenuIcon className="w-4 h-4" />
       </MenubarTrigger>
       <MenubarContent className="z-999">
@@ -38,6 +38,7 @@ export const FileMenu = () => {
             title="Import Model"
             action={() => importFile(ACCEPTED_MODEL_FILE_TYPES, loadFromFile)}
             shortcut={ShortCutEventType.IMPORT_MODEL}
+            testId="file-import-model"
           />
         </MenubarGroup>
         <MenubarSeparator />
@@ -71,6 +72,7 @@ export const FileMenu = () => {
               <MenubarGroup>
                 {Object.values(exporters).map((exporter) => (
                   <MenubarItemAction
+                    key={exporter.id}
                     title={exporter.label}
                     action={() =>
                       PubSub.emit(EventType.START_EXPORT, exporter.id)

@@ -232,11 +232,13 @@ function SyncCameraFromStore({
     const changeCamera = ({
       position,
       target = [0, 0, 0],
+      immediate = false,
     }: {
       position: [number, number, number];
       target?: [number, number, number];
+      immediate?: boolean;
     }) => {
-      controlsRef.current?.setLookAt(...position, ...target, true);
+      controlsRef.current?.setLookAt(...position, ...target, !immediate);
     };
 
     const rotateCamera = ({

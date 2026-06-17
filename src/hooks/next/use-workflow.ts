@@ -380,6 +380,7 @@ export const useWorkflow = () => {
         PubSub.emit(EventType.SET_CAMERA_ANGLE, {
           position: camera.position,
           target: camera.target,
+          immediate: true,
         });
         await waitForAnimationFrames(2);
 

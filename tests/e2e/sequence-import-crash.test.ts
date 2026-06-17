@@ -87,40 +87,12 @@ async function clickElementByText(
 }
 
 async function openImportModelFromFileMenu(page: Page) {
-  const opened = await page.evaluate(async () => {
-    const triggers = Array.from(
-      document.querySelectorAll<HTMLElement>('[data-slot="menubar-trigger"]'),
-    );
-    const delay = (ms: number) =>
-      new Promise((resolve) => setTimeout(resolve, ms));
-
-    const clickImportItem = () =>
-      Array.from(
-        document.querySelectorAll<HTMLElement>('[data-slot="menubar-item"]'),
-      ).find((item) => item.textContent?.includes("Import Model"));
-
-    for (const trigger of triggers) {
-      trigger.dispatchEvent(
-        new PointerEvent("pointerdown", { bubbles: true, composed: true }),
-      );
-      trigger.click();
-      await delay(80);
-      const item = clickImportItem();
-      if (item) {
-        item.click();
-        return true;
-      }
-      document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-      );
-      await delay(50);
-    }
-
-    return false;
+  await page.click('[data-testid="file-menu-trigger"]');
+  await page.waitForSelector('[data-testid="file-import-model"]', {
+    visible: true,
+    timeout: 5_000,
   });
-  if (!opened) {
-    throw new Error("Could not open File > Import Model");
-  }
+  await page.click('[data-testid="file-import-model"]');
 }
 
 async function importModelFromFile(page: Page, path: string): Promise<string> {
