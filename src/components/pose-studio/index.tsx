@@ -26,10 +26,6 @@ export function openPoseStudio(modelUuid: string) {
   dispatch({ open: true, modelUuid });
 }
 
-export function openCameraCapture(modelUuid: string) {
-  openPoseStudio(modelUuid);
-}
-
 export function PoseStudioProvider() {
   const [state, setState] = useState<PoseStudioState>({
     open: false,
@@ -66,5 +62,3 @@ export function PoseStudioProvider() {
     document.body,
   );
 }
-
-export const CameraAnimationCaptureProvider = PoseStudioProvider;

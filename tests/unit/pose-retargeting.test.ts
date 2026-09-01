@@ -299,3 +299,56 @@ describe("pose retargeting utilities", () => {
     expect(THREE.MathUtils.radToDeg(angle)).toBeLessThanOrEqual(45.0001);
   });
 });
+
+describe("pose confidence scoring", () => {
+  const landmark = (visibility?: number) => ({
+    x: 0.5,
+    y: 0.5,
+    z: 0,
+    ...(visibility === undefined ? {} : { visibility }),
+  });
+
+  /** 33 landmarks, with the required ones carrying a given visibility. */
+  const landmarkSet = (visibility?: number) =>
+    Array.from({ length: 33 }, () => landmark(visibility));
+
+  it("reads confidence from the screen landmarks, which carry it", () => {
+    // World landmarks have no visibility field at all — the shape MediaPipe
+    // actually returns. Scoring them alone reported perfect confidence.
+    const world = landmarkSet(undefined);
+
+    const occluded = scorePoseLandmarks({
+      worldLandmarks: world,
+      screenLandmarks: landmarkSet(0.1),
+    });
+    const clear = scorePoseLandmarks({
+      worldLandmarks: world,
+      screenLandmarks: landmarkSet(0.99),
+    });
+
+    expect(occluded.metrics.visibility).toBeLessThan(0.2);
+    expect(clear.metrics.visibility).toBeGreaterThan(0.9);
+    expect(occluded.score).toBeLessThan(clear.score);
+  });
+
+  it("names the landmarks the detector was unsure about", () => {
+    const screen = landmarkSet(0.99);
+    // Wrists: indices 15 and 16.
+    screen[15] = landmark(0.2);
+    screen[16] = landmark(0.2);
+
+    const result = scorePoseLandmarks({
+      worldLandmarks: landmarkSet(undefined),
+      screenLandmarks: screen,
+    });
+
+    expect(result.missingRequired).toEqual(["left wrist", "right wrist"]);
+    expect(result.warnings.join(" ")).toContain("wrist");
+  });
+
+  it("falls back to the world set when there are no screen landmarks", () => {
+    const result = scorePoseLandmarks({ worldLandmarks: landmarkSet(0.9) });
+
+    expect(result.metrics.visibility).toBeGreaterThan(0.85);
+  });
+});

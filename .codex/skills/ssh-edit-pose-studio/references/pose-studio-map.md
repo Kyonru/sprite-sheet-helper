@@ -3,7 +3,7 @@
 ## Core Surfaces
 
 - Pose Studio shell and workspace helpers: `src/components/pose-studio/index.tsx`, `src/components/pose-studio/pose-studio-shell.tsx`, `src/components/pose-studio/workspace.ts`.
-- Camera capture flow: `src/components/camera-animation-capture/*`.
+- Capture, viewport, and mapping UI: `src/components/pose-studio/model-preview.tsx`, `src/components/pose-studio/skeleton-overlay.tsx`, `src/components/pose-studio/bone-remap-panel.tsx`. The old `src/components/camera-animation-capture/` wizard (disclaimer/capture/review/save steps) is gone; capture, review, edit, and save are all tabs inside `pose-studio-shell.tsx`.
 - Pose utilities: `src/utils/pose-edit.ts`, `src/utils/pose-retargeting.ts`, `src/utils/pose-to-animation.ts`, `src/utils/pose-ik.ts`, `src/utils/mediapipe-to-bones.ts`, `src/utils/bone-remap.ts`.
 - Capture hooks: `src/hooks/next/use-mediapipe.ts`, `src/hooks/next/use-create-authored-model.ts`.
 - Authored model state: `src/store/next/authored-models.ts`, `src/types/authored-models.ts`, `src/utils/authored-models.ts`.
@@ -12,7 +12,7 @@
 ## Pipeline
 
 - Capture produces raw pose frames from live video or photo input.
-- Review step handles trimming, deletion, correction, mirroring, and per-bone overrides.
+- Review handles trimming, deletion, correction, mirroring, and per-bone overrides.
 - Pose Studio UI state lives in reducer-style helpers where possible.
 - Saved clips should flow through authored models and `buildAnimationClip` style utilities so exporters see normal animation clips.
 
@@ -23,6 +23,7 @@
 - IK changes should gracefully fall back when a chain or mapped bone is unavailable.
 - Keep session-only preview state out of project snapshots unless the feature explicitly requires persistence.
 - UI should expose FK, IK, global correction, overlays, mapping, edit, and save state without hiding existing capture review flows.
+- The shell is a single tabbed surface, not a step wizard: clip name and Save live once in the header, and the tool palette asks what you are moving and what the gizmo does rather than listing named modes.
 
 ## Test Targets
 

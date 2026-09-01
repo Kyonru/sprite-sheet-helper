@@ -6,7 +6,7 @@ import {
   MenubarSeparator,
   MenubarTrigger,
 } from "@/components/ui/menubar";
-import { openPoseStudio } from "@/components/camera-animation-capture";
+import { openPoseStudio } from "@/components/pose-studio";
 import { useEntitiesStore } from "@/store/next/entities";
 import { useModelsStore } from "@/store/next/models";
 import { PersonStandingIcon } from "lucide-react";

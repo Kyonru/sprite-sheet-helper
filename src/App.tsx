@@ -27,7 +27,7 @@ import { useLightsStore } from "./store/next/lights";
 import { DocsModalProvider } from "./components/docs";
 import { AboutModalProvider } from "./components/about-modal";
 import { ShaderEditorProvider } from "./components/custom-shader-modal";
-import { CameraAnimationCaptureProvider } from "./components/camera-animation-capture";
+import { PoseStudioProvider } from "./components/pose-studio";
 import { MaterialsWorkbenchProvider } from "./components/materials/material-workbench";
 import { AssetToyboxProvider } from "./components/asset-toybox/asset-toybox-workbench";
 import { initShortcutRegistry } from "./lib/shortcut-registry";
@@ -113,7 +113,7 @@ function App() {
       <DocsModalProvider />
       <AboutModalProvider />
       <ShaderEditorProvider />
-      <CameraAnimationCaptureProvider />
+      <PoseStudioProvider />
       <MaterialsWorkbenchProvider />
       <AssetToyboxProvider />
       <Toaster richColors />

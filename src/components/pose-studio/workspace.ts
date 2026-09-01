@@ -9,7 +9,7 @@ export type PoseStudioTool =
   | "global-rotate"
   | "global-move";
 
-export type PoseStudioInspectorTab = "assist" | "mapping" | "edit" | "save";
+export type PoseStudioInspectorTab = "assist" | "mapping" | "edit" | "review";
 
 export type PoseStudioOverlayKey =
   | "sourceSkeleton"
@@ -102,6 +102,59 @@ export function poseStudioUiReducer(
     default:
       return state;
   }
+}
+
+/**
+ * The two questions a tool actually answers.
+ *
+ * The palette offered six flat buttons — Select, FK Rotate, FK Move, IK, Global
+ * Rotate, Global Move — which is one list for two independent choices, named
+ * after the rigging technique rather than the thing being moved. Splitting them
+ * gives four targets and a gizmo, so "rotate one bone" and "rotate the whole
+ * pose" stop looking like unrelated modes. The underlying tool union is
+ * unchanged: everything downstream still reads a single `PoseStudioTool`.
+ */
+export type PoseEditTarget = "select" | "bone" | "ik" | "pose";
+export type PoseGizmo = "rotate" | "move";
+
+export function getPoseEditTarget(tool: PoseStudioTool): PoseEditTarget {
+  switch (tool) {
+    case "fk-rotate":
+    case "fk-move":
+      return "bone";
+    case "ik":
+      return "ik";
+    case "global-rotate":
+    case "global-move":
+      return "pose";
+    default:
+      return "select";
+  }
+}
+
+export function getPoseGizmo(tool: PoseStudioTool): PoseGizmo {
+  return tool === "fk-move" || tool === "global-move" ? "move" : "rotate";
+}
+
+/** IK has no gizmo choice — dragging the effector is the whole interaction. */
+export function composePoseTool(
+  target: PoseEditTarget,
+  gizmo: PoseGizmo,
+): PoseStudioTool {
+  switch (target) {
+    case "bone":
+      return gizmo === "move" ? "fk-move" : "fk-rotate";
+    case "pose":
+      return gizmo === "move" ? "global-move" : "global-rotate";
+    case "ik":
+      return "ik";
+    default:
+      return "select";
+  }
+}
+
+export function poseGizmoApplies(target: PoseEditTarget): boolean {
+  return target === "bone" || target === "pose";
 }
 
 export function getEditModeForTool(tool: PoseStudioTool) {

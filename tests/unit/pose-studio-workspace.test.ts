@@ -1,19 +1,26 @@
 import { describe, expect, it } from "vitest";
 import type { PoseEditDraft } from "@/utils/pose-edit";
 import {
+  composePoseTool,
   countEditedBones,
   countEditedFrames,
   createPoseStudioUiState,
   getEditModeForTool,
+  getPoseEditTarget,
+  getPoseGizmo,
   getPoseDraftSummary,
   getTransformModeForTool,
   isGlobalPoseStudioTool,
   isPoseStudioGizmoEnabled,
+  poseGizmoApplies,
   poseStudioUiReducer,
   shiftQualityMarkersAfterDelete,
   trimQualityMarkersAfter,
   trimQualityMarkersBefore,
+  type PoseEditTarget,
   type PoseFrameQualityMarker,
+  type PoseGizmo,
+  type PoseStudioTool,
 } from "@/components/pose-studio/workspace";
 
 const marker = (
@@ -144,5 +151,62 @@ describe("pose studio workspace helpers", () => {
       marker(0),
       marker(1, "Usable"),
     ]);
+  });
+});
+
+describe("pose tool composition", () => {
+  const tools: PoseStudioTool[] = [
+    "select",
+    "fk-rotate",
+    "fk-move",
+    "ik",
+    "global-rotate",
+    "global-move",
+  ];
+
+  it("splits every tool into a target and a gizmo", () => {
+    expect(tools.map(getPoseEditTarget)).toEqual([
+      "select",
+      "bone",
+      "bone",
+      "ik",
+      "pose",
+      "pose",
+    ]);
+    expect(tools.map(getPoseGizmo)).toEqual([
+      "rotate",
+      "rotate",
+      "move",
+      "rotate",
+      "rotate",
+      "move",
+    ]);
+  });
+
+  it("round-trips a tool through its target and gizmo", () => {
+    for (const tool of tools) {
+      expect(composePoseTool(getPoseEditTarget(tool), getPoseGizmo(tool))).toBe(
+        tool,
+      );
+    }
+  });
+
+  it("keeps the gizmo choice from changing targets that ignore it", () => {
+    // Select and IK have no rotate/move distinction, so the palette must not
+    // offer one — picking a gizmo while they are active is a no-op.
+    for (const target of ["select", "ik"] as PoseEditTarget[]) {
+      expect(poseGizmoApplies(target)).toBe(false);
+      for (const gizmo of ["rotate", "move"] as PoseGizmo[]) {
+        expect(composePoseTool(target, gizmo)).toBe(target);
+      }
+    }
+    expect(poseGizmoApplies("bone")).toBe(true);
+    expect(poseGizmoApplies("pose")).toBe(true);
+  });
+
+  it("remembers the gizmo when switching between bone and whole-pose edits", () => {
+    const gizmo = getPoseGizmo("fk-move");
+    expect(composePoseTool("pose", gizmo)).toBe("global-move");
+    expect(getEditModeForTool(composePoseTool("ik", gizmo))).toBe("ik");
   });
 });

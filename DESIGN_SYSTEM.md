@@ -498,6 +498,40 @@ the frame. Auto-fit already solved that — but only from the CLI's `--fit auto`
 It is in the dialog now, next to the picture that makes the case for it, and the
 distance field reads `Distance · solved` while it is on.
 
+### 6.13 Pose Studio
+
+**Name the tool after the thing the user wants, not the technique.** The palette
+offered Select / FK Rotate / FK Move / IK / Global Rotate / Global Move — six
+buttons that assume the reader already animates for a living. It is really two
+questions: *what am I moving* (a bone, a limb by its hand, the whole figure) and
+*what does the gizmo do* (rotate, move). Asked separately, the second question
+disappears for the targets it does not apply to, and "IK" becomes **Reach** —
+drag a hand or foot, the limb follows. `composePoseTool` puts the two answers
+back together, so everything downstream still reads one `PoseStudioTool`.
+
+**Empty is not an error.** The studio opened reporting `Poor 0%` and a red
+banner, because no pose had been detected yet — a verdict on work nobody had
+done. Nothing detected is a *prompt*, in the neutral tone, saying what to do
+next; warnings describe a pose that exists. The same split applies to the
+detector: "Loading" is `Clock`-marked and quiet, not an alert.
+
+**One action, one place.** Save sat in the header *and* at the bottom of an
+inspector tab, each beside its own copy of the clip-name field — two ways to
+name one clip and two buttons to write it. The name and the button live together
+in the header; the tab, now **Review**, is a pre-flight readout of what is about
+to be written and states the name it will use.
+
+**A destructive control should not be the brightest thing on screen.** The
+timeline's `Frame` button was a filled red primary sitting next to two outlined
+trims. It is a ghost button now, taking `--destructive` only on hover, and every
+label says what it removes: *Trim start*, *Trim end*, *Delete frame*, *Clear
+all*.
+
+**Semantic tokens, or the theme is a coin flip.** `amber-500/10` on
+`text-amber-800`, `bg-red-600`, `text-emerald-500` — literals that resolve in one
+theme and fail in the other. Warnings are `--warn`, good states `--ok`, selection
+`--brand`, and the recording chip is `--destructive` with a pulsing dot.
+
 ---
 
 ## 7. Layout
@@ -698,6 +732,10 @@ Extract anything worth keeping first — the mocks are the reference for §6.
 11. **Workflow dialog** — §6.12. The last surface still speaking shadcn
     defaults: 15px labels, `h-8` inputs, native selects, sliders paired with
     number fields, and the sequence list buried under the settings.
+12. **Pose Studio** — the *actual* last surface, and the one furthest from the
+    ladder: `h-7`/`h-8` controls, `text-xs` throughout, hard-coded `amber-500`
+    and `red-600` that only resolve in one theme, and six tools named after
+    rigging technique.
 
 ### 10.2b What each step actually produced
 
@@ -714,6 +752,7 @@ Extract anything worth keeping first — the mocks are the reference for §6.
 | 9 | The Preview Canvas was *already* draggable and clamped; what it needed was the surface language. See §12.2–12.4 for three real defects found there. |
 | 10 | Export dialog: brand-token selection, format marks per §6.11, and `ValidationNote` with full detail. |
 | 11 | Workflow dialog rebuilt per §6.12 and split into `components/workflows/`: sequences take the left column, the camera the right, and the 2,258-line panel came down to 1,276. |
+| 12 | Pose Studio: chips to 19px, tabs and bone buttons to 22px, readouts to the 9px-label/11px-mono pairing, and every literal colour replaced by `--ok`/`--warn`/`--brand`. The tool palette asks two questions (what you are moving, what the gizmo does) instead of listing six named modes; the clip name and Save live once, in the header. `camera-animation-capture/` — the old wizard's name — is gone: its live components moved into `pose-studio/` and the alias re-export shim with them. |
 
 ### 10.3 Verification
 

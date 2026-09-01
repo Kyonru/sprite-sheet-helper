@@ -7,7 +7,7 @@ import {
   type LoopType,
 } from "@/store/next/models";
 import * as THREE from "three";
-import { openPoseStudio } from "@/components/camera-animation-capture";
+import { openPoseStudio } from "@/components/pose-studio";
 import { toast } from "sonner";
 import { z } from "zod";
 import { importFile } from "@/utils/assets";

@@ -9,6 +9,9 @@ import {
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 import {
   AlertCircle,
+  ChevronDown,
+  Clock,
+  Download,
   Bone,
   Camera,
   CheckCircle2,
@@ -41,7 +44,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PanelHeader } from "@/components/panels/panel-header";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -50,9 +52,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ACCEPTED_MODEL_FILE_TYPES } from "@/constants/file";
-import { useMediaPipe } from "@/hooks/next/use-mediapipe";
+import {
+  POSE_MODEL_TIER_LABELS,
+  useMediaPipe,
+  type PoseModelTier,
+} from "@/hooks/next/use-mediapipe";
 import { useModelsStore } from "@/store/next/models";
 import { useEntitiesStore } from "@/store/next/entities";
 import { importFile } from "@/utils/assets";
@@ -112,13 +123,17 @@ import {
   type IkPoleTargetKey,
   type IkSolveResult,
 } from "@/utils/pose-ik";
-import { ModelPreview } from "@/components/camera-animation-capture/model-preview";
-import { SkeletonOverlay } from "@/components/camera-animation-capture/skeleton-overlay";
-import { BoneRemapPanel } from "@/components/camera-animation-capture/bone-remap-panel";
+import { ModelPreview } from "@/components/pose-studio/model-preview";
+import { SkeletonOverlay } from "@/components/pose-studio/skeleton-overlay";
+import { BoneRemapPanel } from "@/components/pose-studio/bone-remap-panel";
 import {
+  composePoseTool,
   countEditedBones,
   createPoseStudioUiState,
   getEditModeForTool,
+  getPoseEditTarget,
+  getPoseGizmo,
+  poseGizmoApplies,
   getPoseDraftSummary,
   getTransformModeForTool,
   isGlobalPoseStudioTool,
@@ -129,6 +144,8 @@ import {
   trimQualityMarkersAfter,
   trimQualityMarkersBefore,
   type PoseFrameQualityMarker,
+  type PoseEditTarget,
+  type PoseStudioInspectorTab,
   type PoseStudioTool,
 } from "./workspace";
 
@@ -321,49 +338,80 @@ function serialiseIkSolveResult(result: IkSolveResult | null) {
   };
 }
 
+/**
+ * A state readout with three tones, not two.
+ *
+ * Everything that was not yet done used to be amber with a warning icon, so a
+ * freshly opened studio looked like a list of problems. Waiting on the user is
+ * neutral; only a real failure is amber.
+ */
 function ToneBadge({
   ok,
   label,
   value,
+  pending = false,
 }: {
   ok: boolean;
   label: string;
   value: string;
+  /** Not done yet, and that is fine. */
+  pending?: boolean;
 }) {
-  const Icon = ok ? CheckCircle2 : AlertCircle;
+  const Icon = ok ? CheckCircle2 : pending ? Clock : AlertCircle;
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs",
+        "inline-flex h-[19px] items-center gap-1 rounded-[5px] border px-1.5 text-[10px]",
         ok
-          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-          : "border-amber-500/30 bg-amber-500/10 text-amber-700",
+          ? "border-ok/30 bg-ok/10 text-ok"
+          : pending
+            ? "border-stroke text-muted-foreground"
+            : "border-warn/30 bg-warn/10 text-warn",
       )}
     >
-      <Icon size={12} />
-      <span className="font-medium">{label}</span>
-      <span>{value}</span>
+      <Icon size={10} />
+      <span className="font-semibold">{label}</span>
+      <span className="font-mono tabular-nums">{value}</span>
     </span>
   );
 }
 
-function QualityBadge({ quality }: { quality: PoseQualityResult }) {
-  const tone =
-    quality.label === "Good"
-      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+/**
+ * Pose quality, once there is a pose to judge.
+ *
+ * Before anything is detected there is no score — showing "Poor 0%" on an empty
+ * studio reads as a verdict on work nobody has done yet.
+ */
+function QualityBadge({
+  quality,
+  detected,
+}: {
+  quality: PoseQualityResult;
+  detected: boolean;
+}) {
+  const tone = !detected
+    ? "border-stroke text-muted-foreground"
+    : quality.label === "Good"
+      ? "border-ok/30 bg-ok/10 text-ok"
       : quality.label === "Usable"
-        ? "border-sky-500/30 bg-sky-500/10 text-sky-700"
-        : "border-amber-500/30 bg-amber-500/10 text-amber-700";
+        ? "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+        : "border-warn/30 bg-warn/10 text-warn";
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs",
+        "inline-flex h-[19px] items-center gap-1 rounded-[5px] border px-1.5 text-[10px]",
         tone,
       )}
-      title={quality.warnings.join("\n") || "Pose quality is stable"}
+      title={
+        detected
+          ? quality.warnings.join("\n") || "Pose quality is stable"
+          : "No pose captured yet"
+      }
     >
-      <Gauge size={12} />
-      {quality.label} {Math.round(quality.score * 100)}%
+      <Gauge size={10} />
+      {detected
+        ? `${quality.label} ${Math.round(quality.score * 100)}%`
+        : "No pose yet"}
     </span>
   );
 }
@@ -386,16 +434,16 @@ function SourceModeButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-h-16 items-center gap-3 rounded-md border px-3 text-left transition-colors",
+        "flex min-h-[46px] items-center gap-2.5 rounded-[5px] border px-2.5 text-left transition-colors",
         active
-          ? "border-primary/50 bg-primary/10 text-primary"
-          : "border-border hover:bg-muted",
+          ? "border-brand-line bg-brand-soft text-foreground"
+          : "border-stroke text-muted-foreground hover:border-stroke-strong hover:bg-row-hover hover:text-foreground",
       )}
     >
-      <Icon className="h-5 w-5 shrink-0" />
+      <Icon className="size-4 shrink-0" />
       <span className="min-w-0">
-        <span className="block text-sm font-medium">{label}</span>
-        <span className="block truncate text-xs text-muted-foreground">
+        <span className="block text-[11px] font-semibold">{label}</span>
+        <span className="block truncate text-[10px] text-faint-foreground">
           {detail}
         </span>
       </span>
@@ -407,25 +455,32 @@ function ToolButton({
   active,
   icon: Icon,
   label,
+  title,
   onClick,
 }: {
   active: boolean;
   icon: LucideIcon;
   label: string;
+  /** What the tool does, when the label alone does not say it. */
+  title?: string;
   onClick: () => void;
 }) {
   return (
-    <Button
+    <button
       type="button"
-      size="sm"
-      variant={active ? "secondary" : "outline"}
-      className="h-8 gap-1.5 px-2 text-xs"
+      aria-pressed={active}
       onClick={onClick}
-      title={label}
+      title={title ?? label}
+      className={cn(
+        "flex h-[22px] items-center gap-1.5 rounded-md px-2 text-[11px] transition-colors",
+        active
+          ? "bg-brand-soft font-semibold text-foreground"
+          : "text-muted-foreground hover:bg-row-hover hover:text-foreground",
+      )}
     >
-      <Icon size={14} />
+      <Icon size={12} />
       <span className="max-xl:hidden">{label}</span>
-    </Button>
+    </button>
   );
 }
 
@@ -451,8 +506,10 @@ function AxisSlider({
   onChange,
 }: AxisSliderProps) {
   return (
-    <label className="grid grid-cols-[1.25rem_1fr_3.25rem] items-center gap-2 text-xs">
-      <span className="text-right text-muted-foreground">{label}</span>
+    <label className="grid grid-cols-[1.25rem_1fr_3.25rem] items-center gap-2 text-[11px]">
+      <span className="text-right font-mono text-[10px] uppercase text-faint-foreground">
+        {label}
+      </span>
       <input
         type="range"
         min={min}
@@ -493,6 +550,8 @@ interface PoseSourcePanelProps {
   photoUrl: string | null;
   videoUrl: string | null;
   screenLandmarks: NormalizedLandmark[] | null;
+  /** What to do next, when the panel is waiting on the user rather than broken. */
+  prompt?: string | null;
   isReady: boolean;
   error: string | null;
   fps: number;
@@ -518,6 +577,7 @@ function PoseSourcePanel({
   photoUrl,
   videoUrl,
   screenLandmarks,
+  prompt,
   isReady,
   error,
   fps,
@@ -593,7 +653,7 @@ function PoseSourcePanel({
           />
         </div>
 
-        <div className="overflow-hidden rounded-md border bg-black">
+        <div className="overflow-hidden rounded-[10px] border border-stroke bg-black">
           <div className="relative aspect-[4/3] w-full">
             {isVideoMode ? (
               <video
@@ -620,8 +680,10 @@ function PoseSourcePanel({
                 className="h-full w-full object-contain"
               />
             ) : (
-              <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
-                No photo selected
+              <div className="flex h-full flex-col items-center justify-center gap-1 px-4 text-center">
+                <span className="text-[11px] text-muted-foreground">
+                  {prompt ?? "No photo selected"}
+                </span>
               </div>
             )}
 
@@ -639,25 +701,26 @@ function PoseSourcePanel({
 
             <div className="absolute left-2 top-2 flex flex-wrap gap-1">
               {!isReady && !error && (
-                <span className="flex items-center gap-1 rounded bg-black/70 px-2 py-1 text-xs text-white">
-                  <Loader2 size={12} className="animate-spin" />
+                <span className="flex h-[19px] items-center gap-1 rounded-[5px] bg-black/70 px-1.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+                  <Loader2 size={10} className="animate-spin" />
                   Loading
                 </span>
               )}
               {isReady && inputMode === "camera" && (
-                <span className="rounded bg-black/70 px-2 py-1 text-xs text-white">
-                  {fps} FPS
+                <span className="flex h-[19px] items-center rounded-[5px] bg-black/70 px-1.5 font-mono text-[10px] text-white tabular-nums">
+                  {fps} fps
                 </span>
               )}
               {recording && (
-                <span className="rounded bg-red-600 px-2 py-1 text-xs text-white">
-                  REC {elapsed.toFixed(1)}s
+                <span className="flex h-[19px] items-center gap-1.5 rounded-[5px] bg-destructive px-1.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+                  <span className="size-1.5 animate-pulse rounded-full bg-white" />
+                  Rec {elapsed.toFixed(1)}s
                 </span>
               )}
             </div>
 
             {error && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/75 p-4 text-center text-sm text-red-300">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/75 p-4 text-center text-[11px] leading-snug text-destructive-foreground">
                 {error}
               </div>
             )}
@@ -666,10 +729,15 @@ function PoseSourcePanel({
 
         {inputMode === "photo" && (
           <div className="grid grid-cols-[1fr_auto] gap-2">
-            <Button variant="outline" onClick={onPhotoSelect}>
-              {photoUrl ? "Change Photo" : "Upload Photo"}
+            <Button size="sm" variant="outline" onClick={onPhotoSelect}>
+              {photoUrl ? "Change photo" : "Upload photo"}
             </Button>
-            <Button variant="outline" onClick={onClearPhoto} disabled={!photoUrl}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onClearPhoto}
+              disabled={!photoUrl}
+            >
               Clear
             </Button>
           </div>
@@ -677,10 +745,15 @@ function PoseSourcePanel({
 
         {inputMode === "video" && (
           <div className="grid grid-cols-[1fr_auto] gap-2">
-            <Button variant="outline" onClick={onVideoSelect}>
-              {videoUrl ? "Change Video" : "Upload Video"}
+            <Button size="sm" variant="outline" onClick={onVideoSelect}>
+              {videoUrl ? "Change video" : "Upload video"}
             </Button>
-            <Button variant="outline" onClick={onClearVideo} disabled={!videoUrl}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onClearVideo}
+              disabled={!videoUrl}
+            >
               Clear
             </Button>
           </div>
@@ -697,7 +770,7 @@ function PoseSourcePanel({
             ) : (
               <Sparkles size={14} />
             )}
-            {detectingBestPhoto ? "Finding Best" : "Capture Pose"}
+            {detectingBestPhoto ? "Finding best frame" : "Capture pose"}
           </Button>
         ) : recording ? (
           <Button variant="destructive" onClick={onStopRecording} className="gap-2">
@@ -721,44 +794,58 @@ interface PoseToolPaletteProps {
 }
 
 function PoseToolPalette({ tool, onSetTool }: PoseToolPaletteProps) {
+  const target = getPoseEditTarget(tool);
+  const gizmo = getPoseGizmo(tool);
+  const showGizmo = poseGizmoApplies(target);
+
+  const targets: {
+    key: PoseEditTarget;
+    icon: typeof Eye;
+    label: string;
+    hint: string;
+  }[] = [
+    { key: "select", icon: Eye, label: "Select", hint: "Click a bone to inspect it" },
+    { key: "bone", icon: Bone, label: "Bone", hint: "Move the selected bone only" },
+    { key: "ik", icon: Crosshair, label: "Reach", hint: "Drag a hand or foot; the limb follows" },
+    { key: "pose", icon: Move3D, label: "Whole pose", hint: "Move or turn the whole figure" },
+  ];
+
   return (
-    <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-1 rounded-md border bg-background/90 p-1 shadow-sm backdrop-blur">
-      <ToolButton
-        active={tool === "select"}
-        icon={Eye}
-        label="Select"
-        onClick={() => onSetTool("select")}
-      />
-      <ToolButton
-        active={tool === "fk-rotate"}
-        icon={Rotate3D}
-        label="FK Rotate"
-        onClick={() => onSetTool("fk-rotate")}
-      />
-      <ToolButton
-        active={tool === "fk-move"}
-        icon={Move3D}
-        label="FK Move"
-        onClick={() => onSetTool("fk-move")}
-      />
-      <ToolButton
-        active={tool === "ik"}
-        icon={Bone}
-        label="IK"
-        onClick={() => onSetTool("ik")}
-      />
-      <ToolButton
-        active={tool === "global-rotate"}
-        icon={RotateCcw}
-        label="Global Rotate"
-        onClick={() => onSetTool("global-rotate")}
-      />
-      <ToolButton
-        active={tool === "global-move"}
-        icon={Move3D}
-        label="Global Move"
-        onClick={() => onSetTool("global-move")}
-      />
+    <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-lg border border-stroke bg-background/90 p-1 backdrop-blur">
+      {/* What you are moving… */}
+      <div className="flex items-center gap-0.5">
+        {targets.map((item) => (
+          <ToolButton
+            key={item.key}
+            active={target === item.key}
+            icon={item.icon}
+            label={item.label}
+            title={item.hint}
+            onClick={() => onSetTool(composePoseTool(item.key, gizmo))}
+          />
+        ))}
+      </div>
+
+      {/* …and what the gizmo does to it. Two questions, asked separately,
+          instead of one list of six answers named after rigging technique. */}
+      {showGizmo && (
+        <div className="flex items-center gap-0.5 border-s border-stroke ps-2">
+          <ToolButton
+            active={gizmo === "rotate"}
+            icon={Rotate3D}
+            label="Rotate"
+            title="Rotate with the gizmo"
+            onClick={() => onSetTool(composePoseTool(target, "rotate"))}
+          />
+          <ToolButton
+            active={gizmo === "move"}
+            icon={Move3D}
+            label="Move"
+            title="Move with the gizmo"
+            onClick={() => onSetTool(composePoseTool(target, "move"))}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -831,7 +918,7 @@ function PoseViewportPanel({
   return (
     <main className="relative min-h-0 overflow-hidden bg-muted">
       <PoseToolPalette tool={tool} onSetTool={onSetTool} />
-      <div className="absolute right-3 top-3 z-10 rounded-md border bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur">
+      <div className="absolute right-3 top-3 z-10 flex h-[19px] items-center rounded-[5px] border border-stroke bg-background/90 px-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur">
         {hasFrames
           ? beforePose
             ? "Before"
@@ -905,22 +992,22 @@ function PoseTimeline({
     <footer className="border-t bg-background">
       <div className="flex items-center gap-2 px-3 py-2">
         <Button
-          size="icon"
+          size="icon-xs"
           variant="outline"
           onClick={onTogglePlay}
           disabled={frames.length <= 1}
           title={playing ? "Stop" : "Play"}
         >
-          {playing ? <Square size={14} /> : <Play size={14} />}
+          {playing ? <Square size={12} /> : <Play size={12} />}
         </Button>
-        <span className="w-36 text-xs text-muted-foreground">
+        <span className="w-28 font-mono text-[10px] text-muted-foreground tabular-nums">
           {frames.length === 0
             ? "No frames"
-            : `Frame ${currentIndex + 1} / ${frames.length}`}
+            : `${currentIndex + 1} / ${frames.length}`}
         </span>
         <input
           type="range"
-          className="min-w-0 flex-1 accent-primary"
+          className="min-w-0 flex-1 accent-brand"
           min={0}
           max={Math.max(0, frames.length - 1)}
           step={1}
@@ -928,48 +1015,58 @@ function PoseTimeline({
           disabled={frames.length === 0}
           onChange={(event) => onSetIndex(Number(event.target.value))}
         />
-        <span className="w-20 text-right text-xs tabular-nums text-muted-foreground">
+        <span className="w-14 text-right font-mono text-[10px] text-faint-foreground tabular-nums">
           {duration.toFixed(2)}s
         </span>
+        <span className="mx-1 h-4 w-px bg-stroke" />
+        {/* Trims say what they remove; the delete is quiet until you hover it.
+            A filled red button reads as the thing to press, and this one throws
+            away the frame you are looking at. */}
         <Button
-          size="sm"
+          size="xs"
           variant="outline"
           onClick={onTrimStart}
           disabled={frames.length === 0 || currentIndex === 0}
+          title="Remove every frame before this one"
         >
-          <Scissors size={14} />
-          Start
+          <Scissors size={12} />
+          Trim start
         </Button>
         <Button
-          size="sm"
+          size="xs"
           variant="outline"
           onClick={onTrimEnd}
           disabled={frames.length === 0 || currentIndex === frames.length - 1}
+          title="Remove every frame after this one"
         >
-          <Scissors size={14} />
-          End
+          <Scissors size={12} />
+          Trim end
         </Button>
         <Button
-          size="sm"
-          variant="destructive"
+          size="xs"
+          variant="ghost"
           onClick={onDeleteFrame}
           disabled={frames.length === 0}
+          title="Delete this frame"
+          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         >
-          <Trash2 size={14} />
-          Frame
+          <Trash2 size={12} />
+          Delete frame
         </Button>
         <Button
-          size="sm"
+          size="xs"
           variant="ghost"
           onClick={onClear}
           disabled={frames.length === 0}
+          title="Delete every captured frame"
+          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         >
-          Clear
+          Clear all
         </Button>
       </div>
       <div className="flex gap-1 overflow-x-auto border-t px-3 py-2">
         {frames.length === 0 ? (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-[10px] text-faint-foreground">
             Captured frames will appear here.
           </span>
         ) : (
@@ -991,15 +1088,11 @@ function PoseTimeline({
                   currentIndex === index
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border hover:bg-muted",
-                  tone === "good" &&
-                    currentIndex !== index &&
-                    "border-emerald-500/30",
+                  tone === "good" && currentIndex !== index && "border-ok/40",
                   tone === "usable" &&
                     currentIndex !== index &&
                     "border-sky-500/30",
-                  tone === "poor" &&
-                    currentIndex !== index &&
-                    "border-amber-500/30",
+                  tone === "poor" && currentIndex !== index && "border-warn/40",
                 )}
               >
                 <span>{index + 1}</span>
@@ -1022,8 +1115,6 @@ interface PoseSavePanelProps {
   mappingAnalysis: BoneMappingAnalysis;
   qualityMarkers: PoseFrameQualityMarker[];
   saving: boolean;
-  onClipNameChange: (value: string) => void;
-  onSave: () => void;
   forceInPlace: boolean;
   onForceInPlaceChange: (value: boolean) => void;
 }
@@ -1035,8 +1126,6 @@ function PoseSavePanel({
   mappingAnalysis,
   qualityMarkers,
   saving,
-  onClipNameChange,
-  onSave,
   forceInPlace,
   onForceInPlaceChange,
 }: PoseSavePanelProps) {
@@ -1047,70 +1136,77 @@ function PoseSavePanel({
   );
   return (
     <div className="flex flex-col gap-3 p-3">
-      <div className="grid gap-1.5">
-        <Label htmlFor="pose-studio-clip-name">Clip name</Label>
-        <Input
-          id="pose-studio-clip-name"
-          value={clipName}
-          onChange={(event) => onClipNameChange(event.target.value)}
-        />
+      {/* Named in the header, beside the button that saves it — repeating the
+          field here made two places to edit one value. */}
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[9px] uppercase tracking-wider text-faint-foreground">
+          Saving as
+        </span>
+        <span className="min-w-0 truncate font-mono text-[11px] text-foreground">
+          {clipName}
+        </span>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded-md border px-2 py-2">
-          <span className="block text-muted-foreground">Frames</span>
-          <span className="text-lg font-semibold">{summary.frameCount}</span>
-        </div>
-        <div className="rounded-md border px-2 py-2">
-          <span className="block text-muted-foreground">Duration</span>
-          <span className="text-lg font-semibold">
-            {getPoseClipDuration(frames).toFixed(2)}s
-          </span>
-        </div>
-        <div className="rounded-md border px-2 py-2">
-          <span className="block text-muted-foreground">Edited</span>
-          <span className="text-lg font-semibold">
-            {summary.editedFrameCount}
-          </span>
-        </div>
-        <div className="rounded-md border px-2 py-2">
-          <span className="block text-muted-foreground">Mapping</span>
-          <span className="text-lg font-semibold">
-            {mappingAnalysis.mapped}/{mappingAnalysis.total}
-          </span>
-        </div>
+      {/* What is about to be written, in the ladder's own terms: 10px label,
+          11px mono value. The Save button is in the header, next to the name —
+          having it here as well made two buttons for one action. */}
+      <div className="grid grid-cols-2 gap-1.5">
+        {[
+          { label: "Frames", value: String(summary.frameCount) },
+          { label: "Duration", value: `${getPoseClipDuration(frames).toFixed(2)}s` },
+          { label: "Edited", value: String(summary.editedFrameCount) },
+          {
+            label: "Mapped",
+            value: `${mappingAnalysis.mapped}/${mappingAnalysis.total}`,
+          },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="grid gap-0.5 rounded-[5px] border border-stroke bg-surface-sunken px-2 py-1.5"
+          >
+            <span className="text-[9px] uppercase tracking-wider text-faint-foreground">
+              {stat.label}
+            </span>
+            <span className="font-mono text-[12px] text-foreground tabular-nums">
+              {stat.value}
+            </span>
+          </div>
+        ))}
       </div>
       {bestMarker && (
-        <div className="rounded-md border px-3 py-2 text-xs">
-          <span className="text-muted-foreground">Best pose</span>
-          <div className="mt-1 font-medium">
+        <div className="flex items-baseline justify-between gap-2 rounded-[5px] border border-stroke px-2 py-1.5">
+          <span className="text-[9px] uppercase tracking-wider text-faint-foreground">
+            Best pose
+          </span>
+          <span className="font-mono text-[11px] text-foreground tabular-nums">
             {bestMarker.label} {Math.round(bestMarker.score * 100)}%
-          </div>
+          </span>
         </div>
       )}
       {mappingAnalysis.issues.length > 0 && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
-          {mappingAnalysis.issues[0]}
+        <div className="flex gap-1.5 rounded-[5px] border border-warn/30 bg-warn/10 px-2 py-1.5">
+          <AlertCircle size={12} className="mt-px shrink-0 text-warn" />
+          <span className="text-[10px] leading-snug text-warn">
+            {mappingAnalysis.issues[0]}
+          </span>
         </div>
       )}
-      <label className="flex items-center justify-between rounded-md border px-3 py-2 text-xs">
-        <span>Force imported animations in place</span>
+      <label className="flex items-center justify-between gap-3 rounded-[5px] border border-stroke px-2 py-1.5">
+        <span className="text-[11px] text-foreground">
+          Force imported animations in place
+        </span>
         <Switch
           checked={forceInPlace}
           onCheckedChange={onForceInPlaceChange}
           disabled={saving}
         />
       </label>
-      <Button onClick={onSave} disabled={saving || frames.length === 0}>
-        <Save size={14} />
-        {saving ? "Saving" : "Save to Model"}
-      </Button>
     </div>
   );
 }
 
 interface PoseInspectorProps {
   tab: string;
-  setTab: (tab: "assist" | "mapping" | "edit" | "save") => void;
+  setTab: (tab: PoseStudioInspectorTab) => void;
   modelUuid: string;
   remap: BoneRemap;
   setRemap: (remap: BoneRemap) => void;
@@ -1119,6 +1215,9 @@ interface PoseInspectorProps {
   mappingAnalysis: BoneMappingAnalysis;
   poseQuality: PoseQualityResult;
   poseDetected: boolean;
+  modelTier: PoseModelTier;
+  detectorLoading: boolean;
+  onModelTierChange: (tier: PoseModelTier) => void;
   rootMotion: boolean;
   setRootMotion: (value: boolean) => void;
   calibrated: boolean;
@@ -1175,8 +1274,6 @@ interface PoseInspectorProps {
   clipName: string;
   saving: boolean;
   qualityMarkers: PoseFrameQualityMarker[];
-  onClipNameChange: (value: string) => void;
-  onSave: () => void;
   forceInPlace: boolean;
   onForceInPlaceChange: (value: boolean) => void;
 }
@@ -1192,6 +1289,9 @@ function PoseInspector({
   mappingAnalysis,
   poseQuality,
   poseDetected,
+  modelTier,
+  detectorLoading,
+  onModelTierChange,
   rootMotion,
   setRootMotion,
   calibrated,
@@ -1240,8 +1340,6 @@ function PoseInspector({
   clipName,
   saving,
   qualityMarkers,
-  onClipNameChange,
-  onSave,
   forceInPlace,
   onForceInPlaceChange,
 }: PoseInspectorProps) {
@@ -1265,13 +1363,13 @@ function PoseInspector({
         className="border-b"
       />
       <div className="grid grid-cols-4 gap-1 border-b p-2">
-        {(["assist", "mapping", "edit", "save"] as const).map((item) => (
+        {(["assist", "mapping", "edit", "review"] as const).map((item) => (
           <Button
             key={item}
             type="button"
-            size="sm"
+            size="xs"
             variant={tab === item ? "secondary" : "ghost"}
-            className="h-8 px-1 text-xs capitalize"
+            className="h-[22px] px-1 text-[11px] capitalize"
             onClick={() => setTab(item)}
           >
             {item}
@@ -1281,78 +1379,135 @@ function PoseInspector({
       <div className="min-h-0 flex-1 overflow-auto">
         {tab === "assist" && (
           <div className="flex flex-col gap-3 p-3">
-            <QualityBadge quality={poseQuality} />
-            {poseQuality.warnings.length > 0 && (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
-                {poseQuality.warnings[0]}
-              </div>
+            <QualityBadge quality={poseQuality} detected={poseDetected} />
+            {/* Warnings describe a pose that exists. With nothing detected the
+                panel says what to do instead of what is wrong. */}
+            {poseDetected ? (
+              poseQuality.warnings.length > 0 && (
+                <div className="rounded-[5px] border border-warn/30 bg-warn/10 px-2 py-1.5 text-[10px] leading-snug text-warn">
+                  {poseQuality.warnings[0]}
+                </div>
+              )
+            ) : (
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                Pick a source on the left, then capture a pose. Quality and
+                mapping checks appear here once one is detected.
+              </p>
             )}
-            <div className="grid grid-cols-2 gap-2">
+            {/*
+              Detector accuracy, next to the score it moves.
+
+              A still photo is detected once on a click, so the accurate model
+              costs a second of work and gives visibly better landmarks on
+              foreshortened limbs and side-on poses; live input has to keep up
+              with the camera, so it defaults lower.
+            */}
+            <label className="grid gap-1">
+              <span className="text-[9px] uppercase tracking-wider text-faint-foreground">
+                Detector
+              </span>
+              <select
+                value={modelTier}
+                disabled={detectorLoading}
+                data-testid="pose-model-tier"
+                onChange={(event) =>
+                  onModelTierChange(event.target.value as PoseModelTier)
+                }
+                className="h-6 rounded-md border border-stroke bg-surface-sunken px-1.5 text-[11px] text-foreground transition-colors hover:border-stroke-strong focus:border-brand-line focus:outline-none disabled:opacity-40"
+              >
+                {(
+                  Object.keys(POSE_MODEL_TIER_LABELS) as PoseModelTier[]
+                ).map((tier) => (
+                  <option key={tier} value={tier}>
+                    {POSE_MODEL_TIER_LABELS[tier]}
+                    {tier === "accurate" ? " · best for photos" : ""}
+                  </option>
+                ))}
+              </select>
+              {detectorLoading && (
+                <span className="text-[10px] text-faint-foreground">
+                  Loading detector…
+                </span>
+              )}
+            </label>
+
+            <div className="grid grid-cols-2 gap-1.5">
               <Button
+                size="sm"
                 variant="outline"
                 onClick={onCalibrate}
                 disabled={!poseDetected}
+                title="Use this pose as the rest pose corrections are measured from"
               >
-                <Crosshair size={14} />
+                <Crosshair size={12} />
                 Calibrate
               </Button>
               <Button
+                size="sm"
                 variant="outline"
                 onClick={onUseBestFrame}
                 disabled={!bestQuality}
+                title="Jump to the highest-scoring captured frame"
               >
-                <Sparkles size={14} />
-                Best Frame
+                <Sparkles size={12} />
+                Best frame
               </Button>
             </div>
-            <div className="rounded-md border px-3 py-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Best pose</span>
-                <span>
-                  {bestQuality
-                    ? `${bestQuality.label} ${Math.round(
-                        bestQuality.score * 100,
-                      )}%`
-                    : "None"}
-                </span>
-              </div>
-              <div className="mt-1 flex justify-between">
-                <span className="text-muted-foreground">Skipped</span>
-                <span>{rejectedFrameCount}</span>
-              </div>
-              <div className="mt-1 flex justify-between">
-                <span className="text-muted-foreground">Calibration</span>
-                <span>{calibrated ? "Ready" : "Not set"}</span>
-              </div>
+            <div className="grid gap-1 rounded-[5px] border border-stroke px-2 py-1.5">
+              {[
+                {
+                  label: "Best pose",
+                  value: bestQuality
+                    ? `${bestQuality.label} ${Math.round(bestQuality.score * 100)}%`
+                    : "None",
+                },
+                { label: "Skipped", value: String(rejectedFrameCount) },
+                {
+                  label: "Calibration",
+                  value: calibrated ? "Ready" : "Not set",
+                },
+              ].map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-baseline justify-between gap-2"
+                >
+                  <span className="text-[9px] uppercase tracking-wider text-faint-foreground">
+                    {row.label}
+                  </span>
+                  <span className="font-mono text-[11px] text-foreground tabular-nums">
+                    {row.value}
+                  </span>
+                </div>
+              ))}
             </div>
-            <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+            <label className="flex items-center justify-between gap-3 rounded-[5px] border border-stroke px-2 py-1.5 text-[11px] text-foreground">
               Root motion
               <Switch
                 checked={rootMotion}
                 onCheckedChange={(checked) => setRootMotion(Boolean(checked))}
               />
             </label>
-            <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+            <label className="flex items-center justify-between gap-3 rounded-[5px] border border-stroke px-2 py-1.5 text-[11px] text-foreground">
               Source skeleton
               <Switch
                 checked={sourceSkeleton}
                 onCheckedChange={onToggleSourceSkeleton}
               />
             </label>
-            <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+            <label className="flex items-center justify-between gap-3 rounded-[5px] border border-stroke px-2 py-1.5 text-[11px] text-foreground">
               Model skeleton
               <Switch
                 checked={modelSkeleton}
                 onCheckedChange={onToggleModelSkeleton}
               />
             </label>
-            <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+            <label className="flex items-center justify-between gap-3 rounded-[5px] border border-stroke px-2 py-1.5 text-[11px] text-foreground">
               Before pose
               <Switch checked={beforePose} onCheckedChange={onToggleBeforePose} />
             </label>
             {mappingAnalysis.issues.length > 0 && (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
-                {mappingAnalysis.issues.slice(0, 3).join(" - ")}
+              <div className="rounded-[5px] border border-warn/30 bg-warn/10 px-2 py-1.5 text-[10px] leading-snug text-warn">
+                {mappingAnalysis.issues.slice(0, 3).join(" · ")}
               </div>
             )}
           </div>
@@ -1367,7 +1522,9 @@ function PoseInspector({
               availableBones={availableBones}
             />
             {boneLoadError && (
-              <p className="mt-2 text-xs text-destructive">{boneLoadError}</p>
+              <p className="mt-2 text-[10px] leading-snug text-destructive">
+                {boneLoadError}
+              </p>
             )}
           </div>
         )}
@@ -1414,8 +1571,8 @@ function PoseInspector({
             </div>
 
             {isGlobalPoseStudioTool(tool) ? (
-              <section className="rounded-md border">
-                <div className="border-b px-3 py-2 text-sm font-medium">
+              <section className="rounded-[10px] border border-stroke">
+                <div className="border-b border-stroke px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Global Correction
                 </div>
                 <div className="flex flex-col gap-2 p-3">
@@ -1492,8 +1649,8 @@ function PoseInspector({
                 </div>
               </section>
             ) : tool === "ik" ? (
-              <section className="rounded-md border">
-                <div className="border-b px-3 py-2 text-sm font-medium">
+              <section className="rounded-[10px] border border-stroke">
+                <div className="border-b border-stroke px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   IK Targets
                 </div>
                 <div className="flex flex-col gap-2 p-3">
@@ -1503,21 +1660,23 @@ function PoseInspector({
                     ).map((target) => (
                       <Button
                         key={target}
-                        size="sm"
+                        size="xs"
                         variant={
                           selectedEffector === target ? "secondary" : "outline"
                         }
-                        className="h-8 px-1 text-xs"
+                        className="h-[22px] px-1 text-[11px]"
                         onClick={() => onSelectIkTarget(target)}
                       >
                         {IK_TARGET_LABELS[target]}
                       </Button>
                     ))}
                   </div>
-                  <div className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
-                    {ikStatus.available.length} ready
+                  <div className="grid gap-0.5 rounded-[5px] border border-stroke px-2 py-1.5">
+                    <span className="font-mono text-[11px] text-foreground tabular-nums">
+                      {ikStatus.available.length} chains ready
+                    </span>
                     {missingIkLabels.length > 0 && (
-                      <span className="block text-amber-500">
+                      <span className="text-[10px] leading-snug text-warn">
                         Missing: {missingIkLabels.join(", ")}
                       </span>
                     )}
@@ -1541,7 +1700,7 @@ function PoseInspector({
                     </Button>
                   </div>
                   {ikDebugCopyStatus && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[10px] text-muted-foreground">
                       {ikDebugCopyStatus}
                     </p>
                   )}
@@ -1549,14 +1708,14 @@ function PoseInspector({
               </section>
             ) : (
               <>
-                <section className="rounded-md border">
-                  <div className="border-b px-3 py-2 text-sm font-medium">
+                <section className="rounded-[10px] border border-stroke">
+                  <div className="border-b border-stroke px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Bones
                   </div>
                   <div className="max-h-52 overflow-y-auto p-2">
                     {POSE_BONE_GROUPS.map((group) => (
                       <div key={group.label} className="mb-2 last:mb-0">
-                        <p className="px-1 pb-1 text-xs font-medium uppercase text-muted-foreground">
+                        <p className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider text-faint-foreground">
                           {group.label}
                         </p>
                         <div className="grid grid-cols-2 gap-1">
@@ -1565,22 +1724,23 @@ function PoseInspector({
                             .map((key) => (
                               <Button
                                 key={key}
-                                size="sm"
+                                size="xs"
                                 variant={
                                   selectedBoneKey === key
                                     ? "secondary"
                                     : "ghost"
                                 }
-                                className="h-8 justify-start gap-1 px-2 text-xs"
+                                className="h-[22px] justify-start gap-1 px-1.5 text-[11px]"
                                 onClick={() => onSelectBone(key)}
                               >
                                 <span className="truncate">
                                   {POSE_BONE_LABELS[key] ?? key}
                                 </span>
                                 {frameOverrides[key] && (
-                                  <span className="ml-auto text-primary">
-                                    *
-                                  </span>
+                                  <span
+                                    title="Edited on this frame"
+                                    className="ml-auto size-1 shrink-0 rounded-full bg-brand"
+                                  />
                                 )}
                               </Button>
                             ))}
@@ -1590,8 +1750,8 @@ function PoseInspector({
                   </div>
                 </section>
 
-                <section className="rounded-md border">
-                  <div className="border-b px-3 py-2 text-sm font-medium">
+                <section className="rounded-[10px] border border-stroke">
+                  <div className="border-b border-stroke px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {selectedLabel ?? "Selected Bone"}
                   </div>
                   <div className="flex flex-col gap-2 p-3">
@@ -1711,8 +1871,8 @@ function PoseInspector({
               </>
             )}
 
-            <section className="rounded-md border">
-              <div className="border-b px-3 py-2 text-sm font-medium">
+            <section className="rounded-[10px] border border-stroke">
+              <div className="border-b border-stroke px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Pose Actions
               </div>
               <div className="grid grid-cols-2 gap-2 p-3">
@@ -1770,14 +1930,18 @@ function PoseInspector({
               </div>
             </section>
 
-            <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
-              Frame {draft.frames.length ? currentIndex + 1 : 0} edited bones:{" "}
-              {countEditedBones(draft, currentIndex)}
+            <div className="flex items-baseline justify-between gap-2 rounded-[5px] border border-stroke px-2 py-1.5">
+              <span className="text-[9px] uppercase tracking-wider text-faint-foreground">
+                Edited on frame {draft.frames.length ? currentIndex + 1 : 0}
+              </span>
+              <span className="font-mono text-[11px] text-foreground tabular-nums">
+                {countEditedBones(draft, currentIndex)}
+              </span>
             </div>
           </div>
         )}
 
-        {tab === "save" && (
+        {tab === "review" && (
           <PoseSavePanel
             clipName={clipName}
             frames={draft.frames}
@@ -1785,8 +1949,6 @@ function PoseInspector({
             mappingAnalysis={mappingAnalysis}
             qualityMarkers={qualityMarkers}
             saving={saving}
-            onClipNameChange={onClipNameChange}
-            onSave={onSave}
             forceInPlace={forceInPlace}
             onForceInPlaceChange={onForceInPlaceChange}
           />
@@ -1964,7 +2126,10 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
     worldLandmarks,
     fps,
     isReady,
+    isLoading: detectorLoading,
     error: mpError,
+    modelTier,
+    setModelTier,
     detectImageCandidates,
     applyDetectedCandidate,
   } = useMediaPipe(
@@ -3020,14 +3185,22 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
     ui.clipName,
   ]);
 
-  const inputError =
+  /*
+    Not having chosen a photo yet is not an error.
+
+    This used to fold "upload something" into the same value as a camera
+    permission failure and a detector crash, so opening the studio painted a red
+    message across the source panel and disabled the controls before anyone had
+    done anything wrong. The prompt is what to do next; the error is what went
+    wrong. They are shown differently because they are different.
+  */
+  const inputPrompt =
     inputMode === "photo" && !photoUrl
       ? "Upload a photo to capture a pose."
       : inputMode === "video" && !videoUrl
         ? "Upload a video to record frames."
         : null;
-  const error =
-    inputMode === "camera" ? (camError ?? mpError) : (inputError ?? mpError);
+  const error = inputMode === "camera" ? (camError ?? mpError) : mpError;
   const canRecord =
     isReady && !error && inputMode !== "photo" && (inputMode !== "video" || !!videoUrl);
   const displayFrameCount =
@@ -3040,45 +3213,57 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <header className="flex min-h-14 items-center gap-2 border-b px-4">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold">Pose Studio</div>
-          <div className="truncate text-xs text-muted-foreground">
+      {/*
+        Three zones: what this is, how it is doing, what you can do to it.
+
+        Everything used to sit in one row of twelve controls — a clip name, six
+        status chips, a switch, a model picker, two import buttons, undo, redo
+        and Save — so nothing led and the bar wrapped onto two lines. The
+        imports are one menu now, the chips report only what is not already
+        obvious, and Save is the single filled button on the screen.
+      */}
+      <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-stroke px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="text-[13px] font-semibold">Pose Studio</span>
+          <span className="min-w-0 truncate font-mono text-[10px] text-faint-foreground">
             {modelName}
-          </div>
+          </span>
         </div>
+
         <Input
-          className="ml-3 h-8 w-52"
+          aria-label="Clip name"
+          className="h-6 w-48 border-stroke bg-surface-sunken px-2 text-[11px]"
           value={ui.clipName}
           onChange={(event) =>
             dispatchUi({ type: "setClipName", clipName: event.target.value })
           }
         />
-        <div className="hidden min-w-0 flex-1 flex-wrap items-center gap-2 xl:flex">
-          <ToneBadge
-            ok={modelReady}
-            label="Model"
-            value={modelReady ? "ready" : "loading"}
-          />
-          <ToneBadge
-            ok={poseDetected}
-            label="Pose"
-            value={poseDetected ? "detected" : "waiting"}
-          />
+
+        {/* State worth reporting: the score, what it maps onto, and how much
+            has been captured. "Model ready" only says something while it is
+            not, and "Pose waiting" said what the score already says. */}
+        <div className="hidden min-w-0 items-center gap-1.5 lg:flex">
+          {!modelReady && (
+            <ToneBadge ok={false} pending label="Model" value="loading" />
+          )}
+          <QualityBadge quality={poseQuality} detected={poseDetected} />
           <ToneBadge
             ok={mappedBoneCount > 0}
+            pending={mappedBoneCount === 0}
             label="Mapping"
             value={`${mappedBoneCount}/${expectedBoneCount}`}
           />
-          <QualityBadge quality={poseQuality} />
-          <span className="inline-flex h-7 items-center rounded-md border px-2 text-xs text-muted-foreground">
-            Frames {displayFrameCount}
+          <span className="inline-flex h-7 items-center rounded-md border border-stroke px-2 font-mono text-[11px] text-muted-foreground tabular-nums">
+            {displayFrameCount} frame{displayFrameCount === 1 ? "" : "s"}
           </span>
-          <span className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground">
+          <span
+            title="Pose detection runs on this device — nothing is uploaded"
+            className="inline-flex h-7 items-center rounded-md border border-stroke px-2 text-muted-foreground"
+          >
             <ShieldCheck size={12} />
-            Local detection
           </span>
         </div>
+
         <div className="ml-auto flex items-center gap-1">
           <Button
             size="icon"
@@ -3089,50 +3274,102 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           >
             {isModelVisible ? <EyeOff size={15} /> : <Eye size={15} />}
           </Button>
-          <Label
-            htmlFor="import-force-in-place"
-            className="flex cursor-pointer items-center gap-2 px-1 text-xs text-muted-foreground"
-          >
-            <span>Force in place</span>
-            <Switch
-              id="import-force-in-place"
-              checked={importForceInPlace}
-              onCheckedChange={setImportForceInPlace}
-              disabled={!modelReady}
-            />
-          </Label>
-          <Select
-            value={importSourceUuid ?? ""}
-            onValueChange={(value) => setImportSourceUuid(value)}
-            disabled={candidateSourceModels.length === 0 || !modelReady}
-          >
-            <SelectTrigger className="w-44" disabled={candidateSourceModels.length === 0 || !modelReady}>
-              <SelectValue placeholder="Import from model" />
-            </SelectTrigger>
-            <SelectContent>
-              {candidateSourceModels.map((entry) => (
-                <SelectItem key={entry.uuid} value={entry.uuid}>
-                  {entry.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleImportFromLoadedModel}
-            disabled={candidateSourceModels.length === 0 || !modelReady || !importSourceUuid}
-          >
-            Import Anim
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleImportFromFile}
-            disabled={!modelReady}
-          >
-            Import File
-          </Button>
+
+          {/* Four import controls behind one word. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" disabled={!modelReady}>
+                <Download size={14} />
+                Import
+                <ChevronDown size={12} />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="z-9999 w-72">
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <span className="text-[9px] uppercase tracking-wider text-faint-foreground">
+                    From a loaded model
+                  </span>
+                  <Select
+                    value={importSourceUuid ?? ""}
+                    onValueChange={(value) => setImportSourceUuid(value)}
+                    disabled={candidateSourceModels.length === 0 || !modelReady}
+                  >
+                    <SelectTrigger
+                      className="h-7 text-[11px]"
+                      disabled={
+                        candidateSourceModels.length === 0 || !modelReady
+                      }
+                    >
+                      <SelectValue
+                        placeholder={
+                          candidateSourceModels.length === 0
+                            ? "No other models loaded"
+                            : "Choose a model"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent className="z-9999">
+                      {candidateSourceModels.map((entry) => (
+                        <SelectItem key={entry.uuid} value={entry.uuid}>
+                          {entry.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    onClick={handleImportFromLoadedModel}
+                    disabled={
+                      candidateSourceModels.length === 0 ||
+                      !modelReady ||
+                      !importSourceUuid
+                    }
+                  >
+                    Import its animation
+                  </Button>
+                </div>
+
+                <div className="grid gap-1.5 border-t border-stroke pt-3">
+                  <span className="text-[9px] uppercase tracking-wider text-faint-foreground">
+                    From a file
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    onClick={handleImportFromFile}
+                    disabled={!modelReady}
+                  >
+                    Choose a model or animation file
+                  </Button>
+                </div>
+
+                <label className="flex items-center justify-between gap-3 border-t border-stroke pt-3">
+                  <span className="min-w-0">
+                    <span className="block text-[11px] text-foreground">
+                      Force in place
+                    </span>
+                    <span className="mt-0.5 block text-[10px] leading-snug text-faint-foreground">
+                      Strip root motion from the imported clip.
+                    </span>
+                  </span>
+                  <Switch
+                    id="import-force-in-place"
+                    checked={importForceInPlace}
+                    onCheckedChange={setImportForceInPlace}
+                    disabled={!modelReady}
+                    className="shrink-0"
+                  />
+                </label>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <span className="mx-1 h-5 w-px bg-stroke" />
+
           <Button
             size="icon"
             variant="ghost"
@@ -3155,6 +3392,11 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
             onClick={handleSave}
             disabled={saving || draft.frames.length === 0}
             className="gap-2"
+            title={
+              draft.frames.length === 0
+                ? "Capture a pose before saving"
+                : `Save "${ui.clipName}"`
+            }
           >
             <Save size={14} />
             Save
@@ -3171,6 +3413,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           photoUrl={photoUrl}
           videoUrl={videoUrl}
           screenLandmarks={screenLandmarks}
+          prompt={inputPrompt}
           isReady={isReady}
           error={error}
           fps={fps}
@@ -3231,6 +3474,9 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           mappingAnalysis={mappingAnalysis}
           poseQuality={poseQuality}
           poseDetected={poseDetected}
+          modelTier={modelTier}
+          detectorLoading={detectorLoading}
+          onModelTierChange={setModelTier}
           rootMotion={rootMotion}
           setRootMotion={setRootMotion}
           calibrated={calibrated}
@@ -3299,10 +3545,6 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           qualityMarkers={qualityMarkers}
           forceInPlace={importForceInPlace}
           onForceInPlaceChange={setImportForceInPlace}
-          onClipNameChange={(clipName) =>
-            dispatchUi({ type: "setClipName", clipName })
-          }
-          onSave={handleSave}
         />
       </div>
 

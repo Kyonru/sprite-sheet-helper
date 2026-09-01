@@ -1,6 +1,6 @@
 ---
 name: ssh-edit-pose-studio
-description: Guide Sprite Sheet Helper Pose Studio, camera animation capture, MediaPipe retargeting, FK/IK pose editing, quality markers, and authored clip save changes. Use when Codex works on src/components/pose-studio, src/components/camera-animation-capture, pose utilities, bone remapping, pose IK, pose tests, or maintaining this skill after pose workflow changes.
+description: Guide Sprite Sheet Helper Pose Studio, camera animation capture, MediaPipe retargeting, FK/IK pose editing, quality markers, and authored clip save changes. Use when Codex works on src/components/pose-studio, pose utilities, bone remapping, pose IK, pose tests, or maintaining this skill after pose workflow changes.
 ---
 
 # SSH Edit Pose Studio

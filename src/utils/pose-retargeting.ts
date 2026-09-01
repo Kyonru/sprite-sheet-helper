@@ -434,14 +434,25 @@ export function scorePoseLandmarks(
     };
   }
 
+  /*
+    Confidence lives on the screen landmarks.
+
+    MediaPipe fills `visibility` and `presence` on the image-space result; the
+    metric-space `worldLandmarks` usually carry neither, and `visibilityOf`
+    treats a missing field as fully visible. Scoring confidence off the world
+    set therefore reported every landmark as perfect no matter how much of the
+    body was occluded — the metric existed but never moved. Screen landmarks
+    are what the detector actually annotates, so they are what it reads.
+  */
+  const confidenceLandmarks = screenLandmarks ?? worldLandmarks;
   const visibilityScores = REQUIRED_LANDMARKS.map(([, index]) =>
-    visibilityOf(worldLandmarks, index),
+    visibilityOf(confidenceLandmarks, index),
   );
   const visibility =
     visibilityScores.reduce((sum, score) => sum + score, 0) /
     visibilityScores.length;
   const missingRequired = REQUIRED_LANDMARKS.filter(
-    ([, index]) => visibilityOf(worldLandmarks, index) < 0.5,
+    ([, index]) => visibilityOf(confidenceLandmarks, index) < 0.5,
   ).map(([name]) => name);
   const coverage = 1 - missingRequired.length / REQUIRED_LANDMARKS.length;
   const inFrame = scoreBodyInFrame(screenLandmarks);
