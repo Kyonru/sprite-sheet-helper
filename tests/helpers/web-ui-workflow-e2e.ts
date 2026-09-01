@@ -60,10 +60,10 @@ export async function captureUiDownload(
 }
 
 export async function waitForWorkflowUiDone(page: Page): Promise<void> {
-  await page.waitForFunction(
-    () => document.body.textContent?.includes("All sequences captured successfully."),
-    { timeout: 300000 },
-  );
+  // Waits on the status element's state, not on its wording.
+  await page.waitForSelector('[data-testid="workflow-run-status"][data-status="done"]', {
+    timeout: 300000,
+  });
 }
 
 export async function runWebUiWorkflowExport({

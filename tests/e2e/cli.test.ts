@@ -91,6 +91,40 @@ describe("CLI exports", () => {
     expect(json.meta.normalImage).toBe("spritesheet_normal.png");
   });
 
+  it("writes the requested frame rate into a turntable export", async () => {
+    const output = await createTempDir("ssh-cli-fps-");
+    tempDirs.push(output);
+
+    const result = await runCli([
+      fixture,
+      "--format",
+      "spritesheet",
+      "--frames",
+      "4",
+      "--fps",
+      "10",
+      "--width",
+      "32",
+      "--height",
+      "32",
+      "--output",
+      output,
+      "--port",
+      "4188",
+    ]);
+
+    expect(result.code).toBe(0);
+
+    const json = JSON.parse(
+      await readFile(join(output, "spritesheet.json"), "utf8"),
+    ) as { animations: { fps: number; quads: unknown[] }[] };
+
+    // The row stores a frame rate: this used to receive the interval instead,
+    // so `--fps 10` shipped `fps: 100` to every engine exporter.
+    expect(json.animations[0].fps).toBe(10);
+    expect(json.animations[0].quads).toHaveLength(4);
+  });
+
   it("waits for a workflow before exporting", async () => {
     const output = await createTempDir("ssh-cli-workflow-");
     tempDirs.push(output);

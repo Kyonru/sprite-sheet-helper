@@ -52,7 +52,7 @@ sprite-sheet-helper character.glb --format godot --output ./assets/sprites
 | Option           | Type   | Default     | Description                               |
 | ---------------- | ------ | ----------- | ----------------------------------------- |
 | --format         | string | spritesheet | Export format (see formats below)         |
-| --frames         | number | 8           | Number of frames to capture               |
+| --frames         | number \| `auto` | 8   | Frames to capture, or `auto` for each clip's own length |
 | --fps            | number | 10          | Frames per second for animated exports    |
 | --width          | number | 64          | Frame width in pixels                     |
 | --height         | number | 64          | Frame height in pixels                    |
@@ -131,6 +131,36 @@ sprite-sheet-helper character.glb \
   --atlasBleed 1 \
   --maxAtlasSize 1024
 ```
+
+### Choosing clips and sheets
+
+`--clip walk --clip run` (repeatable) or `--clips walk,run` captures only those
+clips. This is the counterpart to `--skipStepLabel`, which works in generated
+step labels and needs one entry per direction — `walk_N`, `walk_NE`, and so on.
+
+`--sheet hero` puts every captured sequence on one sheet; `--sheet chest=props`
+puts one clip's sequences on their own. Both forms can be repeated, and each
+sheet is packed and written as its own spritesheet.
+
+### Frames per clip
+
+`--frames auto` takes each sequence's frame count from its own clip:
+`round(duration × fps)`, and never fewer than one. It is the only count that
+neither repeats poses already in the sheet nor truncates the motion — a 0.067s
+pose clip becomes one frame instead of eight identical ones.
+
+A config job can also set this per clip:
+
+```json
+{
+  "captureSettings": {
+    "walk": { "matchClipLength": true },
+    "idle": { "frames": 6, "fps": 5 }
+  }
+}
+```
+
+Global `--frames` and `--fps` still apply to every clip that has no entry.
 
 `--atlasLayout rows` preserves the compatible row layout unless padding, extrusion, scale, or max-size choices require a different page plan. `--atlasLayout packed` uses stable deterministic packing without frame rotation. The `--atlasBleed` flag is the CLI compatibility name for edge extrusion.
 

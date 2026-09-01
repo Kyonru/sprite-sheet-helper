@@ -148,6 +148,23 @@ export function getNormalCoverage(rows: ExportRow[]): NormalCoverage {
   };
 }
 
+/**
+ * How many frames in a sequence repeat the frame before them.
+ *
+ * Identical neighbours mean the capture spent atlas space on a pose it already
+ * had — a window longer than the clip, or a clip that holds still. Either way
+ * it is worth saying before the frames are packed.
+ */
+export function getRepeatedFrameCount(row: ExportRow): number {
+  let repeated = 0;
+
+  for (let index = 1; index < row.images.length; index += 1) {
+    if (row.images[index] === row.images[index - 1]) repeated += 1;
+  }
+
+  return repeated;
+}
+
 export function getNormalCoverageForRow(row: ExportRow): NormalCoverage {
   return getNormalCoverage([row]);
 }

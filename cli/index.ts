@@ -246,7 +246,12 @@ async function runJobInner(
         captureNormalMaps: job.captureNormalMaps,
         forceAnimationsInPlace: job.forceAnimationsInPlace,
         skipStepLabels: job.skipStepLabels,
+        includeAnimations: job.includeAnimations,
+        sheets: job.sheets,
+        captureSettings: job.captureSettings,
+        isolateModels: job.isolateModels,
         fit: job.fit,
+        matchClipLength: job.matchClipLength,
         workflowTimeout: job.workflowTimeout,
         silent: command.quiet || command.json,
       });

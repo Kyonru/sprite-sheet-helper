@@ -24,9 +24,26 @@ export type WorkflowRunOptions = {
   forceAnimationsInPlace?: boolean;
   forceAnimationsInPlaceMode?: InPlaceAxisModeInput;
   skipStepLabels?: string[];
+  /** Capture only these clips, by name. Everything else is skipped. */
+  includeAnimations?: string[];
+  /**
+   * Hide every other model while a step captures.
+   *
+   * A workflow expands over all loaded models, but a step only animates its
+   * own — so in a scene with two characters, every sequence of one also
+   * contains the other, standing there. Off by default, because a scene
+   * assembled from several models (a character and the weapon it holds) is
+   * a composition, and hiding half of it would be wrong.
+   */
+  isolateModels?: boolean;
   includeHiddenAnimations?: boolean;
   captureNormalMaps?: boolean;
   captureSettingsByAnimation?: WorkflowCaptureSettingsByAnimation;
+  /**
+   * Take every animation's frame count from its own clip length, unless that
+   * animation sets its own. The CLI's `--frames auto` maps to this.
+   */
+  matchClipLength?: boolean;
   /** Auto-framing. Defaults to manual, so existing runs keep their framing. */
   fit?: FitOptionsInput;
 };

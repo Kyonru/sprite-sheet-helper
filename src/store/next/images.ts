@@ -1,7 +1,11 @@
 import { create } from "zustand";
 import { inspector } from "@kyonru/zustand-inspector";
 import type { SnapshotEnabledStore } from "@/types/ecs";
-import type { ExportRow, ExportRowMetadata } from "@/types/file";
+import type {
+  ExportRow,
+  ExportRowMetadata,
+  ExportRowWorkflowMetadata,
+} from "@/types/file";
 
 export interface ImagesState {
   intervals: number;
@@ -66,6 +70,21 @@ const initialState: ImagesState = {
   images: [],
 };
 
+/** Whether two rows describe the same workflow step. */
+function isSameWorkflowSequence(
+  left: ExportRowWorkflowMetadata | undefined,
+  right: ExportRowWorkflowMetadata,
+): boolean {
+  if (!left) return false;
+
+  return (
+    left.workflowId === right.workflowId &&
+    (left.modelUuid ?? "") === (right.modelUuid ?? "") &&
+    left.animationName === right.animationName &&
+    left.directionLabel === right.directionLabel
+  );
+}
+
 function removeSparseIndex<T>(items: T[] | undefined, index: number) {
   if (!items) return undefined;
   return items.slice(0, index).concat(items.slice(index + 1));
@@ -94,21 +113,47 @@ export const useImagesStore = create<ImagesStore>()(
         fps,
         metadata,
       ) =>
-        set((state) => ({
-          images: [
-            ...state.images,
-            {
-              uuid,
-              label,
-              images,
-              normalImages,
-              frameWidth,
-              frameHeight,
-              fps,
-              ...(metadata ? { metadata } : {}),
-            },
-          ],
-        })),
+        set((state) => {
+          const row: ExportRow = {
+            uuid,
+            label,
+            images,
+            normalImages,
+            frameWidth,
+            frameHeight,
+            fps,
+            ...(metadata ? { metadata } : {}),
+          };
+
+          /*
+            A workflow sequence replaces the one it re-captures.
+
+            Appending meant that adjusting a camera angle and running again left
+            two rows called `walk_N`, both packed into the atlas, so the sheet
+            quietly shipped every animation twice. A row is the same sequence
+            when it came from the same workflow, model, animation and direction
+            — the identity the workflow already records on it. Hand-captured
+            rows carry no workflow metadata and are never replaced.
+          */
+          const workflow = metadata?.workflow;
+          const index = workflow
+            ? state.images.findIndex((existing) =>
+                isSameWorkflowSequence(existing.metadata?.workflow, workflow),
+              )
+            : -1;
+
+          if (index === -1) return { images: [...state.images, row] };
+
+          return {
+            images: state.images.map((existing, i) =>
+              i === index
+                ? // The sheet is the user's grouping, not the workflow's, so a
+                  // re-capture lands back in the sheet they put it in.
+                  { ...row, ...(existing.sheet ? { sheet: existing.sheet } : {}) }
+                : existing,
+            ),
+          };
+        }),
 
       removeImagesRow: (index) =>
         set((state) => ({

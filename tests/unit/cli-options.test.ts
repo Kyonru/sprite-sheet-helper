@@ -203,6 +203,94 @@ describe("CLI option parsing", () => {
     });
   });
 
+  it("takes each sequence's frame count from its clip with --frames auto", async () => {
+    const auto = await parseCliCommand(["character.glb", "--frames", "auto"], {
+      validateInput: false,
+    });
+    const counted = await parseCliCommand(["character.glb", "--frames", "12"], {
+      validateInput: false,
+    });
+
+    expect(auto).toMatchObject({
+      jobs: [{ matchClipLength: true }],
+    });
+    expect(counted).toMatchObject({
+      jobs: [{ matchClipLength: false, frames: 12 }],
+    });
+  });
+
+  it("collects clip names from repeated and comma-separated flags", async () => {
+    const command = await parseCliCommand(
+      [
+        "character.glb",
+        "--clip",
+        "walk",
+        "--clip",
+        "run",
+        "--clips",
+        "idle, jump",
+      ],
+      { validateInput: false },
+    );
+
+    expect(command).toMatchObject({
+      jobs: [{ includeAnimations: ["walk", "run", "idle", "jump"] }],
+    });
+  });
+
+  it("reads sheet assignments for everything or for one clip", async () => {
+    const command = await parseCliCommand(
+      ["character.glb", "--sheet", "hero", "--sheet", "chest=props"],
+      { validateInput: false },
+    );
+
+    expect(command).toMatchObject({
+      jobs: [{ sheets: { all: "hero", byAnimation: { chest: "props" } } }],
+    });
+
+    await expect(
+      parseCliCommand(["character.glb", "--sheet", "chest="], {
+        validateInput: false,
+      }),
+    ).rejects.toBeInstanceOf(CliUsageError);
+  });
+
+  it("reads per-clip capture settings from a config job", async () => {
+    const dir = await createTempDir("ssh-cli-capture-settings-");
+    tempDirs.push(dir);
+    const configPath = join(dir, "jobs.json");
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        jobs: [
+          {
+            id: "per-clip",
+            input: "character.glb",
+            captureSettings: {
+              walk: { fps: 25, frames: 12 },
+              idle: { matchClipLength: true },
+            },
+          },
+        ],
+      }),
+    );
+
+    const command = await parseCliCommand(["--config", configPath], {
+      validateInput: false,
+    });
+
+    expect(command).toMatchObject({
+      jobs: [
+        {
+          captureSettings: {
+            walk: { frameCount: 12, frameIntervalMs: 40 },
+            idle: { matchClipLength: true },
+          },
+        },
+      ],
+    });
+  });
+
   it("applies config precedence and job filtering", async () => {
     const tempDir = await createTempDir("ssh-cli-config-");
     tempDirs.push(tempDir);

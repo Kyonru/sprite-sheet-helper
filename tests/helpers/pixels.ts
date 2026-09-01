@@ -18,6 +18,40 @@ async function decodePng(path: string): Promise<DecodedPng> {
   return PNG.sync.read(await readFile(path));
 }
 
+export type FrameRect = { x: number; y: number; w: number; h: number };
+
+/**
+ * The pixels of each frame rect, as one buffer per frame.
+ *
+ * Frames that hold the same pose produce byte-identical buffers, which is how a
+ * capture that ran past the end of its clip — or sampled the same pose twice —
+ * shows up in an exported atlas.
+ */
+export async function readAtlasFrames(
+  path: string,
+  rects: FrameRect[],
+): Promise<Buffer[]> {
+  const png = await decodePng(path);
+
+  return rects.map((rect) => {
+    const frame = Buffer.alloc(rect.w * rect.h * 4);
+    for (let row = 0; row < rect.h; row += 1) {
+      const from = ((rect.y + row) * png.width + rect.x) * 4;
+      png.data.copy(frame, row * rect.w * 4, from, from + rect.w * 4);
+    }
+    return frame;
+  });
+}
+
+/** Indices of frames identical to the frame before them. */
+export function findRepeatedFrames(frames: Buffer[]): number[] {
+  return frames
+    .map((frame, index) =>
+      index > 0 && frame.equals(frames[index - 1]) ? index : -1,
+    )
+    .filter((index) => index >= 0);
+}
+
 export async function expectExactPngPixels(
   expectedPath: string,
   actualPath: string,

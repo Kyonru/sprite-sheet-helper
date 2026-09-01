@@ -9,6 +9,8 @@ import {
 } from "./data.js";
 import type {
   CliAtlasOptions,
+  CliCaptureSettings,
+  CliCaptureSettingsByAnimation,
   CliFitMarginUnit,
   CliFitMode,
   CliFitOptions,
@@ -69,6 +71,11 @@ type RawJobOptions = {
   directionOverrides?: unknown;
   skipStepLabel?: unknown;
   skipStepLabels?: unknown;
+  clip?: unknown;
+  clips?: unknown;
+  sheet?: unknown;
+  captureSettings?: unknown;
+  isolateModels?: unknown;
   forceAnimationsInPlace?: unknown;
   captureNormalMaps?: unknown;
   normalMap?: unknown;
@@ -105,6 +112,8 @@ export type CliJob = {
   input: string;
   format: ExportFormat;
   frames: number;
+  /** Take each sequence's frame count from its clip instead of `frames`. */
+  matchClipLength: boolean;
   fps: number;
   width: number;
   height: number;
@@ -117,6 +126,14 @@ export type CliJob = {
   target?: CliWorkflowCameraTarget;
   directionOverrides?: CliWorkflowDirectionOverrides;
   skipStepLabels?: string[];
+  /** Capture only these clips, by name. */
+  includeAnimations?: string[];
+  /** Sheet for every sequence, or a clip-name → sheet map. */
+  sheets?: { all?: string; byAnimation?: Record<string, string> };
+  /** Per-clip frame count and rate, from a config job. */
+  captureSettings?: CliCaptureSettingsByAnimation;
+  /** Hide the other models while each sequence records. */
+  isolateModels?: boolean;
   forceAnimationsInPlace?: boolean;
   captureNormalMaps?: boolean;
   fit: CliFitOptions;
@@ -204,8 +221,12 @@ export async function parseCliCommand(
       directionOverride: { type: "string", multiple: true },
       skipStepLabel: { type: "string", multiple: true },
       skipStepLabels: { type: "string" },
+      clip: { type: "string", multiple: true },
+      clips: { type: "string" },
+      sheet: { type: "string", multiple: true },
       forceAnimationsInPlace: { type: "string" },
       captureNormalMaps: { type: "string" },
+      isolateModels: { type: "string" },
       normalMap: { type: "string" },
       atlasLayout: { type: "string" },
       atlasPadding: { type: "string" },
@@ -345,7 +366,7 @@ export function createHelpText(): string {
     "",
     "Core options:",
     "  --format <id>          Export format. Default: spritesheet",
-    "  --frames <n>           Frames per sequence. Default: 8",
+    "  --frames <n|auto>      Frames per sequence, or `auto` to match each clip. Default: 8",
     "  --fps <n>              Capture frame rate. Default: 10",
     "  --width <px>           Frame width. Default: 64",
     "  --height <px>          Frame height. Default: 64",
@@ -359,10 +380,14 @@ export function createHelpText(): string {
     "  --directionRotationOffset <deg> Rotate all workflow directions.",
     "  --target <x,y,z>               Camera target point.",
     "  --directionOverride <spec>     e.g. N:phi=45,theta=0,distance=3,target=0,0.8,0",
+    "  --clip <name>                  Capture only this clip. Can repeat this flag.",
+    "  --clips <names>                Comma-separated clip names to capture.",
+    "  --sheet <name|clip=name>       Sheet for every sequence, or for one clip. Can repeat.",
     "  --skipStepLabel <label>        Skip a single workflow step label. Can repeat this flag.",
     "  --skipStepLabels <labels>      Comma-separated workflow step labels to skip.",
     "  --captureNormalMaps <bool>     Capture workflow outputs with normal maps.",
     "  --forceAnimationsInPlace <bool> Force workflow clips to remain in place.",
+    "  --isolateModels <bool>         Hide other models while each sequence records.",
     "",
     "Atlas options:",
     "  --atlasLayout <rows|packed>  Default: rows",
@@ -419,8 +444,12 @@ function rawValuesToJobOptions(values: Record<string, unknown>): RawJobOptions {
     "directionOverride",
     "skipStepLabel",
     "skipStepLabels",
+    "clip",
+    "clips",
+    "sheet",
     "forceAnimationsInPlace",
     "captureNormalMaps",
+    "isolateModels",
     "normalMap",
     "atlasLayout",
     "atlasPadding",
@@ -526,7 +555,13 @@ function normalizeJob(raw: RawJobOptions, cwd: string, index: number): CliJob {
     id: getOptionalString(raw.id, "id") ?? `job-${index + 1}`,
     input: resolvedInput,
     format,
-    frames: positiveInteger(raw.frames ?? DEFAULTS.frames, "frames"),
+    // `--frames auto` takes each sequence's length from its own clip, which is
+    // the only count that neither repeats poses nor truncates the motion.
+    frames:
+      normalizeFramesValue(raw.frames) === "auto"
+        ? DEFAULTS.frames
+        : positiveInteger(raw.frames ?? DEFAULTS.frames, "frames"),
+    matchClipLength: normalizeFramesValue(raw.frames) === "auto",
     fps: positiveNumber(raw.fps ?? DEFAULTS.fps, "fps"),
     width: positiveInteger(raw.width ?? DEFAULTS.width, "width"),
     height: positiveInteger(raw.height ?? DEFAULTS.height, "height"),
@@ -555,6 +590,13 @@ function normalizeJob(raw: RawJobOptions, cwd: string, index: number): CliJob {
     fit: parseFitOptions(raw),
     directionOverrides: parseDirectionOverrides(raw),
     skipStepLabels: parseSkipStepLabels(raw),
+    includeAnimations: parseClipNames(raw),
+    sheets: parseSheetAssignments(raw),
+    captureSettings: parseCaptureSettings(raw),
+    isolateModels:
+      raw.isolateModels === undefined
+        ? undefined
+        : parseBoolean(raw.isolateModels, "isolateModels"),
     forceAnimationsInPlace: parseForceAnimationsInPlace(raw),
     captureNormalMaps: parseCaptureNormalMaps(raw),
     normalMap: parseBoolean(raw.normalMap ?? DEFAULTS.normalMap, "normalMap"),
@@ -697,6 +739,142 @@ function parseDirectionOverrides(
   return Object.keys(overrides).length > 0 ? overrides : undefined;
 }
 
+function collectStrings(value: unknown, name: string): string[] {
+  const values = Array.isArray(value)
+    ? value
+    : value === undefined
+      ? []
+      : [value];
+
+  return values.flatMap((entry) => {
+    if (typeof entry !== "string") {
+      throw new CliUsageError(`${name} must be a string.`);
+    }
+    return entry
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+  });
+}
+
+/**
+ * Clips to capture, by their own names.
+ *
+ * `--skipStepLabel` works the other way round and needs the generated label of
+ * every step you do *not* want (`walk_NE`, `walk_SE`, …), which means knowing
+ * the preset's directions before you can leave a clip out.
+ */
+function parseClipNames(raw: RawJobOptions): string[] | undefined {
+  const names = [
+    ...collectStrings(raw.clip, "clip"),
+    ...collectStrings(raw.clips, "clips"),
+  ];
+
+  return names.length > 0 ? [...new Set(names)] : undefined;
+}
+
+/**
+ * `--sheet hero` puts everything on one sheet; `--sheet walk=hero` puts one
+ * clip's sequences there. Both forms can be repeated.
+ */
+function parseSheetAssignments(
+  raw: RawJobOptions,
+): { all?: string; byAnimation?: Record<string, string> } | undefined {
+  const entries = collectStrings(raw.sheet, "sheet");
+  if (entries.length === 0) return undefined;
+
+  let all: string | undefined;
+  const byAnimation: Record<string, string> = {};
+
+  for (const entry of entries) {
+    const separator = entry.indexOf("=");
+    if (separator === -1) {
+      all = entry;
+      continue;
+    }
+
+    const animation = entry.slice(0, separator).trim();
+    const sheet = entry.slice(separator + 1).trim();
+    if (!animation || !sheet) {
+      throw new CliUsageError(
+        `sheet assignments look like "clip=sheet" (got "${entry}").`,
+      );
+    }
+    byAnimation[animation] = sheet;
+  }
+
+  return {
+    ...(all === undefined ? {} : { all }),
+    ...(Object.keys(byAnimation).length > 0 ? { byAnimation } : {}),
+  };
+}
+
+/**
+ * Per-clip capture settings from a config job:
+ *
+ *   "captureSettings": { "walk": { "fps": 24 }, "idle": { "frames": 6 } }
+ *
+ * The CLI's global `--frames` and `--fps` apply to every clip in a run, which
+ * is rarely what a mixed set of animations wants.
+ */
+function parseCaptureSettings(
+  raw: RawJobOptions,
+): CliCaptureSettingsByAnimation | undefined {
+  if (raw.captureSettings === undefined) return undefined;
+  if (
+    typeof raw.captureSettings !== "object" ||
+    raw.captureSettings === null ||
+    Array.isArray(raw.captureSettings)
+  ) {
+    throw new CliUsageError("captureSettings must be an object of clip names.");
+  }
+
+  const parsed: CliCaptureSettingsByAnimation = {};
+
+  for (const [animation, value] of Object.entries(
+    raw.captureSettings as Record<string, unknown>,
+  )) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw new CliUsageError(
+        `captureSettings.${animation} must be an object.`,
+      );
+    }
+
+    const entry = value as {
+      frames?: unknown;
+      fps?: unknown;
+      matchClipLength?: unknown;
+    };
+    const settings: CliCaptureSettings = {};
+
+    if (entry.frames !== undefined) {
+      settings.frameCount = positiveInteger(
+        entry.frames,
+        `captureSettings.${animation}.frames`,
+      );
+    }
+    if (entry.fps !== undefined) {
+      settings.frameIntervalMs = Math.max(
+        1,
+        Math.round(
+          1000 /
+            positiveNumber(entry.fps, `captureSettings.${animation}.fps`),
+        ),
+      );
+    }
+    if (entry.matchClipLength !== undefined) {
+      settings.matchClipLength = parseBoolean(
+        entry.matchClipLength,
+        `captureSettings.${animation}.matchClipLength`,
+      );
+    }
+
+    parsed[animation] = settings;
+  }
+
+  return parsed;
+}
+
 function parseSkipStepLabels(raw: RawJobOptions): string[] | undefined {
   const all = [
     ...(Array.isArray(raw.skipStepLabel)
@@ -826,6 +1004,13 @@ function parseBoolean(value: unknown, name: string): boolean {
   if (["true", "1", "yes", "y", "on"].includes(normalized)) return true;
   if (["false", "0", "no", "n", "off"].includes(normalized)) return false;
   throw new CliUsageError(`${name} must be true or false.`);
+}
+
+/** `--frames auto` versus `--frames <n>`. */
+function normalizeFramesValue(value: unknown): "auto" | "count" {
+  return typeof value === "string" && value.trim().toLowerCase() === "auto"
+    ? "auto"
+    : "count";
 }
 
 function positiveInteger(value: unknown, name: string): number {

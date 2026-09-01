@@ -55,6 +55,11 @@ import {
   type WorkflowFitStep,
 } from "@/utils/workflow-fit";
 import { getSpritePostprocessPadding } from "@/utils/sprite-postprocess";
+import {
+  captureExceedsClip,
+  getCaptureCycleSeconds,
+  getClipFrameCount,
+} from "@/utils/capture-timing";
 
 export type WorkflowStatus =
   | "idle"
@@ -82,7 +87,17 @@ export interface WorkflowState {
   fitWarnings?: string[];
 }
 
-const CAPTURE_TIMEOUT_BUFFER_MS = 5000;
+/**
+ * How long one captured frame may take before the run is considered stuck.
+ *
+ * Capture seeks animation time rather than following the clock, so a sequence
+ * takes as long as its frames take to render — the requested interval says
+ * nothing about it. The old budget was `interval × frames`, which failed runs
+ * whose frames simply rendered slower than their playback rate: at 512px with
+ * normal maps a frame costs 25-65ms, against intervals that are often 16ms.
+ */
+const CAPTURE_FRAME_BUDGET_MS = 500;
+const CAPTURE_TIMEOUT_BUFFER_MS = 10000;
 const ANIMATION_READY_TIMEOUT_MS = 5000;
 
 const initialState: WorkflowState = {
@@ -195,6 +210,47 @@ function buildStepsFromStore(
   });
 }
 
+/**
+ * How long one cycle of the clip a step captures lasts, trims and speed
+ * included. Zero when the step has no clip to play.
+ */
+/**
+ * Show only the model a step is capturing, and report how to put the scene
+ * back. A step with no model of its own leaves every model visible.
+ */
+function isolateStepModel(step: WorkflowStep): () => void {
+  const { entities, setVisibility } = useEntitiesStore.getState();
+  const modelUuids = Object.keys(useModelsStore.getState().models);
+  const previous = new Map<string, boolean>();
+
+  for (const uuid of modelUuids) {
+    if (uuid === step.modelUuid) continue;
+    previous.set(uuid, entities[uuid]?.visible !== false);
+    setVisibility(uuid, false);
+  }
+
+  return () => {
+    const restore = useEntitiesStore.getState().setVisibility;
+    for (const [uuid, visible] of previous) restore(uuid, visible);
+  };
+}
+
+function getStepCycleSeconds(step: WorkflowStep): number {
+  if (!step.modelUuid || step.animationName === "none") return 0;
+
+  const { clips, durations, speeds } = useModelsStore.getState();
+  const clip = clips[step.modelUuid]?.find(
+    (entry) => entry.clip.name === step.animationName,
+  )?.clip;
+  if (!clip) return 0;
+
+  return getCaptureCycleSeconds({
+    duration: clip.duration,
+    trim: durations[step.modelUuid]?.[step.animationName],
+    speed: speeds[step.modelUuid]?.[step.animationName],
+  });
+}
+
 function getDirectionForStep(
   workflow: WorkflowDefinition,
   step: WorkflowStep,
@@ -209,7 +265,16 @@ function shouldSkipStep(
   step: WorkflowStep,
   options?: WorkflowRunOptions,
 ): boolean {
-  return options?.skipStepLabels?.includes(step.rowLabel) ?? false;
+  if (options?.skipStepLabels?.includes(step.rowLabel)) return true;
+
+  // An allowlist of clip names, which is how someone thinks about a capture —
+  // skip lists work in generated step labels, one per direction.
+  const include = options?.includeAnimations;
+  if (include && include.length > 0 && step.animationName !== "none") {
+    return !include.includes(step.animationName);
+  }
+
+  return false;
 }
 
 async function setStepAnimation(
@@ -484,6 +549,7 @@ export const useWorkflow = () => {
     });
 
     let fitResult: WorkflowFitResult = EMPTY_WORKFLOW_FIT;
+    const overrunWarnings = new Set<string>();
 
     try {
       if (shouldFit) {
@@ -559,11 +625,45 @@ export const useWorkflow = () => {
 
         const step = steps[index];
         const dir = getDirectionForStep(workflow, step);
-        const captureSettings = getWorkflowStepCaptureSettings(
+        const requested = getWorkflowStepCaptureSettings(
           step,
           options?.captureSettingsByAnimation,
           defaultCaptureSettings,
+          options?.matchClipLength,
         );
+
+        /*
+          A capture window longer than the clip spends atlas space on poses that
+          are already in the sheet — the bundled 0.067s pose clips used to
+          export eight identical frames. Matching takes the count from the clip
+          itself; otherwise the requested count stands and the overrun is
+          reported as a warning rather than silently packed.
+        */
+        const cycleSeconds = getStepCycleSeconds(step);
+        const fps = 1000 / requested.frameIntervalMs;
+        const matchesClip = requested.matchClipLength && cycleSeconds > 0;
+        const captureSettings = {
+          ...requested,
+          // Nothing to match when the step has no clip — a static pose has no
+          // length, so the requested count stands rather than collapsing to the
+          // single frame a zero-length "clip" would ask for.
+          frameCount: matchesClip
+            ? getClipFrameCount(cycleSeconds, fps)
+            : requested.frameCount,
+        };
+
+        if (
+          !matchesClip &&
+          captureExceedsClip({
+            frameCount: captureSettings.frameCount,
+            fps,
+            cycleSeconds,
+          })
+        ) {
+          overrunWarnings.add(
+            `${step.animationName} is ${getClipFrameCount(cycleSeconds, fps)} frames at this rate; ${captureSettings.frameCount} were captured, so poses repeat.`,
+          );
+        }
 
         setWorkflowState((prev) => ({
           ...prev,
@@ -577,6 +677,11 @@ export const useWorkflow = () => {
 
         await setStepAnimation(step, options);
         resetStepAnimation(step, options);
+
+        const restoreVisibility =
+          options?.isolateModels && step.modelUuid
+            ? isolateStepModel(step)
+            : undefined;
 
         // The solved framing is fed in as the run-level camera value, so
         // per-direction overrides still win over it.
@@ -627,7 +732,7 @@ export const useWorkflow = () => {
           label: step.rowLabel,
           workflowRunId,
           timeoutMs:
-            captureSettings.frameIntervalMs * captureSettings.frameCount +
+            captureSettings.frameCount * CAPTURE_FRAME_BUDGET_MS +
             CAPTURE_TIMEOUT_BUFFER_MS,
         });
 
@@ -649,7 +754,7 @@ export const useWorkflow = () => {
           },
         });
 
-        const result = await captureDone;
+        const result = await captureDone.finally(() => restoreVisibility?.());
 
         setWorkflowState((prev) => ({
           ...prev,
@@ -664,7 +769,16 @@ export const useWorkflow = () => {
       }
 
       const status = abortRef.current ? "cancelled" : "done";
-      setWorkflowState((prev) => ({ ...prev, status, phase: "idle" }));
+      setWorkflowState((prev) => ({
+        ...prev,
+        status,
+        phase: "idle",
+        ...(overrunWarnings.size
+          ? {
+              fitWarnings: [...(prev.fitWarnings ?? []), ...overrunWarnings],
+            }
+          : {}),
+      }));
 
       PubSub.emit(EventType.STOP_WORKFLOW, {
         workflow,

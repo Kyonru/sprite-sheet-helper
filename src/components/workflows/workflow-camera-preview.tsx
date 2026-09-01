@@ -486,7 +486,14 @@ export function WorkflowCameraPreview({
 }: WorkflowCameraPreviewProps) {
   return (
     <div
-      className="relative h-[420px] min-h-[420px] shrink-0 overflow-hidden rounded-md border bg-muted/20"
+      /*
+        No border and no background of its own. The canvas paints an opaque
+        scene, so anything behind it can only show through where the two do not
+        line up exactly — a hairline plus a checkerboard turned that seam into a
+        dashed frame, and even a plain surface left a visible edge on the two
+        sides the canvas falls short of.
+      */
+      className="relative h-full min-h-[180px] overflow-hidden rounded-lg"
       data-testid="workflow-camera-preview"
     >
       <Canvas gl={{ antialias: false, alpha: true }}>
@@ -512,13 +519,13 @@ export function WorkflowCameraPreview({
           <GizmoViewport labelColor="white" />
         </GizmoHelper>
       </Canvas>
-      <div className="pointer-events-none absolute left-3 top-3 rounded-md border bg-background/85 px-2 py-1 text-xs">
+      <div className="pointer-events-none absolute left-2 top-2 rounded-md border border-stroke bg-background/85 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
         Previewing {selectedDirection}
         {selectedAnimation?.animationName
           ? ` · ${selectedAnimation.animationName}`
           : ""}
       </div>
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border bg-background/85 px-2 py-1 text-[11px] text-muted-foreground">
+      <div className="pointer-events-none absolute bottom-2 left-2 rounded-md border border-stroke bg-background/85 px-1.5 py-0.5 text-[10px] text-faint-foreground">
         Orbit to adjust camera · drag target to reframe
       </div>
     </div>

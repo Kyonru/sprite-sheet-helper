@@ -7,7 +7,10 @@ import {
   normalizeAtlasOptions,
   type AtlasPlan,
 } from "./atlas";
-import { getNormalCoverage } from "./exports/helpers";
+import {
+  getNormalCoverage,
+  getRepeatedFrameCount,
+} from "./exports/helpers";
 import { groupRowsBySheet } from "./exports/sheets";
 
 const NORMAL_MAP_EXPORT_FORMATS = new Set<ExportFormat>([
@@ -179,6 +182,19 @@ export function validateExportRequest({
         stage: "pack",
       });
     }
+  }
+
+  for (const row of rows) {
+    const repeated = getRepeatedFrameCount(row);
+    if (repeated === 0) continue;
+
+    messages.push({
+      severity: "warning",
+      message: `Sequence "${row.label}" repeats ${repeated} frame${repeated === 1 ? "" : "s"}.`,
+      detail:
+        "Frames identical to the one before them cost atlas space and add nothing to the animation. This usually means the capture ran longer than the clip — match the frame count to the clip length, or shorten the capture.",
+      stage: "capture",
+    });
   }
 
   if (options.padding > 0 && options.extrude === 0) {

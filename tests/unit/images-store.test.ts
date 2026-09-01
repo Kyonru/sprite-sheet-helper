@@ -137,3 +137,74 @@ describe("images store normal frame alignment", () => {
     ]);
   });
 });
+
+describe("workflow sequences", () => {
+  const workflow = (animationName: string, directionLabel: string) => ({
+    workflow: {
+      workflowId: "topdown-4dir",
+      workflowLabel: "Top Down 4-directional",
+      modelUuid: "model-a",
+      animationName,
+      directionLabel,
+    },
+  });
+
+  const addRow = (
+    label: string,
+    frames: string[],
+    metadata?: ReturnType<typeof workflow>,
+  ) =>
+    useImagesStore
+      .getState()
+      .addImagesRow(
+        `${label}-${frames.length}`,
+        label,
+        frames,
+        undefined,
+        32,
+        32,
+        10,
+        metadata,
+      );
+
+  beforeEach(() => {
+    useImagesStore.getState().setImages([]);
+  });
+
+  it("replaces the sequence a re-run re-captures", () => {
+    addRow("walk_N", ["a"], workflow("walk", "N"));
+    addRow("walk_N", ["b", "c"], workflow("walk", "N"));
+
+    const rows = useImagesStore.getState().images;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].images).toEqual(["b", "c"]);
+  });
+
+  it("keeps sequences from other steps and other workflows", () => {
+    addRow("walk_N", ["a"], workflow("walk", "N"));
+    addRow("walk_E", ["b"], workflow("walk", "E"));
+    addRow("idle_N", ["c"], workflow("idle", "N"));
+
+    expect(useImagesStore.getState().images).toHaveLength(3);
+  });
+
+  it("keeps the sheet the sequence was assigned to", () => {
+    addRow("walk_N", ["a"], workflow("walk", "N"));
+    const uuid = useImagesStore.getState().images[0].uuid;
+    useImagesStore.getState().updateSheet(uuid, "hero");
+
+    addRow("walk_N", ["b"], workflow("walk", "N"));
+
+    const rows = useImagesStore.getState().images;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].sheet).toBe("hero");
+    expect(rows[0].images).toEqual(["b"]);
+  });
+
+  it("never replaces a hand-captured sequence", () => {
+    addRow("Animation", ["a"]);
+    addRow("Animation", ["b"]);
+
+    expect(useImagesStore.getState().images).toHaveLength(2);
+  });
+});

@@ -12,7 +12,16 @@ export type WorkflowCaptureSettings = {
   frameCount: number;
 };
 
-export type WorkflowCaptureSettingsInput = Partial<WorkflowCaptureSettings>;
+export type WorkflowCaptureSettingsInput = Partial<WorkflowCaptureSettings> & {
+  /**
+   * Take the frame count from the clip instead of the number above.
+   *
+   * A capture window longer than the clip repeats poses that are already in the
+   * sheet; a shorter one drops the end of the motion. Matching means neither,
+   * and it re-derives itself when the rate changes.
+   */
+  matchClipLength?: boolean;
+};
 
 export type WorkflowCaptureSettingsByAnimation = Record<
   string,
@@ -145,6 +154,10 @@ export function getWorkflowAnimationGroupKey(
   return step.animationName;
 }
 
+export type ResolvedWorkflowCaptureSettings = WorkflowCaptureSettings & {
+  matchClipLength: boolean;
+};
+
 export function normalizeWorkflowCaptureSettings(
   settings: WorkflowCaptureSettingsInput | undefined,
   defaults: WorkflowCaptureSettings,
@@ -166,11 +179,15 @@ export function getWorkflowStepCaptureSettings(
   step: WorkflowStep,
   settingsByAnimation: WorkflowCaptureSettingsByAnimation | undefined,
   defaults: WorkflowCaptureSettings,
-): WorkflowCaptureSettings {
-  return normalizeWorkflowCaptureSettings(
-    settingsByAnimation?.[getWorkflowAnimationGroupKey(step)],
-    defaults,
-  );
+  /** Run-level default, used when the animation has no setting of its own. */
+  matchClipLengthByDefault = false,
+): ResolvedWorkflowCaptureSettings {
+  const settings = settingsByAnimation?.[getWorkflowAnimationGroupKey(step)];
+
+  return {
+    ...normalizeWorkflowCaptureSettings(settings, defaults),
+    matchClipLength: settings?.matchClipLength ?? matchClipLengthByDefault,
+  };
 }
 
 export function groupWorkflowStepsByAnimation(

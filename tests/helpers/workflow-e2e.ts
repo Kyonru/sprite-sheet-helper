@@ -19,6 +19,15 @@ export const WORKFLOW_E2E_CAPTURE_OPTIONS = {
 };
 
 export const WORKFLOW_FIXTURE = resolve("example.fbx");
+
+/**
+ * A model with real animation clips.
+ *
+ * The golden fixture has none, so every workflow it drives captures a static
+ * pose — which cannot catch anything about how animation is sampled over time.
+ * Tests that care about capture timing use this one instead.
+ */
+export const WORKFLOW_ANIMATION_FIXTURE = resolve("example_animation.glb");
 export const WORKFLOW_GOLDEN_ROOT = resolve("tests/suitcase/workflows");
 
 export type WorkflowOutput = {
@@ -64,11 +73,18 @@ export async function runWorkflowExport({
   port,
   workflow,
   output,
+  fixture = WORKFLOW_FIXTURE,
+  captureOptions,
+  skipStepLabels,
 }: {
   browser: Browser;
   port: number;
   workflow: string;
   output: string;
+  /** Defaults to the clip-less golden fixture. */
+  fixture?: string;
+  captureOptions?: Partial<typeof WORKFLOW_E2E_CAPTURE_OPTIONS>;
+  skipStepLabels?: string[];
 }): Promise<WorkflowOutput> {
   const page = await openPage(browser, port);
 
@@ -76,12 +92,14 @@ export async function runWorkflowExport({
   await mkdir(output, { recursive: true });
 
   try {
-    const modelUuid = await injectModel(page, WORKFLOW_FIXTURE);
+    const modelUuid = await injectModel(page, fixture);
 
     await captureWorkflow(page, {
       modelUuid,
       workflow,
       ...WORKFLOW_E2E_CAPTURE_OPTIONS,
+      ...captureOptions,
+      ...(skipStepLabels ? { skipStepLabels } : {}),
     });
 
     const { href } = await triggerExport(page, "spritesheet", 120000);

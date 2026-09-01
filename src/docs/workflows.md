@@ -23,7 +23,11 @@ Workflows automate multi-angle sprite sheet generation. Instead of manually rota
 
 The app will automatically rotate the model to each required angle, play through all animation clips, capture frames, and combine everything into the output format you chose.
 
-Before each sequence, the workflow waits for the animation state to apply, moves the camera, lets the render view settle, then starts frame capture. You can cancel a running workflow; the active sequence capture is stopped before the workflow exits.
+Before each sequence, the workflow waits for the animation state to apply and moves the camera, then waits for the camera's transform to stop changing before it records anything — a fact about the scene rather than a fixed number of frames, so a loaded machine cannot capture the previous step's angle. Each frame is taken by seeking animation time to `frame × interval` and rendering — not by sampling a playing animation on a timer — so the frames are exactly as far apart as the export says they are, and two runs of the same workflow produce the same pixels.
+
+Re-running a workflow replaces the sequences it captured before rather than adding a second copy of each. Sequences captured by hand are left alone.
+
+You can cancel a running workflow; the active sequence capture is stopped before the workflow exits.
 
 ## Workflow Camera Settings
 
@@ -43,6 +47,20 @@ The workflow animation list controls which clips generate rows. Animations that 
 
 Use this list to hide noisy test clips, duplicate imports, or animations that should not be part of a production atlas. Hidden or disabled clips remain in the model; they are just excluded from workflow generation.
 
+## Frame Count
+
+**Match clip length** takes each animation's frame count from its own clip — `round(duration × fps)` — instead of using one count for every clip. It is on by default: capturing longer than the clip repeats poses that are already in the sheet, and capturing shorter drops the end of the motion.
+
+Typing a frame count for an animation turns matching off for that animation, and the panel shows what the clip asks for at the current rate beside it, along with a warning when the configured count would repeat poses.
+
+**Looping** is a playback setting, not a capture one. Capture seeks animation time and wraps at the end of the clip, so the action never reaches its finish and never consults its loop mode — the choice changes how the animation plays in the viewport and in the workflow preview, and leaves the exported frames alone.
+
+## Scenes With Several Models
+
+A workflow expands over every loaded model, but a step only animates its own — so by default a scene with two characters puts both of them in every sequence. That is the right behaviour for a scene assembled from several models, such as a character holding a separate weapon.
+
+Turn on **Capture one model at a time** (or `--isolateModels true`) to hide the other models while each sequence records, which is what you want when the models are separate characters that happen to be loaded together. The option only appears when more than one model is loaded.
+
 ## Force Animation In Place
 
 Use **Force animation in place** when root motion would move the character through the frame during capture. This is helpful for walk/run cycles that should loop in place for game sprites.
@@ -53,7 +71,7 @@ The setting is part of workflow animation settings, so it applies to workflow ca
 
 A workflow can solve its own framing instead of using the camera distance you dialled in. Before capturing, it measures every animation across its clip, projects the result through each direction's camera, and picks one distance and target that keep the widest pose inside a margin you choose.
 
-Run it from the CLI with `--fit auto --margin <px>`, or from the Export Workbench with **Fit camera to animation** for a single sequence.
+Set **Framing** to *Fit to animation* in the workflow dialog, run it from the CLI with `--fit auto --margin <px>`, or use **Fit camera to animation** in the Export Workbench for a single sequence. While it is on, the workflow's distance is solved per run rather than dialled in, and the field says so.
 
 The panel shows a *Measuring animations for auto-fit* phase before capture starts, and lists any warnings — an animation with no measurable geometry, or a solve that did not settle.
 

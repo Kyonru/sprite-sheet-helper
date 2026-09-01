@@ -163,14 +163,43 @@ describe("workflow utilities", () => {
         { walk: { frameIntervalMs: 50, frameCount: 24 } },
         defaults,
       ),
-    ).toEqual({ frameIntervalMs: 50, frameCount: 24 });
+    ).toEqual({ frameIntervalMs: 50, frameCount: 24, matchClipLength: false });
     expect(
       getWorkflowStepCaptureSettings(
         idleStep,
         { walk: { frameIntervalMs: 50, frameCount: 24 } },
         defaults,
       ),
-    ).toEqual(defaults);
+    ).toEqual({ ...defaults, matchClipLength: false });
+  });
+
+  it("carries the run-level clip-length default onto animations without one", () => {
+    const steps = buildWorkflowSteps(workflow, {
+      clips: { modelA: [clip("walk"), clip("idle")] },
+      modelUuids: ["modelA"],
+    });
+    const walkStep = steps.find((step) => step.animationName === "walk")!;
+    const idleStep = steps.find((step) => step.animationName === "idle")!;
+    const defaults = { frameIntervalMs: 100, frameCount: 10 };
+
+    // An animation that says nothing follows the run; one that sets its own
+    // frame count has opted out of matching and keeps that count.
+    expect(
+      getWorkflowStepCaptureSettings(idleStep, undefined, defaults, true)
+        .matchClipLength,
+    ).toBe(true);
+    expect(
+      getWorkflowStepCaptureSettings(
+        walkStep,
+        { walk: { frameCount: 24, matchClipLength: false } },
+        defaults,
+        true,
+      ),
+    ).toEqual({
+      frameIntervalMs: 100,
+      frameCount: 24,
+      matchClipLength: false,
+    });
   });
 
   it("normalizes partial and invalid capture timing overrides", () => {
@@ -190,6 +219,10 @@ describe("workflow utilities", () => {
         },
         { frameIntervalMs: 100, frameCount: 10 },
       ),
-    ).toEqual({ frameIntervalMs: 100, frameCount: 5 });
+    ).toEqual({
+      frameIntervalMs: 100,
+      frameCount: 5,
+      matchClipLength: false,
+    });
   });
 });

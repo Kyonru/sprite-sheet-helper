@@ -144,3 +144,53 @@ describe("export validation", () => {
     ).toBe(true);
   });
 });
+
+describe("repeated frame warnings", () => {
+  const frames = (...ids: string[]) => ids.map((id) => frame(id));
+
+  it("says nothing when every frame is different", () => {
+    const result = validateExportRequest({
+      rows: [exportRow("walk", frames("a", "b", "c"))],
+      format: "spritesheet",
+      includeNormalMap: false,
+    });
+
+    expect(
+      result.messages.filter((message) => message.message.includes("repeats")),
+    ).toEqual([]);
+  });
+
+  it("counts frames identical to the one before them", () => {
+    const result = validateExportRequest({
+      rows: [exportRow("pose", frames("a", "a", "a", "b"))],
+      format: "spritesheet",
+      includeNormalMap: false,
+    });
+
+    const warning = result.messages.find((message) =>
+      message.message.includes("repeats"),
+    );
+
+    expect(warning?.severity).toBe("warning");
+    expect(warning?.message).toContain('"pose" repeats 2 frames');
+    expect(result.blocking).toBe(false);
+  });
+
+  it("names each sequence that repeats", () => {
+    const result = validateExportRequest({
+      rows: [
+        exportRow("walk", frames("a", "b")),
+        exportRow("idle", frames("c", "c")),
+      ],
+      format: "spritesheet",
+      includeNormalMap: false,
+    });
+
+    const warnings = result.messages
+      .filter((message) => message.message.includes("repeats"))
+      .map((message) => message.message);
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('"idle" repeats 1 frame');
+  });
+});

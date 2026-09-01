@@ -1,7 +1,7 @@
 # Design System — sprite-sheet-helper
 
-Status: **implemented.** Steps 1–10 of §10.2 are done; §11 lists what is still open.
-Last updated: 2026-08-28.
+Status: **implemented.** Steps 1–11 of §10.2 are done; §11 lists what is still open.
+Last updated: 2026-08-29.
 
 This document exists so that any agent or contributor can continue the design
 work without re-deriving the reasoning or re-running the exploration. Read it
@@ -422,6 +422,82 @@ stale rows survive a format switch. See §12.6.
 
 Logos live in `public/`. See §12 for a bug in the current mapping.
 
+### 6.12 Workflow dialog
+
+**The shot on the left, the plan on the right.** A preview large enough to judge
+framing, and a grid of every animation against every direction. Both answer the
+question the dialog exists for — *what am I about to make?* — so neither is
+tucked into a corner. The pieces live in `src/components/workflows/`.
+
+**Draw the data's real shape.** A workflow captures each clip from each angle:
+that is a multiplication, and the grid draws it as one. Rows are animations,
+columns are directions, a filled cell is a sequence that will exist. This
+replaced a nested list of checkboxes where the sequence count was a number you
+had to take on faith, turning off one angle across the board meant unticking a
+row per animation, and the two things you can select — an animation, an angle —
+had no relationship on screen. As axes, they do.
+
+Rules that keep it legible:
+
+- **Cells toggle, headers select.** A row header picks the animation the capture
+  settings apply to; a column header picks the direction the camera frames. One
+  selection model, expressed spatially, instead of a mode line reading "editing
+  all directions" in the opposite corner from the thing it described.
+- **Progress is the same picture as the plan.** During a run the fills sweep
+  down the grid — captured cells go `--ok`, the current one pulses `--brand`.
+  No second list of steps with spinners beside it.
+- **Sections, not nested cards.** The right column is three sections divided by
+  hairlines. Cards inside a dialog read as three dialogs.
+- **Controls from the ladder**: `ScrubField` for every number, 17px segmented
+  controls for either/or choices, text actions for verbs. No `h-8` inputs, no
+  slider paired with a number field, no button where a link will do.
+- **Every number in one place.** Frames per animation sit in the grid's last
+  column; the run's total sits above the button. The button says what it does.
+- **A pair of opposites is one control.** Pin/Unpin is one text action that
+  reports its state, not a Save button beside a Clear button.
+
+**The preview is shaped like the sprite.** Its box takes the export's aspect
+ratio, so what fills the frame here fills the frame there. In a fixed letterbox
+the model sat in a field of empty grid — a wider viewport at the same camera
+distance just shows more world, which made the largest element in the dialog
+the one carrying the least information. Fitting it needs measurement, not
+`aspect-ratio`: that property drops the ratio the moment both a width cap and a
+height cap are definite, which rendered a 3:1 sprite 1920px wide inside a 760px
+column and clipped it. `useFittedBox` measures the container and returns the
+largest box of that ratio which fits.
+
+**Full-screen is not permission to stretch.** The dialog fills the viewport, but
+the stage inside it is a centred column of a fixed measure. Letting the camera
+controls span the full width gave three number fields 450px each, with every
+value marooned from its label. Space around a composition is framing; space
+inside a control is a defect.
+
+**Minimal needs contrast, not uniformity.** An early pass put nearly everything
+at 10–11px muted, which removed noise and hierarchy together — no section led,
+and values read at the weight of their own labels. Labels stay 9–10px uppercase
+`--faint-foreground`; values step up to 11–12px `--foreground`; the number that
+answers "what will this cost me" sits at 14px semibold beside the button that
+spends it.
+
+**A hint line is a bug report about an affordance.** Toggling a whole row began
+as a double-click on its name, which worked and then needed a sentence under the
+grid explaining that it did. The sentence was the tell. Rows, columns and the
+whole grid now carry a *master square* — the same shape as the cells it
+commands, one step quieter, showing all / some / none — so the header is part of
+the grid rather than a control bolted to it, and nothing needs explaining.
+
+**One family of controls.** A select sitting beside a `ScrubField` must be the
+same object: 24px, `--surface-sunken`, hairline, value right-aligned, with a
+chevron as the only difference. A stock `<select>` next to a scrub pill reads as
+two design systems meeting. And drop the inner label when the row already names
+the control — `Looping · playback only ⟨Loop once ▾⟩`, not `⟨Mode Loop once ▾⟩`.
+
+**Let the UI offer the fix it just exposed.** Framing the preview like the sprite
+made it plain that a preset's default distance can leave the character a speck in
+the frame. Auto-fit already solved that — but only from the CLI's `--fit auto`.
+It is in the dialog now, next to the picture that makes the case for it, and the
+distance field reads `Distance · solved` while it is on.
+
 ---
 
 ## 7. Layout
@@ -563,6 +639,20 @@ micro-label with its value directly underneath — never a label column and a
 value column, whose gap changes width with the atlas. The coverage bar is the
 one element that stretches, because stretching is what a bar is for.
 
+### 9.7 A control says which side of the export it is on
+
+Some settings shape the exported frames; some only shape what you see while
+setting them up. When both kinds sit in one group, the ones that do not export
+carry it in their label — the workflow dialog's **Looping · playback** sits
+between two fields that do change the capture, and without the qualifier it
+reads as a third one. Prefer stating it over moving the control somewhere it
+does not belong: looping is edited next to the trim it interacts with.
+
+The same goes for units. The workflow dialog counts frames twice — the clip's
+own frames at its native rate, and the frames a capture takes at the capture
+rate — so each panel names its rate in its hint (`30 fps clip`, `10 fps`)
+rather than leaving two different numbers labelled "frames" side by side.
+
 ---
 
 ## 10. Implementation plan
@@ -605,6 +695,9 @@ Extract anything worth keeping first — the mocks are the reference for §6.
 9. **Camera PiP** — extract from the floating "Preview Canvas"; make it
    draggable and clamped.
 10. **Export dialog** — §9.6, §6.11.
+11. **Workflow dialog** — §6.12. The last surface still speaking shadcn
+    defaults: 15px labels, `h-8` inputs, native selects, sliders paired with
+    number fields, and the sequence list buried under the settings.
 
 ### 10.2b What each step actually produced
 
@@ -620,6 +713,7 @@ Extract anything worth keeping first — the mocks are the reference for §6.
 | 8 | Sequence transport unwrapped from its own collapsible — it sits inside the Capture stage, which already names it. |
 | 9 | The Preview Canvas was *already* draggable and clamped; what it needed was the surface language. See §12.2–12.4 for three real defects found there. |
 | 10 | Export dialog: brand-token selection, format marks per §6.11, and `ValidationNote` with full detail. |
+| 11 | Workflow dialog rebuilt per §6.12 and split into `components/workflows/`: sequences take the left column, the camera the right, and the 2,258-line panel came down to 1,276. |
 
 ### 10.3 Verification
 

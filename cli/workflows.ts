@@ -28,7 +28,12 @@ export async function captureWorkflow(
     captureNormalMaps,
     forceAnimationsInPlace,
     skipStepLabels,
+    includeAnimations,
+    sheets,
+    captureSettings,
+    isolateModels,
     fit,
+    matchClipLength,
     workflowTimeout,
     silent,
   }: WorkflowOptions,
@@ -110,8 +115,14 @@ export async function captureWorkflow(
       ? {}
       : { forceAnimationsInPlace }),
     ...(skipStepLabels === undefined ? {} : { skipStepLabels }),
+    ...(includeAnimations === undefined ? {} : { includeAnimations }),
+    ...(captureSettings === undefined
+      ? {}
+      : { captureSettingsByAnimation: captureSettings }),
+    ...(isolateModels === undefined ? {} : { isolateModels }),
     ...(captureNormalMaps === undefined ? {} : { captureNormalMaps }),
     ...(fit === undefined ? {} : { fit }),
+    ...(matchClipLength === undefined ? {} : { matchClipLength }),
   };
 
   await page.evaluate(
@@ -146,6 +157,25 @@ export async function captureWorkflow(
       result.status === "cancelled"
         ? "Workflow was cancelled"
         : (result.error ?? "Workflow failed"),
+    );
+  }
+
+  if (sheets) {
+    await page.evaluate(
+      (assignments: { all?: string; byAnimation?: Record<string, string> }) => {
+        const images = window.__SSH_BRIDGE__.stores.images.getState();
+
+        for (const row of images.images) {
+          // The workflow records which clip a row came from, so a per-clip
+          // assignment does not have to guess at generated labels.
+          const animation = row.metadata?.workflow?.animationName;
+          const sheet =
+            (animation ? assignments.byAnimation?.[animation] : undefined) ??
+            assignments.all;
+          if (sheet) images.updateSheet(row.uuid, sheet);
+        }
+      },
+      sheets,
     );
   }
 

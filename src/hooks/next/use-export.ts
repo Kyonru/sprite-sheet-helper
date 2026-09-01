@@ -1,7 +1,12 @@
 import * as THREE from "three";
 import { useCallback, useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
-import { scheduleInterval } from "../../utils/time";
+import { useModelsStore } from "@/store/next/models";
+import {
+  getCaptureCycleSeconds,
+  wrapCaptureTime,
+} from "@/utils/capture-timing";
+import { waitForStable } from "@/utils/capture-settle";
 import {
   EventType,
   PubSub,
@@ -12,7 +17,6 @@ import { useSceneStore } from "@/components/panels/scene/store";
 import { useSettingsStore } from "@/store/next/settings";
 import { useImagesStore } from "@/store/next/images";
 import { useSpritePostprocessStore } from "@/store/next/sprite-postprocess";
-import { useModelsStore } from "@/store/next/models";
 import { useEntitiesStore } from "@/store/next/entities";
 import type { ExportFormat } from "@/types/file";
 import { exporters } from "@/utils/exports";
@@ -44,6 +48,94 @@ const NORMAL_MAP_EXPORT_FORMATS = new Set<ExportFormat>([
   "unity",
 ]);
 
+const nextAnimationFrame = () =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+/**
+ * Wait until the view has stopped moving.
+ *
+ * The camera is set through the store and an event, and the controls apply it
+ * on one of the following frames — so a capture that starts immediately can
+ * record its first frame from the previous step's angle. The wait is on the
+ * camera's own transform rather than a frame count, so it holds regardless of
+ * how loaded the machine is.
+ */
+async function waitForStableCamera(camera: THREE.Camera): Promise<boolean> {
+  return waitForStable({
+    sample: () => {
+      camera.updateMatrixWorld();
+      return camera.matrixWorld.clone();
+    },
+    equals: (a, b) => a.equals(b),
+    waitFrame: nextAnimationFrame,
+  });
+}
+
+function getAnimationCycles(): Record<string, number> {
+  const { models, animations, clips, durations, speeds } =
+    useModelsStore.getState();
+  const cycles: Record<string, number> = {};
+
+  for (const uuid of Object.keys(models)) {
+    const animation = animations[uuid];
+    if (!animation || animation === "none") continue;
+
+    const clip = clips[uuid]?.find(
+      (entry) => entry.clip.name === animation,
+    )?.clip;
+    if (!clip) continue;
+
+    cycles[uuid] = getCaptureCycleSeconds({
+      duration: clip.duration,
+      trim: durations[uuid]?.[animation],
+      speed: speeds[uuid]?.[animation],
+    });
+  }
+
+  return cycles;
+}
+
+/**
+ * Drive every model's animation to an exact time.
+ *
+ * `setTime` applies the pose immediately, so the very next render shows it. The
+ * mixers must be frozen first or the render loop's own `mixer.update(delta)`
+ * would advance them again between the seek and the grab.
+ *
+ * Times past the end of a clip wrap into it rather than running off the end,
+ * where a `LoopOnce` action stops evaluating and every remaining frame holds
+ * one pose.
+ */
+function seekAllAnimations(
+  timeSeconds: number,
+  cycles: Record<string, number>,
+) {
+  const { mixerRef } = useModelsStore.getState();
+
+  for (const [uuid, mixer] of Object.entries(mixerRef)) {
+    mixer?.setTime(wrapCaptureTime(timeSeconds, cycles[uuid] ?? 0));
+  }
+}
+
+function setAllAnimationsFrozen(frozen: boolean): Record<string, boolean> {
+  const { models, freeze, setFreeze } = useModelsStore.getState();
+  const previous: Record<string, boolean> = {};
+
+  for (const uuid of Object.keys(models)) {
+    previous[uuid] = freeze[uuid] ?? false;
+    setFreeze(uuid, frozen);
+  }
+
+  return previous;
+}
+
+function restoreAnimationFreeze(previous: Record<string, boolean>) {
+  const { setFreeze } = useModelsStore.getState();
+  for (const [uuid, frozen] of Object.entries(previous)) {
+    setFreeze(uuid, frozen);
+  }
+}
+
 function getCaptureTiming(
   payload: CaptureStartPayload | null | undefined,
   defaults: {
@@ -74,7 +166,8 @@ function getCaptureTiming(
 export const useExport = () => {
   const images = useRef<{ name: string; dataURL: string }[]>([]);
   const normalImages = useRef<{ name: string; dataURL: string }[]>([]);
-  const intervalRef = useRef<NodeJS.Timeout>(null);
+  /** The in-flight capture, so a cancel can stop the loop between frames. */
+  const captureRunRef = useRef<{ cancelled: boolean } | null>(null);
   const activeCaptureRef = useRef<CaptureStartPayload | null>(null);
   const normalMaterialRef = useRef<THREE.MeshNormalMaterial | null>(null);
 
@@ -286,10 +379,23 @@ export const useExport = () => {
     ],
   );
 
+  /**
+   * Capture a sequence by stepping animation time, not by watching the clock.
+   *
+   * The old loop was a `setInterval` that grabbed whatever the render loop
+   * happened to be showing, so a frame's pose was decided by how busy the
+   * browser was: measured spacing between two frames requested 16ms apart
+   * ranged from 0ms (the same pose twice) to 236ms of animation, while the
+   * exported row still claimed the rate that had been asked for. Seeking to
+   * `frame × interval` instead makes the frames exactly as far apart as the
+   * manifest says, on any machine, at any size — and identical between runs.
+   *
+   * The pattern is the one the auto-fit measure phase and the CLI's turntable
+   * capture already use.
+   */
   const takeScreenshotSequence = useCallback(
-    (payload?: CaptureStartPayload) => {
+    async (payload?: CaptureStartPayload) => {
       if (!gl) return;
-      if (intervalRef.current) clearInterval(intervalRef.current);
 
       const modelState = useModelsStore.getState();
       const sequenceLabel =
@@ -309,48 +415,72 @@ export const useExport = () => {
       images.current = [];
       normalImages.current = [];
       activeCaptureRef.current = capturePayload;
+      const run = { cancelled: false };
+      captureRunRef.current = run;
 
-      intervalRef.current = scheduleInterval(
-        captureScreenshotData,
-        captureTiming.intervalMs,
-        captureTiming.frameCount,
-        () => {
+      const previousFreeze = setAllAnimationsFrozen(true);
+      if (!(await waitForStableCamera(camera))) {
+        console.debug(
+          "[capture] camera still moving when the sequence started:",
+          capturePayload.label,
+        );
+      }
+      const cycles = getAnimationCycles();
+      const stepSeconds = captureTiming.intervalMs / 1000;
+
+      try {
+        for (let frame = 0; frame < captureTiming.frameCount; frame += 1) {
+          if (run.cancelled) return;
+
+          seekAllAnimations(frame * stepSeconds, cycles);
+          // One frame for the scene to render the pose that was just applied,
+          // and for progress to reach the screen. It costs wall-clock time but
+          // not correctness — the pose is already pinned.
+          await nextAnimationFrame();
+          if (run.cancelled) return;
+
+          captureScreenshotData();
+
           PubSub.emit(EventType.ASSETS_CREATION_PROGRESS, {
             label: capturePayload.label,
             workflowRunId: capturePayload.workflowRunId,
             capturedFrames: images.current.length,
             expectedFrames: captureTiming.frameCount,
           });
-        },
-        async () => {
-          intervalRef.current = null;
-          PubSub.emit(EventType.STOP_ASSETS_CREATION, {
-            label: capturePayload.label,
-            workflowRunId: capturePayload.workflowRunId,
-            capturedFrames: images.current.length,
-            expectedFrames: captureTiming.frameCount,
-            status: "done",
-          });
-          activeCaptureRef.current = null;
+        }
+      } finally {
+        restoreAnimationFreeze(previousFreeze);
+        if (captureRunRef.current === run) captureRunRef.current = null;
+      }
 
-          addImages(
-            Date.now().toString(),
-            capturePayload.label,
-            images.current.map((img) => img.dataURL),
-            exportNormalMap
-              ? normalImages.current.map((img) => img.dataURL)
-              : undefined,
-            exportWidth,
-            exportHeight,
-            fpsFromCaptureInterval(captureTiming.intervalMs),
-            capturePayload.rowMetadata,
-          );
-          lastIndex.current += 1;
-        },
+      if (run.cancelled) return;
+
+      PubSub.emit(EventType.STOP_ASSETS_CREATION, {
+        label: capturePayload.label,
+        workflowRunId: capturePayload.workflowRunId,
+        capturedFrames: images.current.length,
+        expectedFrames: captureTiming.frameCount,
+        status: "done",
+      });
+      activeCaptureRef.current = null;
+
+      addImages(
+        Date.now().toString(),
+        capturePayload.label,
+        images.current.map((img) => img.dataURL),
+        exportNormalMap
+          ? normalImages.current.map((img) => img.dataURL)
+          : undefined,
+        exportWidth,
+        exportHeight,
+        fpsFromCaptureInterval(captureTiming.intervalMs),
+        capturePayload.rowMetadata,
       );
+      lastIndex.current += 1;
     },
     [
       gl,
+      camera,
       intervals,
       iterations,
       addImages,
@@ -362,11 +492,11 @@ export const useExport = () => {
   );
 
   const cancelScreenshotSequence = useCallback(() => {
-    if (!intervalRef.current && !activeCaptureRef.current) return;
+    if (!captureRunRef.current && !activeCaptureRef.current) return;
 
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    if (captureRunRef.current) {
+      captureRunRef.current.cancelled = true;
+      captureRunRef.current = null;
     }
 
     const payload = activeCaptureRef.current;

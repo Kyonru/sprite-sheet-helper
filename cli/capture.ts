@@ -24,9 +24,10 @@ export async function captureFrames(
 
   await page.evaluate(
     (w: number, h: number, f: number) => {
-      window.__SSH_BRIDGE__.stores.images
-        .getState()
-        .createEmptyRow(w, h, Math.round(1000 / f));
+      // The row stores a frame rate, not an interval. Passing `1000 / fps` here
+      // wrote the interval into it, so `--fps 10` shipped a manifest that told
+      // every engine exporter to play the turntable at 100fps.
+      window.__SSH_BRIDGE__.stores.images.getState().createEmptyRow(w, h, f);
     },
     width,
     height,

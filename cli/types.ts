@@ -1,6 +1,8 @@
 export interface CaptureOptions {
   modelUuid: string;
   frames: number;
+  /** Workflow runs only: derive each sequence's frame count from its clip. */
+  matchClipLength?: boolean;
   fps: number;
   width: number;
   height: number;
@@ -13,6 +15,10 @@ export interface CaptureOptions {
   captureNormalMaps?: boolean;
   forceAnimationsInPlace?: boolean;
   skipStepLabels?: string[];
+  includeAnimations?: string[];
+  sheets?: { all?: string; byAnimation?: Record<string, string> };
+  captureSettings?: CliCaptureSettingsByAnimation;
+  isolateModels?: boolean;
   fit?: CliFitOptions;
   silent?: boolean;
 }
@@ -52,3 +58,11 @@ export type CliWorkflowDirectionOverrides = Record<
   string,
   CliWorkflowDirectionOverride
 >;
+
+export type CliCaptureSettings = {
+  frameCount?: number;
+  frameIntervalMs?: number;
+  matchClipLength?: boolean;
+};
+
+export type CliCaptureSettingsByAnimation = Record<string, CliCaptureSettings>;
