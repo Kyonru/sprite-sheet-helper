@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Made Cargo lockfile version validation handle Windows line endings so Windows release installers can be built and published.
+- Made tagged desktop workflows create their GitHub Release automatically before uploading platform artifacts.
 
 ## [0.8.0]
 

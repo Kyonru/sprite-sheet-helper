@@ -33,6 +33,8 @@
 - Linux releases must validate the generated AppDir before upload. `.DirIcon`
   and the root `.desktop` entry may be files or relative symlinks, but never
   absolute build-machine symlinks.
+- Tagged desktop workflows must provide `releaseName` to `tauri-action` so a
+  fresh tag creates its GitHub Release without requiring manual setup.
 - `package.json` is the app-version source of truth. Keep its version aligned
   with the root package-lock entries, Tauri config, Cargo manifest/lock, latest
   changelog entry, and release tag; `npm run check:version` enforces this.

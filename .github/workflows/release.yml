@@ -53,5 +53,7 @@ jobs:
           TAG_NAME: ${{ env.TAG_NAME }}
         with:
           tagName: ${{ github.ref_name }}
+          releaseName: "Sprite Sheet Helper v__VERSION__"
+          generateReleaseNotes: true
           tauriScript: npm run tauri:release
           args: ${{ matrix.args }}
