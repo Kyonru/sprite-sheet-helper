@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.8.1]
+
+### Fixed
+
+- Made Cargo lockfile version validation handle Windows line endings so Windows release installers can be built and published.
+
 ## [0.8.0]
 
 ### Added
