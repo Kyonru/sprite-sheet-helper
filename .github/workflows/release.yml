@@ -51,6 +51,20 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: appstreamcli validate --no-net src-tauri/com.kyonru.spritesheethelper.metainfo.xml
 
+      # Tauri stores its downloaded AppRun launcher as 0770. linuxdeploy then
+      # renames it to AppRun.wrapped, which is not executable when an AppImage
+      # sandbox mounts the payload as root (as AppImageHub does).
+      - name: prepare portable AppImage launcher (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          tools_dir="${XDG_CACHE_HOME:-$HOME/.cache}/tauri/.tauri"
+          mkdir -p "$tools_dir"
+          curl --fail --location --silent --show-error \
+            https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64 \
+            --output "$tools_dir/AppRun-x86_64"
+          chmod 0755 "$tools_dir/AppRun-x86_64"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

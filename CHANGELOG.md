@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.8.3]
+
+### Fixed
+
+- Made the Linux AppImage launchers executable by every user so the app starts when its payload is mounted as root by a sandbox.
+- Extended AppImage release validation to reject non-portable `AppRun` and `AppRun.wrapped` permissions before upload.
+
 ## [0.8.2]
 
 ### Added

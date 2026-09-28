@@ -38,11 +38,23 @@ function requirePortableEntry(appDir, name) {
   return resolvedTarget;
 }
 
+function requireWorldExecutable(appDir, name) {
+  const entry = requirePortableEntry(appDir, name);
+  if ((statSync(entry).mode & 0o001) === 0) {
+    throw new Error(`${name} is not executable by every user in ${appDir}`);
+  }
+  return entry;
+}
+
 export function validateAppImageLayout(appDir) {
   const root = resolve(appDir);
-  const appRun = requirePortableEntry(root, "AppRun");
-  if ((statSync(appRun).mode & 0o111) === 0) {
-    throw new Error(`AppRun is not executable in ${root}`);
+  requireWorldExecutable(root, "AppRun");
+
+  try {
+    lstatSync(join(root, "AppRun.wrapped"));
+    requireWorldExecutable(root, "AppRun.wrapped");
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
   }
 
   requirePortableEntry(root, ".DirIcon");

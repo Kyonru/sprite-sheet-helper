@@ -58,6 +58,25 @@ describe("AppImage layout validation", () => {
     expect(() => validateAppImageLayout(root)).not.toThrow();
   });
 
+  it("requires AppRun to be executable by every user", async () => {
+    const root = await createAppDir(validMetadata);
+    await chmod(join(root, "AppRun"), 0o770);
+
+    expect(() => validateAppImageLayout(root)).toThrow(
+      "AppRun is not executable by every user",
+    );
+  });
+
+  it("requires the linuxdeploy wrapped launcher to be executable by every user", async () => {
+    const root = await createAppDir(validMetadata);
+    await writeFile(join(root, "AppRun.wrapped"), "launcher");
+    await chmod(join(root, "AppRun.wrapped"), 0o770);
+
+    expect(() => validateAppImageLayout(root)).toThrow(
+      "AppRun.wrapped is not executable by every user",
+    );
+  });
+
   it("requires the AppStream metadata file", async () => {
     const root = await createAppDir();
 

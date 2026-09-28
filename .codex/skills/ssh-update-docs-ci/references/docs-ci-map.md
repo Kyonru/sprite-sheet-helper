@@ -35,9 +35,11 @@
 - Keep release/download docs aligned with actual package outputs.
 - Linux releases must validate the generated AppDir before upload. `.DirIcon`
   and the root `.desktop` entry may be files or relative symlinks, but never
-  absolute build-machine symlinks. The AppDir must also contain the AppStream
-  metainfo file, whose launchable matches that root `.desktop` entry and whose
-  default screenshot uses an HTTPS URL.
+  absolute build-machine symlinks. `AppRun` and linuxdeploy's optional
+  `AppRun.wrapped` launcher must be executable by every user so they continue
+  to work when a sandbox mounts the AppImage payload as root. The AppDir must
+  also contain the AppStream metainfo file, whose launchable matches that root
+  `.desktop` entry and whose default screenshot uses an HTTPS URL.
 - Tagged desktop workflows must provide `releaseName` to `tauri-action` so a
   fresh tag creates its GitHub Release without requiring manual setup.
 - `package.json` is the app-version source of truth. Keep its version aligned
