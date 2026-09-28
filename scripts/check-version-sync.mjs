@@ -15,7 +15,7 @@ function readJson(rootDir, path) {
 
 function readCargoPackageVersion(rootDir, path, packageName) {
   const source = readFileSync(resolve(rootDir, path), "utf8");
-  const blocks = source.split(/\n(?=\[\[package\]\]\n)/);
+  const blocks = source.split(/\r?\n(?=\[\[package\]\]\r?\n)/);
   const block = blocks.find((candidate) =>
     new RegExp(`^name = ["']${packageName}["']$`, "m").test(candidate),
   );

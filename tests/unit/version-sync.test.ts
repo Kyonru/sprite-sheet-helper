@@ -92,6 +92,32 @@ describe("app version synchronization", () => {
     });
   });
 
+  it("finds the app package in a Cargo lockfile with Windows line endings", async () => {
+    const root = await createFixture();
+    const cargoLock = [
+      "version = 4",
+      "",
+      "[[package]]",
+      'name = "adler2"',
+      'version = "2.0.1"',
+      'source = "registry+https://github.com/rust-lang/crates.io-index"',
+      "",
+      "[[package]]",
+      'name = "app"',
+      'version = "0.1.0"',
+      "dependencies = []",
+      "",
+    ].join("\r\n");
+    await writeFile(join(root, "src-tauri/Cargo.lock"), cargoLock);
+
+    syncAppVersions(root);
+
+    expect(() => assertAppVersionsInSync(undefined, root)).not.toThrow();
+    expect(await readFile(join(root, "src-tauri/Cargo.lock"), "utf8")).toContain(
+      'name = "adler2"\r\nversion = "2.0.1"',
+    );
+  });
+
   it("rejects an invalid package.json version before writing", async () => {
     const root = await createFixture("next");
     const originalLock = await readFile(join(root, "package-lock.json"), "utf8");
