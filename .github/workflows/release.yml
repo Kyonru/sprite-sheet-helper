@@ -58,7 +58,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         shell: bash
         run: |
-          tools_dir="${XDG_CACHE_HOME:-$HOME/.cache}/tauri/.tauri"
+          tools_dir="${XDG_CACHE_HOME:-$HOME/.cache}/tauri"
           mkdir -p "$tools_dir"
           curl --fail --location --silent --show-error \
             https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64 \
