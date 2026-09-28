@@ -36,6 +36,9 @@
     "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.scripts.json",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:release": "node scripts/tauri-release.mjs",
+    "check:appimage": "node scripts/check-appimage-layout.mjs",
+    "check:version": "node scripts/check-version-sync.mjs",
     "knip": "knip",
     "merge-animations": "node scripts/merge-animations.js",
     "pose:bench": "node scripts/pose-bench.mjs",
@@ -127,7 +130,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
-    "@tauri-apps/cli": "^2.10.0",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/jszip": "^3.4.0",
     "@types/luaparse": "^0.2.13",
     "@types/node": "^22.19.17",

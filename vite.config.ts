@@ -1,4 +1,5 @@
 import path from "path";
+import { readFileSync } from "node:fs";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
@@ -12,6 +13,9 @@ const __TAURI__ = !!process.env.TAURI_BUILD;
 const __CLI__ = !!process.env.CLI_BUILD;
 const __WEB__ = !__TAURI__ && !__CLI__;
 const WORKBOX_MAX_PRECACHE_BYTES = 5 * 1024 * 1024;
+const APP_VERSION = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+).version as string;
 
 const tauriConfig: Partial<UserConfig> = {
   clearScreen: false,
@@ -50,6 +54,7 @@ const tauriConfig: Partial<UserConfig> = {
 export default defineConfig({
   define: {
     __CLI_BUILD__: JSON.stringify(__CLI__),
+    "import.meta.env.APP_VERSION": JSON.stringify(APP_VERSION),
   },
   plugins: [
     (__TAURI__ || __CLI__) && WebTauriSwapPlugin(),

@@ -53,4 +53,5 @@ jobs:
           TAG_NAME: ${{ env.TAG_NAME }}
         with:
           tagName: ${{ github.ref_name }}
+          tauriScript: npm run tauri:release
           args: ${{ matrix.args }}

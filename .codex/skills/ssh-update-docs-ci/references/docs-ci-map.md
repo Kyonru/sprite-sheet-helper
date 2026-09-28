@@ -10,6 +10,9 @@
 - GitHub Action: `action/action.yml`, `action/README.md`.
 - Deployment config: `railway.toml`, `railpack.json`.
 - Package scripts: `package.json`.
+- Tauri desktop release packaging: `.github/workflows/release.yml`,
+  `scripts/tauri-release.mjs`, `scripts/check-appimage-layout.mjs`, and
+  `scripts/check-version-sync.mjs`.
 
 ## Docs Rules
 
@@ -26,6 +29,12 @@
 - Avoid documenting flags before parser support exists.
 - If a command requires `npm run build:cli`, say so near the command.
 - Keep release/download docs aligned with actual package outputs.
+- Linux releases must validate the generated AppDir before upload. `.DirIcon`
+  and the root `.desktop` entry may be files or relative symlinks, but never
+  absolute build-machine symlinks.
+- `package.json` is the app-version source of truth. Keep its version aligned
+  with the root package-lock entries, Tauri config, Cargo manifest/lock, latest
+  changelog entry, and release tag; `npm run check:version` enforces this.
 
 ## Test Targets
 

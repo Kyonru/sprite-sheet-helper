@@ -28,6 +28,9 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
         continue-on-error: true
 
+      - name: Check app version synchronization
+        run: npm run check:version
+
       - name: Run TypeScript checks
         run: npm run typecheck
 
