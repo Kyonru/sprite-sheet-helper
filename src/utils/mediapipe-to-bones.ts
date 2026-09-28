@@ -5,6 +5,8 @@ import type { BoneRemap } from "./bone-remap";
 // ── MediaPipe landmark indices ─────────────────────────────────────────────
 const IDX = {
   NOSE: 0,
+  LEFT_EAR: 7,
+  RIGHT_EAR: 8,
   LEFT_SHOULDER: 11,
   RIGHT_SHOULDER: 12,
   LEFT_ELBOW: 13,
@@ -42,6 +44,16 @@ export interface JointPositions {
   leftFootIndex: THREE.Vector3;
   rightFootIndex: THREE.Vector3;
   nose: THREE.Vector3;
+  /**
+   * Midpoint of the ears.
+   *
+   * Preferred over the nose for aiming the neck and head. The nose sits well
+   * FORWARD of the head's axis, so aiming a bone whose rest direction is
+   * "straight up" at the nose books that fixed anatomical offset as head-down
+   * rotation. Measured on a walking clip, aiming at the nose produced 56.4
+   * degrees of neck-to-head lean where a walker shows almost none.
+   */
+  earCenter: THREE.Vector3;
   hipCenter: THREE.Vector3;
   shoulderCenter: THREE.Vector3;
 }
@@ -78,6 +90,9 @@ export function landmarksToJointPositions(
     leftFootIndex: toLH(lm[IDX.LEFT_FOOT_INDEX]),
     rightFootIndex: toLH(lm[IDX.RIGHT_FOOT_INDEX]),
     nose: toLH(lm[IDX.NOSE]),
+    earCenter: toLH(lm[IDX.LEFT_EAR])
+      .add(toLH(lm[IDX.RIGHT_EAR]))
+      .multiplyScalar(0.5),
     hipCenter: lh.clone().add(rh).multiplyScalar(0.5),
     shoulderCenter: ls.clone().add(rs).multiplyScalar(0.5),
   };

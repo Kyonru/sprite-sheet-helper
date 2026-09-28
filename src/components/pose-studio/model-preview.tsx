@@ -7,9 +7,7 @@ import { useModelsStore } from "@/store/next/models";
 import { parseModel } from "@/utils/model";
 import {
   landmarksToJointPositions,
-  type JointPositions,
   type PoseBoneData,
-  type BoneFrame,
 } from "@/utils/mediapipe-to-bones";
 import { JointSmoother } from "@/utils/animation-smoothing";
 import type { BoneRemap } from "@/utils/bone-remap";
@@ -37,96 +35,26 @@ import {
   type IkSolveResult,
 } from "@/utils/pose-ik";
 import {
+  applyPoseDataToRig,
+  createRootMotionState,
+  solvePoseOntoRig,
+} from "@/utils/pose-solve";
+import {
   applyPoseCalibration,
-  applyRetargetedPose,
   buildPreferredNamedObjectMap,
   buildPoseCalibration,
   buildRigRetargetMap,
   clampAnatomicalPose,
-  scorePoseLandmarks,
   type PoseCalibration,
-  type RigRetargetBone,
   type RigRetargetMap,
 } from "@/utils/pose-retargeting";
-
-function applyHips(hipsData: RigRetargetBone, j: JointPositions) {
-  const { bone } = hipsData;
-
-  // Hips position (scale down from meter space to rig space)
-  // We skip root-motion position for preview to keep model centred
-  bone.quaternion.copy(hipsData.restQuat);
-
-  // With Y-up worldLandmarks and -p.x: rightHip is +X, up is +Y, cross(+X,+Y) = +Z.
-  // lookAt(origin, +Z, +Y) makes the matrix's -Z axis point toward +Z → character faces camera.
-  const right = j.rightHip.clone().sub(j.leftHip).normalize();
-  const up = j.shoulderCenter.clone().sub(j.hipCenter).normalize();
-  const forward = new THREE.Vector3().crossVectors(right, up).normalize();
-
-  const parentWorldQuat = new THREE.Quaternion();
-  if (bone.parent) bone.parent.getWorldQuaternion(parentWorldQuat);
-
-  const m = new THREE.Matrix4().lookAt(new THREE.Vector3(), forward, up);
-  const worldQuat = new THREE.Quaternion().setFromRotationMatrix(m);
-  const localQuat = worldQuat.premultiply(parentWorldQuat.invert());
-  bone.quaternion.copy(localQuat);
-  bone.updateMatrix();
-}
-
-function buildPoseDataFromRig(rigMap: RigRetargetMap, rootMotion?: boolean) {
-  const hipsData = rigMap.bones.get("hips");
-  const bones: BoneFrame[] = [];
-
-  rigMap.bones.forEach((boneData, key) => {
-    if (key === "hips") return;
-    bones.push({
-      boneKey: key,
-      boneName: boneData.boneName,
-      position: boneData.bone.position.clone(),
-      quaternion: boneData.bone.quaternion.clone(),
-    });
-  });
-
-  return {
-    hips: {
-      boneName: hipsData?.boneName ?? "",
-      position:
-        rootMotion && hipsData
-          ? hipsData.bone.position.clone()
-          : new THREE.Vector3(),
-      quaternion: hipsData
-        ? hipsData.bone.quaternion.clone()
-        : new THREE.Quaternion(),
-    },
-    bones,
-  };
-}
-
-function applyPoseDataToRig(
-  rigMap: RigRetargetMap,
-  pose: PoseBoneData,
-  applyHipsPosition = true,
-) {
-  const hipsData = rigMap.bones.get("hips");
-  if (hipsData) {
-    hipsData.bone.quaternion.copy(pose.hips.quaternion);
-    if (applyHipsPosition) hipsData.bone.position.copy(pose.hips.position);
-    hipsData.bone.updateMatrix();
-  }
-
-  for (const frame of pose.bones) {
-    const boneData = rigMap.bones.get(frame.boneKey);
-    if (!boneData) continue;
-    if (frame.position) boneData.bone.position.copy(frame.position);
-    boneData.bone.quaternion.copy(frame.quaternion);
-    boneData.bone.updateMatrix();
-  }
-}
 
 // ── Inner R3F component ──────────────────────────────────────────────────────
 
 interface PosedModelProps {
   object: THREE.Object3D;
   landmarksRef: React.RefObject<NormalizedLandmark[] | null>;
+  visibilityLandmarksRef?: React.RefObject<NormalizedLandmark[] | null>;
   remap: BoneRemap;
   poseDataRef?: React.RefObject<PoseBoneData | null>;
   calibrationRef?: React.RefObject<PoseCalibration | null>;
@@ -134,15 +62,14 @@ interface PosedModelProps {
   onCalibrationReady?: (calibration: PoseCalibration) => void;
   staticPoseRef?: React.RefObject<PoseBoneData | null>;
   rootMotion?: boolean;
+  landmarkSmoothing?: boolean;
   modelScale?: number;
 }
-
-// Minimum landmark visibility to drive a bone; below this we hold the last good rotation.
-const VIS_THRESHOLD = 0.5;
 
 function PosedModel({
   object,
   landmarksRef,
+  visibilityLandmarksRef,
   remap,
   poseDataRef,
   calibrationRef,
@@ -150,6 +77,7 @@ function PosedModel({
   onCalibrationReady,
   staticPoseRef,
   rootMotion,
+  landmarkSmoothing = true,
   modelScale = 1,
 }: PosedModelProps) {
   const rigMapRef = useRef<RigRetargetMap>({
@@ -160,15 +88,18 @@ function PosedModel({
   // Holds the last bone quaternion set while visibility was good, per bone name.
   const holdQuatRef = useRef<Map<string, THREE.Quaternion>>(new Map());
   const lastCalibrationRequestRef = useRef(0);
-  // Root motion: hip height at rest (first frame), and the hips bone rest position.
-  const restHipToFloorRef = useRef<number | null>(null);
-  const hipRestPosRef = useRef<THREE.Vector3 | null>(null);
+  // Root motion reference state, owned here and reused across frames so the
+  // solve itself can stay a pure function.
+  const rootMotionStateRef = useRef(createRootMotionState());
 
   // Re-calibrate when root motion is toggled
   useEffect(() => {
-    restHipToFloorRef.current = null;
-    hipRestPosRef.current = null;
+    rootMotionStateRef.current = createRootMotionState();
   }, [rootMotion]);
+
+  useEffect(() => {
+    smootherRef.current.reset();
+  }, [landmarkSmoothing]);
 
   // Build bone map and cache rest data whenever object or remap changes
   useEffect(() => {
@@ -202,192 +133,48 @@ function PosedModel({
 
     // Smooth all joint positions with One Euro Filter before bone computation.
     // This reduces jitter from monocular depth estimation and landmark noise.
-    const j: typeof raw = {
-      leftShoulder: sm.smooth("lShoulder", raw.leftShoulder, dt),
-      rightShoulder: sm.smooth("rShoulder", raw.rightShoulder, dt),
-      leftElbow: sm.smooth("lElbow", raw.leftElbow, dt),
-      rightElbow: sm.smooth("rElbow", raw.rightElbow, dt),
-      leftWrist: sm.smooth("lWrist", raw.leftWrist, dt),
-      rightWrist: sm.smooth("rWrist", raw.rightWrist, dt),
-      leftHip: sm.smooth("lHip", raw.leftHip, dt),
-      rightHip: sm.smooth("rHip", raw.rightHip, dt),
-      leftKnee: sm.smooth("lKnee", raw.leftKnee, dt),
-      rightKnee: sm.smooth("rKnee", raw.rightKnee, dt),
-      leftAnkle: sm.smooth("lAnkle", raw.leftAnkle, dt),
-      rightAnkle: sm.smooth("rAnkle", raw.rightAnkle, dt),
-      leftHeel: sm.smooth("lHeel", raw.leftHeel, dt),
-      rightHeel: sm.smooth("rHeel", raw.rightHeel, dt),
-      leftFootIndex: sm.smooth("lFootIdx", raw.leftFootIndex, dt),
-      rightFootIndex: sm.smooth("rFootIdx", raw.rightFootIndex, dt),
-      nose: sm.smooth("nose", raw.nose, dt),
-      hipCenter: sm.smooth("hipCenter", raw.hipCenter, dt),
-      shoulderCenter: sm.smooth("shoulderCtr", raw.shoulderCenter, dt),
-    };
-
-    const hold = holdQuatRef.current;
-    const vis = (idx: number) => (lm[idx].visibility ?? 1) >= VIS_THRESHOLD;
-    const quality = scorePoseLandmarks(lm);
-
-    const get = (key: keyof BoneRemap) => rigMap.bones.get(key);
-
-    // Helper: apply bone and record last-good quaternion; or restore it if occluded.
-    const drive = (
-      key: keyof BoneRemap,
-      visOk: boolean,
-      from: THREE.Vector3,
-      to: THREE.Vector3,
-    ) => {
-      const bd = get(key);
-      if (!bd) return;
-      if (visOk) {
-        bd.bone.quaternion.copy(bd.restQuat);
-        applyRetargetedPose(bd, from, to);
-        hold.set(key, bd.bone.quaternion.clone());
-      } else {
-        const saved = hold.get(key);
-        if (saved && quality.score >= 0.52) {
-          bd.bone.quaternion.copy(saved);
-        } else if (saved) {
-          bd.bone.quaternion
-            .copy(bd.restQuat)
-            .slerp(saved, Math.max(0.1, quality.score * 0.5));
-        } else {
-          bd.bone.quaternion.copy(bd.restQuat);
+    const j: typeof raw = landmarkSmoothing
+      ? {
+          leftShoulder: sm.smooth("lShoulder", raw.leftShoulder, dt),
+          rightShoulder: sm.smooth("rShoulder", raw.rightShoulder, dt),
+          leftElbow: sm.smooth("lElbow", raw.leftElbow, dt),
+          rightElbow: sm.smooth("rElbow", raw.rightElbow, dt),
+          leftWrist: sm.smooth("lWrist", raw.leftWrist, dt),
+          rightWrist: sm.smooth("rWrist", raw.rightWrist, dt),
+          leftHip: sm.smooth("lHip", raw.leftHip, dt),
+          rightHip: sm.smooth("rHip", raw.rightHip, dt),
+          leftKnee: sm.smooth("lKnee", raw.leftKnee, dt),
+          rightKnee: sm.smooth("rKnee", raw.rightKnee, dt),
+          leftAnkle: sm.smooth("lAnkle", raw.leftAnkle, dt),
+          rightAnkle: sm.smooth("rAnkle", raw.rightAnkle, dt),
+          leftHeel: sm.smooth("lHeel", raw.leftHeel, dt),
+          rightHeel: sm.smooth("rHeel", raw.rightHeel, dt),
+          leftFootIndex: sm.smooth("lFootIdx", raw.leftFootIndex, dt),
+          rightFootIndex: sm.smooth("rFootIdx", raw.rightFootIndex, dt),
+          nose: sm.smooth("nose", raw.nose, dt),
+          earCenter: sm.smooth("earCenter", raw.earCenter, dt),
+          hipCenter: sm.smooth("hipCenter", raw.hipCenter, dt),
+          shoulderCenter: sm.smooth("shoulderCtr", raw.shoulderCenter, dt),
         }
-      }
-      bd.bone.updateMatrix();
-    };
+      : raw;
 
-    // 1. Reset ALL bones to rest pose so we don't accumulate rotations
-    rigMap.bones.forEach(({ bone, restPosition, restQuat }) => {
-      bone.position.copy(restPosition);
-      bone.quaternion.copy(restQuat);
-      bone.updateMatrix();
+    // The whole landmarks -> rig solve lives in @/utils/pose-solve so the
+    // preview, the recorder and the offline benchmark drive the rig through
+    // exactly the same code. A benchmark that re-implements the solve measures
+    // the benchmark.
+    const solveResult = solvePoseOntoRig({
+      object,
+      rigMap,
+      landmarks: lm,
+      visibilityLandmarks: visibilityLandmarksRef?.current ?? undefined,
+      joints: j,
+      hold: holdQuatRef.current,
+      rootMotionState: rootMotionStateRef.current,
+      rootMotion,
+      modelScale,
     });
+    const rawPose = solveResult.pose;
 
-    // 2. Apply from root → leaves (order matters: parent must be set before child)
-    // MediaPipe landmark indices for visibility checks
-    const L_SHOULDER = 11,
-      R_SHOULDER = 12,
-      L_ELBOW = 13,
-      R_ELBOW = 14;
-    const L_WRIST = 15,
-      R_WRIST = 16,
-      L_HIP = 23,
-      R_HIP = 24;
-    const L_KNEE = 25,
-      R_KNEE = 26,
-      L_ANKLE = 27,
-      R_ANKLE = 28;
-    const L_FOOT = 31,
-      R_FOOT = 32,
-      NOSE = 0;
-
-    const hipsData = get("hips");
-    if (hipsData) {
-      applyHips(hipsData, j);
-
-      if (rootMotion) {
-        // Hip height above foot level — changes when crouching, jumping, sitting.
-        // In our Y-up space: hipCenter ≈ 0 (origin), ankles are negative (below).
-        const hipToFloor =
-          j.hipCenter.y - (j.leftAnkle.y + j.rightAnkle.y) * 0.5;
-
-        if (restHipToFloorRef.current === null) {
-          restHipToFloorRef.current = hipToFloor;
-          hipRestPosRef.current = hipsData.bone.position.clone();
-        }
-
-        // landmark meters → local bone units: world_delta = local * modelScale, so local = landmark / modelScale
-        const deltaY = (hipToFloor - restHipToFloorRef.current) / modelScale;
-        hipsData.bone.position.copy(hipRestPosRef.current!);
-        hipsData.bone.position.y += deltaY;
-        hipsData.bone.updateMatrix();
-      }
-    }
-
-    // Spine chain — always visible (derived from hips+shoulders)
-    const spineOrigin = j.hipCenter.clone();
-    const spineEnd = j.shoulderCenter.clone();
-    const spineMid = spineOrigin.clone().lerp(spineEnd, 0.5);
-
-    const spineData = get("spine");
-    if (spineData) applyRetargetedPose(spineData, spineOrigin, spineMid);
-    const spine1Data = get("spine1");
-    if (spine1Data) applyRetargetedPose(spine1Data, spineOrigin, spineMid);
-    const spine2Data = get("spine2");
-    if (spine2Data) applyRetargetedPose(spine2Data, spineMid, spineEnd);
-
-    // Shoulders (clavicles)
-    drive("leftShoulder", vis(L_SHOULDER), j.shoulderCenter, j.leftShoulder);
-    drive("rightShoulder", vis(R_SHOULDER), j.shoulderCenter, j.rightShoulder);
-
-    // Arms
-    drive(
-      "leftArm",
-      vis(L_SHOULDER) && vis(L_ELBOW),
-      j.leftShoulder,
-      j.leftElbow,
-    );
-    drive(
-      "rightArm",
-      vis(R_SHOULDER) && vis(R_ELBOW),
-      j.rightShoulder,
-      j.rightElbow,
-    );
-
-    // Forearms
-    drive(
-      "leftForeArm",
-      vis(L_ELBOW) && vis(L_WRIST),
-      j.leftElbow,
-      j.leftWrist,
-    );
-    drive(
-      "rightForeArm",
-      vis(R_ELBOW) && vis(R_WRIST),
-      j.rightElbow,
-      j.rightWrist,
-    );
-
-    // Legs
-    drive("leftUpLeg", vis(L_HIP) && vis(L_KNEE), j.leftHip, j.leftKnee);
-    drive("rightUpLeg", vis(R_HIP) && vis(R_KNEE), j.rightHip, j.rightKnee);
-    drive("leftLeg", vis(L_KNEE) && vis(L_ANKLE), j.leftKnee, j.leftAnkle);
-    drive("rightLeg", vis(R_KNEE) && vis(R_ANKLE), j.rightKnee, j.rightAnkle);
-
-    // Feet
-    drive(
-      "leftFoot",
-      vis(L_ANKLE) && vis(L_FOOT),
-      j.leftAnkle,
-      j.leftFootIndex,
-    );
-    drive(
-      "rightFoot",
-      vis(R_ANKLE) && vis(R_FOOT),
-      j.rightAnkle,
-      j.rightFootIndex,
-    );
-
-    // Neck / head (nose as proxy)
-    drive(
-      "neck",
-      vis(NOSE) && vis(L_SHOULDER) && vis(R_SHOULDER),
-      j.shoulderCenter,
-      j.nose,
-    );
-    drive(
-      "head",
-      vis(NOSE) && vis(L_SHOULDER) && vis(R_SHOULDER),
-      j.shoulderCenter,
-      j.nose,
-    );
-
-    // Force scene to update matrices for next bone in chain
-    object.updateMatrixWorld(true);
-
-    const rawPose = buildPoseDataFromRig(rigMap, rootMotion);
     if (
       calibrationRequestId > 0 &&
       calibrationRequestId !== lastCalibrationRequestRef.current
@@ -900,10 +687,12 @@ function PoseEditLayer({
 interface Props {
   modelUuid: string;
   landmarksRef: React.RefObject<NormalizedLandmark[] | null>;
+  visibilityLandmarksRef?: React.RefObject<NormalizedLandmark[] | null>;
   remap: BoneRemap;
   poseDataRef?: React.RefObject<PoseBoneData | null>;
   staticPoseRef?: React.RefObject<PoseBoneData | null>;
   rootMotion?: boolean;
+  landmarkSmoothing?: boolean;
   calibrationRef?: React.RefObject<PoseCalibration | null>;
   calibrationRequestId?: number;
   onCalibrationReady?: (calibration: PoseCalibration) => void;
@@ -936,10 +725,12 @@ interface Props {
 export function ModelPreview({
   modelUuid,
   landmarksRef,
+  visibilityLandmarksRef,
   remap,
   poseDataRef,
   staticPoseRef,
   rootMotion,
+  landmarkSmoothing,
   calibrationRef,
   calibrationRequestId,
   onCalibrationReady,
@@ -1021,6 +812,7 @@ export function ModelPreview({
       <PosedModel
         object={object}
         landmarksRef={landmarksRef}
+        visibilityLandmarksRef={visibilityLandmarksRef}
         remap={remap}
         poseDataRef={poseDataRef}
         calibrationRef={calibrationRef}
@@ -1028,6 +820,7 @@ export function ModelPreview({
         onCalibrationReady={onCalibrationReady}
         staticPoseRef={staticPoseRef}
         rootMotion={rootMotion}
+        landmarkSmoothing={landmarkSmoothing}
         modelScale={modelScale}
       />
       {staticPoseRef && (

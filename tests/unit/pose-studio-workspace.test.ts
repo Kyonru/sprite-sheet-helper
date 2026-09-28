@@ -12,9 +12,11 @@ import {
   getTransformModeForTool,
   isGlobalPoseStudioTool,
   isPoseStudioGizmoEnabled,
+  markLandmarkJumps,
   poseGizmoApplies,
   poseStudioUiReducer,
   shiftQualityMarkersAfterDelete,
+  summarizePoseCaptureQuality,
   trimQualityMarkersAfter,
   trimQualityMarkersBefore,
   type PoseEditTarget,
@@ -31,6 +33,7 @@ const marker = (
   label,
   score: label === "Good" ? 0.95 : label === "Usable" ? 0.65 : 0.25,
   warnings: label === "Poor" ? ["Low quality"] : [],
+  heldBones: [],
 });
 
 const draft = (): PoseEditDraft => ({
@@ -151,6 +154,37 @@ describe("pose studio workspace helpers", () => {
       marker(0),
       marker(1, "Usable"),
     ]);
+  });
+
+  it("summarises held bones and landmark jumps across a capture", () => {
+    const markers = markLandmarkJumps(
+      [
+        marker(0),
+        { ...marker(1, "Usable"), heldBones: ["leftArm", "leftForeArm"] },
+        { ...marker(2), heldBones: ["leftArm"] },
+      ],
+      [2],
+    );
+
+    expect(summarizePoseCaptureQuality(markers)).toEqual({
+      frameCount: 3,
+      averageScore: 0.85,
+      label: "Good",
+      heldFrameCount: 2,
+      heldBoneCount: 3,
+      landmarkJumpCount: 1,
+    });
+
+    expect(shiftQualityMarkersAfterDelete(markers, 1)[1]).toMatchObject({
+      frameIndex: 1,
+      landmarkJump: true,
+      heldBones: ["leftArm"],
+    });
+    expect(trimQualityMarkersBefore(markers, 2)[0]).toMatchObject({
+      frameIndex: 0,
+      landmarkJump: false,
+      heldBones: ["leftArm"],
+    });
   });
 });
 

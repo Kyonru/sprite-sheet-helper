@@ -19,6 +19,7 @@
 ## Editing Rules
 
 - Keep frame index transformations synchronized across frames, overrides, quality markers, and selected frame state.
+- Quality markers also carry held-bone and landmark-jump diagnostics; delete and trim operations must keep those fields aligned, and a trim that removes a jump's preceding frame must clear the new first-frame jump.
 - Use quaternions or existing pose helpers for rotation math; avoid ad hoc Euler conversions unless the surrounding code already uses them.
 - IK changes should gracefully fall back when a chain or mapped bone is unavailable.
 - Keep session-only preview state out of project snapshots unless the feature explicitly requires persistence.

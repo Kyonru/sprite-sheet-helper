@@ -78,6 +78,11 @@ export interface UseMediPipeResult {
   applyDetectedCandidate: (candidate: PoseLandmarkCandidate) => void;
 }
 
+export interface UseMediaPipeOptions {
+  /** Preserve the historical live-input EMA; photos are never filtered here. */
+  smoothLiveLandmarks?: boolean;
+}
+
 function getImageSize(image: HTMLImageElement) {
   return {
     width: image.naturalWidth || image.width || 1,
@@ -189,7 +194,9 @@ function smoothLandmarks(
 export function useMediaPipe(
   videoRef?: RefObject<HTMLVideoElement | null>,
   imageRef?: RefObject<HTMLImageElement | null>,
+  options: UseMediaPipeOptions = {},
 ): UseMediPipeResult {
+  const smoothLiveLandmarks = options.smoothLiveLandmarks ?? true;
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
@@ -377,22 +384,18 @@ export function useMediaPipe(
       const world = result.worldLandmarks?.[0] ?? null;
 
       if (screen) {
-        const smoothed = smoothLandmarks(
-          previousScreenRef.current,
-          screen,
-          LIVE_SMOOTHING,
-        );
-        previousScreenRef.current = smoothed;
-        setScreenLandmarks(smoothed);
+        const next = smoothLiveLandmarks
+          ? smoothLandmarks(previousScreenRef.current, screen, LIVE_SMOOTHING)
+          : screen;
+        previousScreenRef.current = smoothLiveLandmarks ? next : null;
+        setScreenLandmarks(next);
       }
       if (world) {
-        const smoothed = smoothLandmarks(
-          previousWorldRef.current,
-          world,
-          LIVE_SMOOTHING,
-        );
-        previousWorldRef.current = smoothed;
-        setWorldLandmarks(smoothed);
+        const next = smoothLiveLandmarks
+          ? smoothLandmarks(previousWorldRef.current, world, LIVE_SMOOTHING)
+          : world;
+        previousWorldRef.current = smoothLiveLandmarks ? next : null;
+        setWorldLandmarks(next);
       }
 
       const delta = now - lastTimeRef.current;
@@ -410,7 +413,7 @@ export function useMediaPipe(
       previousScreenRef.current = null;
       previousWorldRef.current = null;
     };
-  }, [isImageMode, isReady, videoRef]);
+  }, [isImageMode, isReady, smoothLiveLandmarks, videoRef]);
 
   return {
     screenLandmarks,

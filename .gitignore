@@ -30,3 +30,9 @@ example_model.*
 
 # test coverage output
 coverage/
+
+# Pose capture benchmark artifacts (captures and metric snapshots)
+.pose-bench/
+
+# Rendered pose demo artifacts
+pose-demo/

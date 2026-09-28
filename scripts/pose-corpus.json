@@ -1,0 +1,61 @@
+{
+  "$comment": [
+    "Stress-test corpus. Every clip is CC0, public domain, or CC BY/BY-SA from",
+    "Wikimedia Commons, chosen to stress a DIFFERENT failure mode rather than to",
+    "flatter the pipeline. Licence and source are recorded per clip because the",
+    "same rule applies here as everywhere else in this project: nothing is used",
+    "without knowing what it is.",
+    "Videos are downloaded into a gitignored directory and never committed.",
+    "NOTE: 'Jumping_jack_slow_motion.webm' was originally in this corpus and is an INSECT (a jumping jack ant), not a person doing jumping jacks. MediaPipe correctly detected nobody. Selecting clips by filename is not safe; look at them."
+  ],
+  "clips": [
+    {
+      "id": "astronaut-treadmill",
+      "stresses": "unusual environment and harness-supported gait - a body moving in a way ordinary footage never shows",
+      "licence": "Public domain",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/38/Running_in_Space%21.webm"
+    },
+    {
+      "id": "jacks-burpees",
+      "stresses": "floor contact and full occlusion - a burpee puts the body prone, far from the upright assumption",
+      "licence": "CC BY-SA 4.0",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/57/Jumping_jacks_and_burpees.webm"
+    },
+    {
+      "id": "treadmill",
+      "stresses": "in-place gait - travel is zero, so any root solve that fabricates motion shows up immediately",
+      "licence": "Public domain",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/1/17/CDC-_Tips_From_Former_Smokers_-_Sharon%E2%80%99s_%E2%80%9CTreadmill%E2%80%9D_Tips_Commercial.webm"
+    },
+    {
+      "id": "kickboxing",
+      "stresses": "fast motion and two people - tests the smoothing bandwidth and single-subject assumption",
+      "licence": "CC BY 3.0",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/0/03/EK_Kickboksen_2023_in_de_IISPA.webm"
+    },
+    {
+      "id": "yoga-tadasana",
+      "stresses": "near-static pose - almost no motion, so jitter has nowhere to hide",
+      "licence": "CC BY 3.0",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/50/Yoga_with_Modi%E2%80%94Tadasana_%28English%29.webm"
+    },
+    {
+      "id": "yoga-trikonasana",
+      "stresses": "extreme non-upright pose - a deep side bend breaks the 'head above hips' assumption",
+      "licence": "CC BY 3.0",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/b/b1/Yoga_with_Modi%E2%80%94Trikonasana_%28English%29.webm"
+    },
+    {
+      "id": "sign-language",
+      "stresses": "upper body only - the legs are out of frame entirely, so contacts and root motion are undefined and MUST fail gracefully",
+      "licence": "CC0",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Tanzanian_Sign_Language_-_Habari_ya_asubuhi_%28Good_Morning%29_-_greeting_02.webm"
+    },
+    {
+      "id": "seated-dinner",
+      "stresses": "seated people at a distance - small, partially occluded subjects and no gait at all",
+      "licence": "Public domain",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/b/b9/UNC_75th_Anniversary_Commemoration_Dinner_%28983994%29.webm"
+    }
+  ]
+}

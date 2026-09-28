@@ -21,6 +21,19 @@ export interface PoseFrameQualityMarker {
   score: number;
   label: PoseQualityLabel;
   warnings: string[];
+  /** Bone keys that reused a previous rotation because visibility was low. */
+  heldBones: string[];
+  /** A clip-relative landmark discontinuity begins on this frame. */
+  landmarkJump?: boolean;
+}
+
+export interface PoseCaptureQualitySummary {
+  frameCount: number;
+  averageScore: number;
+  label: PoseQualityLabel;
+  heldFrameCount: number;
+  heldBoneCount: number;
+  landmarkJumpCount: number;
 }
 
 export interface PoseStudioUiState {
@@ -217,10 +230,21 @@ export function trimQualityMarkersBefore(
 ) {
   return markers
     .filter((marker) => marker.frameIndex >= firstFrameIndex)
-    .map((marker) => ({
-      ...marker,
-      frameIndex: marker.frameIndex - firstFrameIndex,
-    }));
+    .map((marker) => {
+      const frameIndex = marker.frameIndex - firstFrameIndex;
+      return {
+        ...marker,
+        frameIndex,
+        // A discontinuity belongs to the transition from the preceding frame.
+        // Once that frame is trimmed, the new first frame cannot be a jump.
+        ...(marker.landmarkJump === undefined
+          ? {}
+          : {
+              landmarkJump:
+                frameIndex === 0 ? false : marker.landmarkJump,
+            }),
+      };
+    });
 }
 
 export function trimQualityMarkersAfter(
@@ -228,6 +252,45 @@ export function trimQualityMarkersAfter(
   lastFrameIndex: number,
 ) {
   return markers.filter((marker) => marker.frameIndex <= lastFrameIndex);
+}
+
+/** Add whole-clip discontinuity results without changing the captured poses. */
+export function markLandmarkJumps(
+  markers: PoseFrameQualityMarker[],
+  frameIndices: readonly number[],
+): PoseFrameQualityMarker[] {
+  const jumps = new Set(frameIndices);
+  return markers.map((marker) => ({
+    ...marker,
+    landmarkJump: jumps.has(marker.frameIndex),
+  }));
+}
+
+export function summarizePoseCaptureQuality(
+  markers: readonly PoseFrameQualityMarker[],
+  frameCount = markers.length,
+): PoseCaptureQualitySummary {
+  const averageScore =
+    markers.length > 0
+      ? markers.reduce((sum, marker) => sum + marker.score, 0) / markers.length
+      : 0;
+
+  return {
+    frameCount,
+    averageScore,
+    label:
+      averageScore >= 0.78
+        ? "Good"
+        : averageScore >= 0.52
+          ? "Usable"
+          : "Poor",
+    heldFrameCount: markers.filter((marker) => marker.heldBones.length > 0).length,
+    heldBoneCount: markers.reduce(
+      (sum, marker) => sum + marker.heldBones.length,
+      0,
+    ),
+    landmarkJumpCount: markers.filter((marker) => marker.landmarkJump).length,
+  };
 }
 
 export function markerTone(label: PoseQualityLabel | undefined) {

@@ -72,6 +72,8 @@ import { parseModel } from "@/utils/model";
 import type { ModelComponent } from "@/types/ecs";
 import { PoseSmoother } from "@/utils/animation-smoothing";
 import type { PoseBoneData } from "@/utils/mediapipe-to-bones";
+import { getHeldPoseBoneKeys } from "@/utils/pose-solve";
+import { detectLandmarkDiscontinuities } from "@/utils/pose-metrics";
 import {
   BODY_PART_LABELS,
   MIXAMO_DEFAULT_REMAP,
@@ -138,9 +140,11 @@ import {
   getTransformModeForTool,
   isGlobalPoseStudioTool,
   isPoseStudioGizmoEnabled,
+  markLandmarkJumps,
   markerTone,
   poseStudioUiReducer,
   shiftQualityMarkersAfterDelete,
+  summarizePoseCaptureQuality,
   trimQualityMarkersAfter,
   trimQualityMarkersBefore,
   type PoseFrameQualityMarker,
@@ -153,6 +157,11 @@ const VIDEO_W = 480;
 const VIDEO_H = 360;
 
 type InputMode = "photo" | "video" | "camera";
+
+interface PoseCleanupSettings {
+  landmarkSmoothing: boolean;
+  poseSmoothing: boolean;
+}
 
 const IK_TARGET_LABELS: Record<IkEffectorKey, string> = {
   leftElbow: "L Elbow",
@@ -236,13 +245,27 @@ function waitForPreviewFrame() {
 function makeQualityMarker(
   frameIndex: number,
   quality: PoseQualityResult,
+  heldBones: readonly string[] = [],
 ): PoseFrameQualityMarker {
   return {
     frameIndex,
     score: quality.score,
     label: quality.label,
     warnings: quality.warnings,
+    heldBones: [...heldBones],
   };
+}
+
+function getHeldMappedPoseBones(
+  landmarks: readonly NormalizedLandmark[] | null,
+  remap: BoneRemap,
+  availableBones: readonly string[],
+) {
+  if (!landmarks) return [];
+  const available = new Set(availableBones);
+  return getHeldPoseBoneKeys(landmarks).filter((key) =>
+    available.has(remap[key]),
+  );
 }
 
 function ikTargetToEffector(
@@ -854,10 +877,12 @@ interface PoseViewportPanelProps {
   modelUuid: string;
   hasFrames: boolean;
   landmarksRef: React.RefObject<NormalizedLandmark[] | null>;
+  visibilityLandmarksRef: React.RefObject<NormalizedLandmark[] | null>;
   poseDataRef: React.RefObject<PoseBoneData | null>;
   staticPoseRef: React.RefObject<PoseBoneData | null>;
   remap: BoneRemap;
   rootMotion: boolean;
+  landmarkSmoothing: boolean;
   calibrationRef: React.RefObject<PoseCalibration | null>;
   calibrationRequestId: number;
   onCalibrationReady: () => void;
@@ -890,10 +915,12 @@ function PoseViewportPanel({
   modelUuid,
   hasFrames,
   landmarksRef,
+  visibilityLandmarksRef,
   poseDataRef,
   staticPoseRef,
   remap,
   rootMotion,
+  landmarkSmoothing,
   calibrationRef,
   calibrationRequestId,
   onCalibrationReady,
@@ -928,10 +955,12 @@ function PoseViewportPanel({
       <ModelPreview
         modelUuid={modelUuid}
         landmarksRef={landmarksRef}
+        visibilityLandmarksRef={visibilityLandmarksRef}
         poseDataRef={hasFrames ? undefined : poseDataRef}
         staticPoseRef={hasFrames ? staticPoseRef : undefined}
         remap={remap}
         rootMotion={rootMotion}
+        landmarkSmoothing={landmarkSmoothing}
         calibrationRef={calibrationRef}
         calibrationRequestId={calibrationRequestId}
         onCalibrationReady={onCalibrationReady}
@@ -1073,16 +1102,23 @@ function PoseTimeline({
           frames.map((frame, index) => {
             const marker = markerByFrame.get(index);
             const tone = markerTone(marker?.label);
+            const diagnostics = marker
+              ? [
+                  `${marker.label} ${Math.round(marker.score * 100)}%`,
+                  marker.heldBones.length > 0
+                    ? `${marker.heldBones.length} held bone${marker.heldBones.length === 1 ? "" : "s"}`
+                    : null,
+                  marker.landmarkJump ? "Landmark jump begins here" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "No quality marker";
             return (
               <button
                 key={`${frame.time}-${index}`}
                 type="button"
                 onClick={() => onSetIndex(index)}
-                title={
-                  marker
-                    ? `${marker.label} ${Math.round(marker.score * 100)}%`
-                    : "No quality marker"
-                }
+                title={diagnostics}
                 className={cn(
                   "flex h-9 min-w-12 flex-col items-center justify-center rounded border px-2 text-[10px] tabular-nums",
                   currentIndex === index
@@ -1093,6 +1129,7 @@ function PoseTimeline({
                     currentIndex !== index &&
                     "border-sky-500/30",
                   tone === "poor" && currentIndex !== index && "border-warn/40",
+                  marker?.landmarkJump && "ring-1 ring-warn",
                 )}
               >
                 <span>{index + 1}</span>
@@ -1130,6 +1167,10 @@ function PoseSavePanel({
   onForceInPlaceChange,
 }: PoseSavePanelProps) {
   const summary = getPoseDraftSummary(draft);
+  const captureQuality = summarizePoseCaptureQuality(
+    qualityMarkers,
+    frames.length,
+  );
   const bestMarker = qualityMarkers.reduce<PoseFrameQualityMarker | null>(
     (best, marker) => (!best || marker.score > best.score ? marker : best),
     null,
@@ -1158,6 +1199,18 @@ function PoseSavePanel({
             label: "Mapped",
             value: `${mappingAnalysis.mapped}/${mappingAnalysis.total}`,
           },
+          {
+            label: "Clip quality",
+            value: qualityMarkers.length
+              ? `${captureQuality.label} ${Math.round(captureQuality.averageScore * 100)}%`
+              : "—",
+          },
+          {
+            label: "Held frames",
+            value: qualityMarkers.length
+              ? `${captureQuality.heldFrameCount}/${frames.length}`
+              : "—",
+          },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -1179,6 +1232,16 @@ function PoseSavePanel({
           </span>
           <span className="font-mono text-[11px] text-foreground tabular-nums">
             {bestMarker.label} {Math.round(bestMarker.score * 100)}%
+          </span>
+        </div>
+      )}
+      {captureQuality.landmarkJumpCount > 0 && (
+        <div className="flex gap-1.5 rounded-[5px] border border-warn/30 bg-warn/10 px-2 py-1.5">
+          <AlertCircle size={12} className="mt-px shrink-0 text-warn" />
+          <span className="text-[10px] leading-snug text-warn">
+            This clip has {captureQuality.landmarkJumpCount} landmark jump
+            {captureQuality.landmarkJumpCount === 1 ? "" : "s"}. Check the
+            marked timeline frames for a cut or detector re-acquisition.
           </span>
         </div>
       )}
@@ -1220,6 +1283,9 @@ interface PoseInspectorProps {
   onModelTierChange: (tier: PoseModelTier) => void;
   rootMotion: boolean;
   setRootMotion: (value: boolean) => void;
+  cleanup: PoseCleanupSettings;
+  setCleanup: (settings: PoseCleanupSettings) => void;
+  recording: boolean;
   calibrated: boolean;
   onCalibrate: () => void;
   bestQuality: PoseQualityResult | null;
@@ -1294,6 +1360,9 @@ function PoseInspector({
   onModelTierChange,
   rootMotion,
   setRootMotion,
+  cleanup,
+  setCleanup,
+  recording,
   calibrated,
   onCalibrate,
   bestQuality,
@@ -1343,6 +1412,10 @@ function PoseInspector({
   forceInPlace,
   onForceInPlaceChange,
 }: PoseInspectorProps) {
+  const captureQuality = summarizePoseCaptureQuality(
+    qualityMarkers,
+    draft.frames.length,
+  );
   const selectedEffector = ikTargetToEffector(selectedIkTarget);
   const missingIkLabels = Object.entries(ikStatus.missing)
     .filter(([, missing]) => (missing?.length ?? 0) > 0)
@@ -1463,6 +1536,24 @@ function PoseInspector({
                 },
                 { label: "Skipped", value: String(rejectedFrameCount) },
                 {
+                  label: "Clip quality",
+                  value: qualityMarkers.length
+                    ? `${captureQuality.label} ${Math.round(captureQuality.averageScore * 100)}%`
+                    : "None",
+                },
+                {
+                  label: "Held frames",
+                  value: qualityMarkers.length
+                    ? `${captureQuality.heldFrameCount}/${draft.frames.length}`
+                    : "—",
+                },
+                {
+                  label: "Held bones",
+                  value: qualityMarkers.length
+                    ? String(captureQuality.heldBoneCount)
+                    : "—",
+                },
+                {
                   label: "Calibration",
                   value: calibrated ? "Ready" : "Not set",
                 },
@@ -1480,6 +1571,61 @@ function PoseInspector({
                 </div>
               ))}
             </div>
+            {captureQuality.landmarkJumpCount > 0 && (
+              <div className="flex gap-1.5 rounded-[5px] border border-warn/30 bg-warn/10 px-2 py-1.5 text-[10px] leading-snug text-warn">
+                <AlertCircle size={12} className="mt-px shrink-0" />
+                <span>
+                  This clip has {captureQuality.landmarkJumpCount} landmark jump
+                  {captureQuality.landmarkJumpCount === 1 ? "" : "s"}. A cut or
+                  detector re-acquisition may have snapped the pose.
+                </span>
+              </div>
+            )}
+            <section className="rounded-[10px] border border-stroke">
+              <div className="border-b border-stroke px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Capture cleanup
+              </div>
+              <div className="grid gap-2 p-2">
+                <label className="flex items-center justify-between gap-3 text-[11px] text-foreground">
+                  <span className="min-w-0">
+                    <span className="block">Landmark smoothing</span>
+                    <span className="block text-[10px] leading-snug text-faint-foreground">
+                      Stabilize detected joints before solving the rig.
+                    </span>
+                  </span>
+                  <Switch
+                    checked={cleanup.landmarkSmoothing}
+                    onCheckedChange={(checked) =>
+                      setCleanup({
+                        ...cleanup,
+                        landmarkSmoothing: Boolean(checked),
+                      })
+                    }
+                    disabled={recording}
+                    className="shrink-0"
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-3 border-t border-stroke pt-2 text-[11px] text-foreground">
+                  <span className="min-w-0">
+                    <span className="block">Pose smoothing</span>
+                    <span className="block text-[10px] leading-snug text-faint-foreground">
+                      Apply a light second pass to recorded bone tracks.
+                    </span>
+                  </span>
+                  <Switch
+                    checked={cleanup.poseSmoothing}
+                    onCheckedChange={(checked) =>
+                      setCleanup({
+                        ...cleanup,
+                        poseSmoothing: Boolean(checked),
+                      })
+                    }
+                    disabled={recording}
+                    className="shrink-0"
+                  />
+                </label>
+              </div>
+            </section>
             <label className="flex items-center justify-between gap-3 rounded-[5px] border border-stroke px-2 py-1.5 text-[11px] text-foreground">
               Root motion
               <Switch
@@ -2018,13 +2164,16 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
   const smootherRef = useRef(new PoseSmoother(0.4));
   const recordingFramesRef = useRef<PoseFrame[]>([]);
   const recordingMarkersRef = useRef<PoseFrameQualityMarker[]>([]);
+  const recordingLandmarksRef = useRef<NormalizedLandmark[][]>([]);
   const bestFrameRef = useRef<{
     frame: PoseFrame;
     quality: PoseQualityResult;
+    heldBones: string[];
   } | null>(null);
   const calibrationRef = useRef<PoseCalibration | null>(null);
   const autoDetectedRef = useRef(false);
   const worldLandmarksRef = useRef<NormalizedLandmark[] | null>(null);
+  const screenLandmarksRef = useRef<NormalizedLandmark[] | null>(null);
   const poseDataRef = useRef<PoseBoneData | null>(null);
   const staticPoseRef = useRef<PoseBoneData | null>(null);
   const ikDebugRef = useRef<IkDebugSnapshot | null>(null);
@@ -2058,6 +2207,10 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
   const [availableBones, setAvailableBones] = useState<string[]>([]);
   const [boneLoadError, setBoneLoadError] = useState<string | null>(null);
   const [rootMotion, setRootMotion] = useState(false);
+  const [cleanup, setCleanup] = useState<PoseCleanupSettings>({
+    landmarkSmoothing: true,
+    poseSmoothing: true,
+  });
   const [recording, setRecording] = useState(false);
   const [recordingFrameCount, setRecordingFrameCount] = useState(0);
   const [rejectedFrameCount, setRejectedFrameCount] = useState(0);
@@ -2135,11 +2288,16 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
   } = useMediaPipe(
     inputMode === "camera" || inputMode === "video" ? videoRef : undefined,
     inputMode === "photo" ? imageRef : undefined,
+    { smoothLiveLandmarks: cleanup.landmarkSmoothing },
   );
 
   useEffect(() => {
     worldLandmarksRef.current = worldLandmarks;
   }, [worldLandmarks]);
+
+  useEffect(() => {
+    screenLandmarksRef.current = screenLandmarks;
+  }, [screenLandmarks]);
 
   const mappingAnalysis = useMemo(
     () => analyzeBoneMapping(boneRemap, availableBones),
@@ -2470,6 +2628,16 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
     const pose = poseDataRef.current;
     if (!pose) return null;
 
+    if (!cleanup.poseSmoothing) {
+      return { time, data: clonePoseData(pose) };
+    }
+
+    // Fix the timestep once for the whole pose. Every track below must be
+    // filtered against the SAME interval; deriving it per call made all but
+    // the first track see a near-zero dt and stall. `time` is the frame's own
+    // timestamp, so smoothing no longer depends on machine speed.
+    smootherRef.current.beginFrame(time);
+
     const smoothed: PoseBoneData = {
       hips: {
         boneName: pose.hips.boneName,
@@ -2493,10 +2661,14 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
     };
 
     return { time, data: smoothed };
-  }, []);
+  }, [cleanup.poseSmoothing]);
 
   const rememberBestFrame = useCallback(
-    (frame: PoseFrame, quality: PoseQualityResult) => {
+    (
+      frame: PoseFrame,
+      quality: PoseQualityResult,
+      heldBones: readonly string[] = [],
+    ) => {
       if (quality.label === "Poor") return;
       const currentBest = bestFrameRef.current;
       if (!currentBest || quality.score > currentBest.quality.score) {
@@ -2506,6 +2678,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
             data: clonePoseData(frame.data),
           },
           quality,
+          heldBones: [...heldBones],
         };
         setBestQuality(quality);
       }
@@ -2533,17 +2706,30 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
     }
 
     const frameIndex = recordingFramesRef.current.length;
+    const heldBones = getHeldMappedPoseBones(
+      screenLandmarks ?? worldLandmarks,
+      boneRemap,
+      availableBones,
+    );
     recordingFramesRef.current.push(frame);
-    recordingMarkersRef.current.push(makeQualityMarker(frameIndex, poseQuality));
-    rememberBestFrame(frame, poseQuality);
+    recordingMarkersRef.current.push(
+      makeQualityMarker(frameIndex, poseQuality, heldBones),
+    );
+    recordingLandmarksRef.current.push(
+      worldLandmarks.map((landmark) => ({ ...landmark })),
+    );
+    rememberBestFrame(frame, poseQuality, heldBones);
     setRecordingFrameCount(recordingFramesRef.current.length);
     setElapsed(time);
   }, [
+    availableBones,
+    boneRemap,
     buildSmoothedFrame,
     inputMode,
     poseQuality,
     recording,
     rememberBestFrame,
+    screenLandmarks,
     worldLandmarks,
   ]);
 
@@ -2573,6 +2759,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
   const handleStartRecording = useCallback(() => {
     recordingFramesRef.current = [];
     recordingMarkersRef.current = [];
+    recordingLandmarksRef.current = [];
     bestFrameRef.current = null;
     smootherRef.current.reset();
     startTimeRef.current = performance.now();
@@ -2586,9 +2773,12 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
   const handleStopRecording = useCallback(() => {
     setRecording(false);
     if (recordingFramesRef.current.length === 0) return;
+    const { events } = detectLandmarkDiscontinuities(
+      recordingLandmarksRef.current,
+    );
     replaceCapturedFrames(
       [...recordingFramesRef.current],
-      [...recordingMarkersRef.current],
+      markLandmarkJumps(recordingMarkersRef.current, events),
       "Record motion",
     );
   }, [replaceCapturedFrames]);
@@ -2596,6 +2786,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
   const handleClearCapture = useCallback(() => {
     recordingFramesRef.current = [];
     recordingMarkersRef.current = [];
+    recordingLandmarksRef.current = [];
     bestFrameRef.current = null;
     smootherRef.current.reset();
     setRecordingFrameCount(0);
@@ -2634,6 +2825,9 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
 
       if (best?.candidate) {
         applyDetectedCandidate(best.candidate);
+        if (best.candidate.screenLandmarks) {
+          screenLandmarksRef.current = best.candidate.screenLandmarks;
+        }
         if (best.candidate.worldLandmarks) {
           worldLandmarksRef.current = best.candidate.worldLandmarks;
         }
@@ -2645,11 +2839,16 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
       smootherRef.current.reset();
       const frame = buildSmoothedFrame(0);
       if (!frame) return;
+      const heldBones = getHeldMappedPoseBones(
+        screenLandmarksRef.current ?? worldLandmarksRef.current,
+        boneRemap,
+        availableBones,
+      );
 
-      rememberBestFrame(frame, selectedQuality);
+      rememberBestFrame(frame, selectedQuality, heldBones);
       replaceCapturedFrames(
         [frame],
-        [makeQualityMarker(0, selectedQuality)],
+        [makeQualityMarker(0, selectedQuality, heldBones)],
         "Capture photo pose",
       );
 
@@ -2685,7 +2884,7 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           data: clonePoseData(best.frame.data),
         },
       ],
-      [makeQualityMarker(0, best.quality)],
+      [makeQualityMarker(0, best.quality, best.heldBones)],
       "Use best frame",
     );
     setRecording(false);
@@ -3434,10 +3633,12 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           modelUuid={modelUuid}
           hasFrames={draft.frames.length > 0}
           landmarksRef={worldLandmarksRef}
+          visibilityLandmarksRef={screenLandmarksRef}
           poseDataRef={poseDataRef}
           staticPoseRef={staticPoseRef}
           remap={boneRemap}
           rootMotion={rootMotion}
+          landmarkSmoothing={cleanup.landmarkSmoothing}
           calibrationRef={calibrationRef}
           calibrationRequestId={calibrationRequestId}
           onCalibrationReady={handleCalibrationReady}
@@ -3479,6 +3680,9 @@ export function PoseStudioShell({ modelUuid, onClose }: PoseStudioShellProps) {
           onModelTierChange={setModelTier}
           rootMotion={rootMotion}
           setRootMotion={setRootMotion}
+          cleanup={cleanup}
+          setCleanup={setCleanup}
+          recording={recording}
           calibrated={calibrated}
           onCalibrate={handleCalibrateRestPose}
           bestQuality={bestQuality}

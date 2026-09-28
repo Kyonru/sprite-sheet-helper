@@ -25,6 +25,39 @@ function getClipFrames(frames: PoseFrame[]): PoseFrame[] {
   ];
 }
 
+/**
+ * Force sign continuity along a quaternion track, in place.
+ *
+ * `q` and `-q` are the same rotation, but a sign flip between consecutive
+ * keyframes makes any interpolator take the long way round the 4-sphere. In a
+ * baked clip that reads as a limb spinning through the body for a single
+ * frame. Landmark-driven poses are solved per frame with no continuity
+ * guarantee, so flips are ordinary rather than exceptional and have to be
+ * removed before the track is handed to three.
+ *
+ * Operates on the flat [x,y,z,w,...] buffer a KeyframeTrack takes.
+ *
+ * @returns how many keyframes had to be negated, for diagnostics.
+ */
+export function enforceQuaternionContinuity(values: number[]): number {
+  let flips = 0;
+  for (let i = 4; i < values.length; i += 4) {
+    const dot =
+      values[i - 4] * values[i] +
+      values[i - 3] * values[i + 1] +
+      values[i - 2] * values[i + 2] +
+      values[i - 1] * values[i + 3];
+    if (dot < 0) {
+      values[i] = -values[i];
+      values[i + 1] = -values[i + 1];
+      values[i + 2] = -values[i + 2];
+      values[i + 3] = -values[i + 3];
+      flips += 1;
+    }
+  }
+  return flips;
+}
+
 export function buildAnimationClip(
   frames: PoseFrame[],
   name: string,
@@ -38,6 +71,7 @@ export function buildAnimationClip(
 
   const hipPositions = clipFrames.flatMap((f) => [f.data.hips.position.x, f.data.hips.position.y, f.data.hips.position.z]);
   const hipQuats = clipFrames.flatMap((f) => [f.data.hips.quaternion.x, f.data.hips.quaternion.y, f.data.hips.quaternion.z, f.data.hips.quaternion.w]);
+  enforceQuaternionContinuity(hipQuats);
 
   const tracks: THREE.KeyframeTrack[] = [
     new THREE.VectorKeyframeTrack(`${hipsName}.position`, times, hipPositions),
@@ -57,6 +91,7 @@ export function buildAnimationClip(
       const q = bone?.quaternion ?? new THREE.Quaternion();
       return [q.x, q.y, q.z, q.w];
     });
+    enforceQuaternionContinuity(values);
 
     tracks.push(new THREE.QuaternionKeyframeTrack(`${boneName}.quaternion`, times, values));
 

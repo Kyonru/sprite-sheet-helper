@@ -33,12 +33,15 @@
     "test:e2e:run": "vitest run --config vitest.e2e.config.ts",
     "test:e2e:goldens": "vitest run --config vitest.e2e.config.ts tests/e2e/workflow-goldens.test.ts",
     "test:e2e:update-goldens": "cross-env UPDATE_WORKFLOW_GOLDENS=true vitest run --config vitest.e2e.config.ts tests/e2e/workflow-goldens.test.ts",
-    "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.scripts.json",
     "preview": "vite preview",
     "tauri": "tauri",
     "knip": "knip",
     "merge-animations": "node scripts/merge-animations.js",
-    "prepare": "husky"
+    "pose:bench": "node scripts/pose-bench.mjs",
+    "prepare": "husky",
+    "pose:capture": "node scripts/pose-capture.mjs",
+    "pose:stress": "node scripts/pose-stress.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
