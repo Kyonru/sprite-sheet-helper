@@ -13,6 +13,7 @@
 - Tauri desktop release packaging: `.github/workflows/release.yml`,
   `scripts/tauri-release.mjs`, `scripts/check-appimage-layout.mjs`, and
   `scripts/check-version-sync.mjs`.
+- App-version synchronization: `scripts/sync-version.mjs`.
 
 ## Docs Rules
 
@@ -35,6 +36,9 @@
 - `package.json` is the app-version source of truth. Keep its version aligned
   with the root package-lock entries, Tauri config, Cargo manifest/lock, latest
   changelog entry, and release tag; `npm run check:version` enforces this.
+- Run `npm run sync:version` after changing `package.json` to update the
+  package-lock, Cargo manifest/lock, and Tauri package reference. Changelog
+  entries and release tags remain deliberate release steps.
 
 ## Test Targets
 

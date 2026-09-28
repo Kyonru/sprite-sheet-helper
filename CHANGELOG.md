@@ -5,6 +5,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.8.0]
+
+### Added
+
+- Auto-fit framing for app and CLI workflows, including shared fit scopes, clip sampling, explicit pixel/percent margins, postprocess-aware framing, and guaranteed per-sprite atlas margins.
+- Multi-sheet exports with per-sequence sheet assignment, independent packing and validation, sheet-aware manifests, and separate generated engine helpers.
+- Per-animation workflow capture controls, clip allowlists, automatic clip-length frame counts, repeat-pose warnings, and optional one-model-at-a-time capture.
+- A shared MediaPipe pose-solving and measurement pipeline with benchmark, capture, and corpus stress tools; root-motion recovery; contact detection; ground alignment; facing canonicalization; and quaternion continuity.
+- Pose Studio quality review with clip-average quality, held-frame and held-bone counts, landmark-jump warnings, marked timeline frames, and independently lockable smoothing controls.
+- App-version synchronization from `package.json`, CI drift detection, release-tag validation, and AppImage layout validation.
+
+### Improved
+
+- Redesigned the editor, Export Workbench, workflow setup, inspectors, and shared controls around a consistent design system and staged capture-to-export pipeline.
+- Packed atlas planning now searches for compact grid and MaxRects layouts, preferring balanced dimensions when candidate areas are similar.
+- Workflow capture now seeks exact animation times, waits for the camera to settle, replaces matching workflow sequences on rerun, and produces reproducible pixels across machines.
+- Export formats now carry sheet metadata consistently and generate collision-safe filenames, symbols, and examples for multi-sheet projects.
+- Pose Studio now uses one integrated capture and review flow backed by the same solver and diagnostics as the benchmark tools.
+
+### Fixed
+
+- Corrected a 100× root-motion scale error, improved neck calibration, grounded floating captures, and kept pose cleanup metadata intact through trim and delete operations.
+- Prevented loaded-machine timing from capturing stale camera angles, duplicate poses, or animation spacing that disagreed with exported metadata.
+- Fixed Linux AppImage `.DirIcon` packaging and added a release-time guard against invalid absolute AppDir symlinks.
+- Synchronized npm, Tauri, and Cargo application versions under one release source of truth.
+
 ## [0.7.0]
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "name": "spritesheet-helper",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.8.0",
   "license": "MIT",
   "type": "module",
   "packageManager": "npm@11.7.0",
@@ -39,6 +39,7 @@
     "tauri:release": "node scripts/tauri-release.mjs",
     "check:appimage": "node scripts/check-appimage-layout.mjs",
     "check:version": "node scripts/check-version-sync.mjs",
+    "sync:version": "node scripts/sync-version.mjs",
     "knip": "knip",
     "merge-animations": "node scripts/merge-animations.js",
     "pose:bench": "node scripts/pose-bench.mjs",

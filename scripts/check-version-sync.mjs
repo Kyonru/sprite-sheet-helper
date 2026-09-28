@@ -4,14 +4,17 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const modulePath = import.meta.url.startsWith("file:")
+  ? fileURLToPath(import.meta.url)
+  : undefined;
+const root = modulePath ? resolve(dirname(modulePath), "..") : process.cwd();
 
-function readJson(path) {
-  return JSON.parse(readFileSync(resolve(root, path), "utf8"));
+function readJson(rootDir, path) {
+  return JSON.parse(readFileSync(resolve(rootDir, path), "utf8"));
 }
 
-function readCargoPackageVersion(path, packageName) {
-  const source = readFileSync(resolve(root, path), "utf8");
+function readCargoPackageVersion(rootDir, path, packageName) {
+  const source = readFileSync(resolve(rootDir, path), "utf8");
   const blocks = source.split(/\n(?=\[\[package\]\]\n)/);
   const block = blocks.find((candidate) =>
     new RegExp(`^name = ["']${packageName}["']$`, "m").test(candidate),
@@ -19,8 +22,8 @@ function readCargoPackageVersion(path, packageName) {
   return block?.match(/^version = ["']([^"']+)["']$/m)?.[1];
 }
 
-function readCargoManifestVersion(path) {
-  const source = readFileSync(resolve(root, path), "utf8");
+function readCargoManifestVersion(rootDir, path) {
+  const source = readFileSync(resolve(rootDir, path), "utf8");
   const packageStart = source.indexOf("[package]");
   if (packageStart < 0) return undefined;
   const afterPackage = source.slice(packageStart + "[package]".length);
@@ -29,13 +32,13 @@ function readCargoManifestVersion(path) {
   return packageSection?.match(/^version = ["']([^"']+)["']$/m)?.[1];
 }
 
-function readChangelogVersion(path) {
-  const source = readFileSync(resolve(root, path), "utf8");
+function readChangelogVersion(rootDir, path) {
+  const source = readFileSync(resolve(rootDir, path), "utf8");
   return source.match(/^## \[(\d+\.\d+\.\d+(?:-[^\]]+)?)\]/m)?.[1];
 }
 
-function readTauriVersion(path) {
-  const configPath = resolve(root, path);
+function readTauriVersion(rootDir, path) {
+  const configPath = resolve(rootDir, path);
   const config = JSON.parse(readFileSync(configPath, "utf8"));
   if (typeof config.version !== "string") return undefined;
   if (!config.version.endsWith(".json")) return config.version;
@@ -44,28 +47,36 @@ function readTauriVersion(path) {
   ).version;
 }
 
-export function getAppVersions() {
-  const packageJson = readJson("package.json");
-  const packageLock = readJson("package-lock.json");
+export function getAppVersions(rootDir = root) {
+  const packageJson = readJson(rootDir, "package.json");
+  const packageLock = readJson(rootDir, "package-lock.json");
 
   return {
     "package.json": packageJson.version,
     "package-lock.json": packageLock.version,
     "package-lock.json root package": packageLock.packages?.[""]?.version,
     "src-tauri/tauri.conf.json resolved version": readTauriVersion(
+      rootDir,
       "src-tauri/tauri.conf.json",
     ),
-    "src-tauri/Cargo.toml": readCargoManifestVersion("src-tauri/Cargo.toml"),
+    "src-tauri/Cargo.toml": readCargoManifestVersion(
+      rootDir,
+      "src-tauri/Cargo.toml",
+    ),
     "src-tauri/Cargo.lock app package": readCargoPackageVersion(
+      rootDir,
       "src-tauri/Cargo.lock",
       "app",
     ),
-    "CHANGELOG.md latest entry": readChangelogVersion("CHANGELOG.md"),
+    "CHANGELOG.md latest entry": readChangelogVersion(rootDir, "CHANGELOG.md"),
   };
 }
 
-export function assertAppVersionsInSync(expectedTag = process.env.GITHUB_REF_NAME) {
-  const versions = getAppVersions();
+export function assertAppVersionsInSync(
+  expectedTag = process.env.GITHUB_REF_NAME,
+  rootDir = root,
+) {
+  const versions = getAppVersions(rootDir);
   const expected = versions["package.json"];
   const mismatches = Object.entries(versions).filter(([, version]) => version !== expected);
 
@@ -83,7 +94,8 @@ export function assertAppVersionsInSync(expectedTag = process.env.GITHUB_REF_NAM
   return expected;
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const isMain =
+  modulePath && process.argv[1] && modulePath === resolve(process.argv[1]);
 if (isMain) {
   try {
     const version = assertAppVersionsInSync();

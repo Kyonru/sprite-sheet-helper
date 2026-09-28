@@ -67,6 +67,21 @@ Release tags like `v0.4.0` publish Docker image tags `v0.4.0`, `v0.4`, `v0`, and
 
 The repository includes a standalone `example/` project template that discovers every model in a `models/` folder, runs the Docker Action on push to `main`, and uploads generated sprite artifacts.
 
+## Release Versions
+
+`package.json` is the app-version source of truth. After changing it, synchronize
+the generated package and desktop metadata, then verify the complete release
+state:
+
+```bash
+npm run sync:version
+npm run check:version
+```
+
+The sync command updates `package-lock.json`, the Tauri Cargo manifest and lock,
+and Tauri's reference back to `package.json`. Add the matching `CHANGELOG.md`
+entry deliberately; release tags must use the exact `v<version>` form.
+
 ## GitHub Pages Docs
 
 The documentation site is built with Zensical from the root `docs` directory. Pages in `docs` mirror the app documentation from `src/docs` with symlinks.
