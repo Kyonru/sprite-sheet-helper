@@ -89,6 +89,17 @@ function replaceCargoPackageVersion(source, packageName, version, path) {
   return source.slice(0, start) + updatedBlock + source.slice(end);
 }
 
+function replaceAppStreamVersion(source, version, path) {
+  const versionAttribute = /(<release\b[^>]*\bversion=["'])[^"']+(["'])/;
+  if (!versionAttribute.test(source)) {
+    throw new Error(`${path} is missing a release version`);
+  }
+  return source.replace(
+    versionAttribute,
+    (_match, before, after) => `${before}${version}${after}`,
+  );
+}
+
 function assertManagedVersions(version, rootDir) {
   const versions = getAppVersions(rootDir);
   const managedSources = Object.entries(versions).filter(
@@ -137,12 +148,20 @@ export function syncAppVersions(rootDir = defaultRoot) {
     tauriConfig.version === TAURI_PACKAGE_VERSION_PATH
       ? tauriConfigSource
       : formatJson({ ...tauriConfig, version: TAURI_PACKAGE_VERSION_PATH });
+  const appStreamPath =
+    "src-tauri/com.kyonru.spritesheethelper.metainfo.xml";
+  const appStreamMetadata = replaceAppStreamVersion(
+    readText(rootDir, appStreamPath),
+    version,
+    appStreamPath,
+  );
 
   const outputs = [
     ["package-lock.json", formatJson(packageLock)],
     ["src-tauri/Cargo.toml", cargoManifest],
     ["src-tauri/Cargo.lock", cargoLock],
     ["src-tauri/tauri.conf.json", tauriConfigOutput],
+    [appStreamPath, appStreamMetadata],
   ];
   const changed = outputs
     .filter(([path, content]) => readText(rootDir, path) !== content)

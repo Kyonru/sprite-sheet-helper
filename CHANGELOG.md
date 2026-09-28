@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.8.2]
+
+### Added
+
+- Added AppStream catalog metadata and a repository-hosted screenshot to the Linux AppImage.
+
+### Improved
+
+- Extended AppImage release validation to require matching AppStream metadata, desktop launch targets, and HTTPS screenshots.
+- Added AppStream schema validation to the Linux release workflow and included its release version in the app-wide synchronization check.
+
 ## [0.8.1]
 
 ### Fixed

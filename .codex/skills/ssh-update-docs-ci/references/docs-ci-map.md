@@ -13,6 +13,9 @@
 - Tauri desktop release packaging: `.github/workflows/release.yml`,
   `scripts/tauri-release.mjs`, `scripts/check-appimage-layout.mjs`, and
   `scripts/check-version-sync.mjs`.
+- AppStream catalog metadata and screenshot:
+  `src-tauri/com.kyonru.spritesheethelper.metainfo.xml` and
+  `screenshots/main.png`.
 - App-version synchronization: `scripts/sync-version.mjs`.
 
 ## Docs Rules
@@ -32,15 +35,18 @@
 - Keep release/download docs aligned with actual package outputs.
 - Linux releases must validate the generated AppDir before upload. `.DirIcon`
   and the root `.desktop` entry may be files or relative symlinks, but never
-  absolute build-machine symlinks.
+  absolute build-machine symlinks. The AppDir must also contain the AppStream
+  metainfo file, whose launchable matches that root `.desktop` entry and whose
+  default screenshot uses an HTTPS URL.
 - Tagged desktop workflows must provide `releaseName` to `tauri-action` so a
   fresh tag creates its GitHub Release without requiring manual setup.
 - `package.json` is the app-version source of truth. Keep its version aligned
   with the root package-lock entries, Tauri config, Cargo manifest/lock, latest
-  changelog entry, and release tag; `npm run check:version` enforces this.
+  AppStream release, changelog entry, and release tag; `npm run check:version`
+  enforces this.
 - Run `npm run sync:version` after changing `package.json` to update the
-  package-lock, Cargo manifest/lock, and Tauri package reference. Changelog
-  entries and release tags remain deliberate release steps.
+  package-lock, Cargo manifest/lock, Tauri package reference, and AppStream
+  release. Changelog entries and release tags remain deliberate release steps.
 
 ## Test Targets
 

@@ -45,6 +45,10 @@ async function createFixture(version = "1.2.3") {
       JSON.stringify({ productName: "spritesheet-helper", version: "0.1.0" }, null, 2) +
         "\n",
     ),
+    writeFile(
+      join(root, "src-tauri/com.kyonru.spritesheethelper.metainfo.xml"),
+      '<component type="desktop-application">\n  <releases>\n    <release version="0.1.0" date="2024-01-01"/>\n  </releases>\n</component>\n',
+    ),
     writeFile(join(root, "CHANGELOG.md"), `# Changelog\n\n## [${version}]\n`),
   ]);
 
@@ -70,6 +74,7 @@ describe("app version synchronization", () => {
         "src-tauri/Cargo.toml",
         "src-tauri/Cargo.lock",
         "src-tauri/tauri.conf.json",
+        "src-tauri/com.kyonru.spritesheethelper.metainfo.xml",
       ],
     });
     expect(() => assertAppVersionsInSync(undefined, root)).not.toThrow();

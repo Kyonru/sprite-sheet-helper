@@ -10,6 +10,9 @@ import {
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const APPSTREAM_ID = "com.kyonru.spritesheethelper";
+const APPSTREAM_FILE = `${APPSTREAM_ID}.metainfo.xml`;
+
 function requirePortableEntry(appDir, name) {
   const entry = join(appDir, name);
   let details;
@@ -75,6 +78,34 @@ export function validateAppImageLayout(appDir) {
     throw new Error(
       `${desktopEntries[0]} references missing root icon ${iconName}.{png,svg,xpm}`,
     );
+  }
+
+  const metadataPath = requirePortableEntry(
+    root,
+    join("usr", "share", "metainfo", APPSTREAM_FILE),
+  );
+  const metadata = readFileSync(metadataPath, "utf8");
+  const componentId = metadata.match(/<id>([^<]+)<\/id>/)?.[1]?.trim();
+  if (componentId !== APPSTREAM_ID) {
+    throw new Error(
+      `${APPSTREAM_FILE} must use component id ${APPSTREAM_ID}; found ${componentId ?? "missing"}`,
+    );
+  }
+
+  const launchable = metadata
+    .match(/<launchable\s+type=["']desktop-id["']>([^<]+)<\/launchable>/)?.[1]
+    ?.trim();
+  if (launchable !== desktopEntries[0]) {
+    throw new Error(
+      `${APPSTREAM_FILE} launchable must match ${desktopEntries[0]}; found ${launchable ?? "missing"}`,
+    );
+  }
+
+  const screenshot = metadata
+    .match(/<screenshot\b[^>]*>[\s\S]*?<image>([^<]+)<\/image>[\s\S]*?<\/screenshot>/)?.[1]
+    ?.trim();
+  if (!screenshot?.startsWith("https://")) {
+    throw new Error(`${APPSTREAM_FILE} must include an HTTPS screenshot URL`);
   }
 }
 

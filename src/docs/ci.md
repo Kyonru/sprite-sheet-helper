@@ -79,8 +79,16 @@ npm run check:version
 ```
 
 The sync command updates `package-lock.json`, the Tauri Cargo manifest and lock,
-and Tauri's reference back to `package.json`. Add the matching `CHANGELOG.md`
-entry deliberately; release tags must use the exact `v<version>` form.
+Tauri's reference back to `package.json`, and the latest AppStream release.
+Add the matching `CHANGELOG.md` entry deliberately; release tags must use the
+exact `v<version>` form.
+
+Linux AppImages include AppStream catalog metadata from
+`src-tauri/com.kyonru.spritesheethelper.metainfo.xml`. Its default catalog
+screenshot is the repository image at `screenshots/main.png`. Keep the
+metadata's desktop launchable aligned with the generated root `.desktop` file;
+the Linux release job validates the XML before building and verifies its
+presence in the generated AppDir afterward.
 
 ## GitHub Pages Docs
 

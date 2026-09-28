@@ -6,9 +6,8 @@
  * Nothing here re-implements the pipeline: a benchmark that re-implements the
  * thing it measures measures itself.
  *
- * Why this exists: PLAN-mediapipe-mocap.md forbids claiming an improvement
- * without a before/after number from a repeatable command. This is that
- * command.
+ * Why this exists: pose-quality improvements require a before/after number
+ * from a repeatable command. This is that command.
  *
  *   npm run pose:bench -- \
  *     --landmarks <landmarks.json> \

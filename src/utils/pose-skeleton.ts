@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { JointPositions } from "./mediapipe-to-bones";
 
 /**
- * A fixed skeleton, solved once per clip (PLAN-mediapipe-mocap.md, finding 6).
+ * A fixed skeleton, solved once per clip.
  *
  * MediaPipe estimates every landmark independently per frame, so the distance
  * between two of them wobbles even when the underlying bone cannot change

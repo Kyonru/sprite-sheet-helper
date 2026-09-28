@@ -37,6 +37,11 @@ function readChangelogVersion(rootDir, path) {
   return source.match(/^## \[(\d+\.\d+\.\d+(?:-[^\]]+)?)\]/m)?.[1];
 }
 
+function readAppStreamVersion(rootDir, path) {
+  const source = readFileSync(resolve(rootDir, path), "utf8");
+  return source.match(/<release\b[^>]*\bversion=["']([^"']+)["']/)?.[1];
+}
+
 function readTauriVersion(rootDir, path) {
   const configPath = resolve(rootDir, path);
   const config = JSON.parse(readFileSync(configPath, "utf8"));
@@ -67,6 +72,10 @@ export function getAppVersions(rootDir = root) {
       rootDir,
       "src-tauri/Cargo.lock",
       "app",
+    ),
+    "AppStream latest release": readAppStreamVersion(
+      rootDir,
+      "src-tauri/com.kyonru.spritesheethelper.metainfo.xml",
     ),
     "CHANGELOG.md latest entry": readChangelogVersion(rootDir, "CHANGELOG.md"),
   };

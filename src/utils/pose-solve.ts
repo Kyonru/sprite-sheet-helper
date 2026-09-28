@@ -194,12 +194,12 @@ export interface SolvePoseParams {
 /**
  * The body's across-axis (the performer's left-to-right direction).
  *
- * PLAN-mediapipe-mocap.md, finding 5: taking this from the hip line alone is
- * fragile in a profile shot, because the hip line then points nearly along the
- * camera's view direction - exactly where monocular depth is weakest. Measured
- * on the reference clip the hip and shoulder lines disagreed by 12.6 degrees on
- * average and up to 22.4, and shoulder width came out 0.26 m against a real
- * ~0.38 m, both symptoms of depth compression.
+ * Taking this from the hip line alone is fragile in a profile shot, because
+ * the hip line then points nearly along the camera's view direction - exactly
+ * where monocular depth is weakest. Measured on the reference clip the hip and
+ * shoulder lines disagreed by 12.6 degrees on average and up to 22.4, and
+ * shoulder width came out 0.26 m against a real ~0.38 m, both symptoms of
+ * depth compression.
  *
  * The shoulder line is a second, independent measurement of the same axis. It
  * is NOT the same axis anatomically - the pelvis and thorax counter-rotate
@@ -247,11 +247,11 @@ export function solveAcrossAxis(
 /**
  * Restore the depth component of a body axis to a known length.
  *
- * PLAN-mediapipe-mocap.md, finding 5, second half: the hip line measured 0.26 m
- * across where a real pelvis is ~0.38 m. A monocular estimator compresses the
- * component along the view direction, so a body axis pointing at the camera -
- * exactly what the hip line does in a profile shot - comes back too SHORT, with
- * the shortfall entirely in depth.
+ * On the reference clip, the hip line measured 0.26 m across where a real
+ * pelvis is ~0.38 m. A monocular estimator compresses the component along the
+ * view direction, so a body axis pointing at the camera - exactly what the hip
+ * line does in a profile shot - comes back too SHORT, with the shortfall
+ * entirely in depth.
  *
  * Given the true length, the missing depth follows from Pythagoras. Restoring
  * it swings the axis away from the image plane, which is where it actually is,

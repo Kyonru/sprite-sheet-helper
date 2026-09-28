@@ -34,6 +34,13 @@
     "macOS": {
       "signingIdentity": "-"
     },
+    "linux": {
+      "appimage": {
+        "files": {
+          "/usr/share/metainfo/com.kyonru.spritesheethelper.metainfo.xml": "com.kyonru.spritesheethelper.metainfo.xml"
+        }
+      }
+    },
     "fileAssociations": [
       {
         "ext": ["sshProj"],
