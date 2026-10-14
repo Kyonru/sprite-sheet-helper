@@ -90,6 +90,7 @@ function parseDocs(): DocEntry[] {
 
 const SLUG_ICONS: Record<string, React.ReactNode> = {
   "getting-started": <Rocket size={14} />,
+  "blender-addon": <Download size={14} />,
   animations: <Play size={14} />,
   camera: <Camera size={14} />,
   "camera-capture": <Video size={14} />,

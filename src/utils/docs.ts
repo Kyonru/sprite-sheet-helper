@@ -7,6 +7,7 @@ export type DocsTaskGuide = {
 
 export const DOC_ORDER = [
   "getting-started",
+  "blender-addon",
   "tutorial",
   "projects",
   "animations",
@@ -26,6 +27,12 @@ export const DOC_ORDER = [
 ];
 
 export const DOC_TASK_GUIDES: DocsTaskGuide[] = [
+  {
+    id: "blender-addon",
+    title: "Blender Add-on",
+    description: "Capture Blender Actions as directional atlases and JSON.",
+    docSlug: "blender-addon",
+  },
   {
     id: "capture",
     title: "Capture Frames",

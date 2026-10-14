@@ -9,6 +9,7 @@ Sprite Sheet Helper turns 3D models into sprite sheets, normal-map atlases, and 
 ## Start Here
 
 - [Getting Started](getting-started.md)
+- [Blender Add-on](blender-addon.md)
 - [Tutorial](tutorial.md)
 - [Projects](projects.md)
 - [Camera](camera.md)

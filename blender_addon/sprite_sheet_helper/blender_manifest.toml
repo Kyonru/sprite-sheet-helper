@@ -1,0 +1,14 @@
+schema_version = "1.0.0"
+
+id = "sprite_sheet_helper"
+version = "0.1.0"
+name = "Sprite Sheet Helper"
+tagline = "Render animated Blender assets into game-ready sprite sheets"
+maintainer = "Sprite Sheet Helper contributors"
+type = "add-on"
+
+blender_version_min = "4.2.0"
+license = ["SPDX:MIT"]
+
+[permissions]
+files = "Write rendered sprite sheets and metadata to a folder you choose"

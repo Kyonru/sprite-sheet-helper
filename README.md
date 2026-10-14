@@ -4,6 +4,16 @@
 
 Built with **Vite + React + Tauri** for a lightweight, native desktop experience.
 
+## Blender add-on
+
+The Blender-native add-on renders Actions directly from a selected armature or
+collection, captures the same directional workflow presets, auto-fits a stable
+camera across each animation, and writes a transparent PNG atlas with compatible
+JSON metadata.
+
+See [the Blender add-on guide](blender_addon/README.md) for installation,
+packaging, current scope, and headless validation instructions.
+
 ---
 
 https://github.com/user-attachments/assets/cc9d06c4-2281-4131-a87c-5a95b9defe4e

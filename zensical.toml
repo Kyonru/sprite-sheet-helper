@@ -10,6 +10,7 @@ copyright = "Copyright &copy; 2026 Kyonru"
 nav = [
   { "Overview" = "index.md" },
   { "Getting Started" = "getting-started.md" },
+  { "Blender Add-on" = "blender-addon.md" },
   { "Tutorial" = "tutorial.md" },
   { "App Workflows" = [
     { "Camera" = "camera.md" },

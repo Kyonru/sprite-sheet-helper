@@ -31,6 +31,13 @@ example_model.*
 # test coverage output
 coverage/
 
+# Python/Blender add-on caches
+__pycache__/
+*.py[cod]
+blender_addon/demo/output/
+blender_addon/demo/*.mp4
+blender_addon/demo/*.png
+
 # Pose capture benchmark artifacts (captures and metric snapshots)
 .pose-bench/
 
