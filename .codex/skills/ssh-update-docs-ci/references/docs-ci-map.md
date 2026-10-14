@@ -13,6 +13,8 @@
 - Tauri desktop release packaging: `.github/workflows/release.yml`,
   `scripts/tauri-release.mjs`, `scripts/check-appimage-layout.mjs`, and
   `scripts/check-version-sync.mjs`.
+- Blender add-on release packaging: `.github/workflows/release.yml` and
+  `blender_addon/package_addon.py`.
 - AppStream catalog metadata and screenshot:
   `src-tauri/com.kyonru.spritesheethelper.metainfo.xml` and
   `screenshots/main.png`.
@@ -42,6 +44,9 @@
   `.desktop` entry and whose default screenshot uses an HTTPS URL.
 - Tagged desktop workflows must provide `releaseName` to `tauri-action` so a
   fresh tag creates its GitHub Release without requiring manual setup.
+- Tagged releases build and test both Blender add-on layouts after the desktop
+  jobs finish, then attach the Extension and legacy ZIPs to the same GitHub
+  Release. Keep generated archives out of source control.
 - `package.json` is the app-version source of truth. Keep its version aligned
   with the root package-lock entries, Tauri config, Cargo manifest/lock, latest
   AppStream release, changelog entry, and release tag; `npm run check:version`

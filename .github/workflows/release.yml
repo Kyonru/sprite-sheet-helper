@@ -75,3 +75,28 @@ jobs:
           generateReleaseNotes: true
           tauriScript: npm run tauri:release
           args: ${{ matrix.args }}
+
+  blender-addon-release:
+    name: Blender add-on release
+    needs: tauri-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Test Blender add-on packages
+        run: python3 -m unittest discover -s blender_addon/tests -v
+
+      - name: Build Blender add-on archives
+        run: python3 blender_addon/package_addon.py
+
+      - name: Upload Blender add-on archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release upload "${{ github.ref_name }}"
+          blender_addon/dist/*-extension.zip
+          blender_addon/dist/*-legacy.zip
+          --clobber
